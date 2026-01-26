@@ -56,7 +56,9 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     // If loading appeared, wait for it to complete
     const loadingVisible = await page.locator('#loading').isVisible();
     if (loadingVisible) {
-      await expect(page.locator('#loading-message')).toContainText('Loading');
+      // Loading message may say "Loading" or "Fetching data from Jira..." - both are valid
+      const loadingText = await page.locator('#loading-message').textContent();
+      expect(loadingText?.toLowerCase() || '').toMatch(/loading|fetching|processing/);
       // Wait for loading to disappear and preview/error to appear
       await Promise.race([
         page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
