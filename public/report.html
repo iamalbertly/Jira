@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jira Sprint Report - MPSA & MAS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Jira Sprint Report</h1>
+      <p class="subtitle">MPSA & MAS Projects - Q2 2025</p>
+    </header>
+
+    <div class="main-layout">
+      <!-- Filters Panel -->
+      <aside class="filters-panel">
+        <h2>Filters</h2>
+        
+        <div class="filter-group">
+          <h3>Projects</h3>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-mpsa" checked>
+            <span>MPSA</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-mas" checked>
+            <span>MAS</span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <h3>Date Window</h3>
+          <label>
+            Start Date/Time (UTC)
+            <input type="datetime-local" id="start-date" value="2025-04-01T00:00">
+          </label>
+          <label>
+            End Date/Time (UTC)
+            <input type="datetime-local" id="end-date" value="2025-06-30T23:59">
+          </label>
+          <div class="date-display" id="date-display"></div>
+        </div>
+
+        <div class="filter-group">
+          <h3>Options</h3>
+          <label class="toggle-label">
+            <input type="checkbox" id="include-story-points">
+            <span>Include Story Points</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="require-resolved-by-sprint-end">
+            <span>Require Resolved by Sprint End</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="include-bugs-for-rework">
+            <span>Include Bugs for Rework</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="include-predictability">
+            <span>Include Predictability</span>
+          </label>
+          <div id="predictability-mode-group" style="display: none; margin-left: 20px; margin-top: 8px;">
+            <label class="radio-label">
+              <input type="radio" name="predictability-mode" value="approx" checked>
+              <span>Approximation</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="predictability-mode" value="strict">
+              <span>Strict</span>
+            </label>
+          </div>
+          <label class="toggle-label">
+            <input type="checkbox" id="include-epic-ttm">
+            <span>Include Epic TTM</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" id="include-active-or-missing-end-date-sprints">
+            <span>Include Active/Missing End Date Sprints</span>
+          </label>
+        </div>
+
+        <div class="button-group">
+          <button id="preview-btn" class="btn btn-primary">Preview</button>
+          <button id="export-filtered-btn" class="btn btn-secondary" disabled>Export CSV (Filtered View)</button>
+          <button id="export-raw-btn" class="btn btn-secondary" disabled>Export CSV (Raw Preview)</button>
+        </div>
+      </aside>
+
+      <!-- Preview Area -->
+      <main class="preview-area">
+        <div id="loading" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          <p id="loading-message">Loading preview data...</p>
+          <div id="loading-steps" class="loading-steps"></div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="preview-content" style="display: none;">
+          <div class="preview-header">
+            <div id="preview-meta"></div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="boards">Boards</button>
+            <button class="tab-btn" data-tab="sprints">Sprints</button>
+            <button class="tab-btn" data-tab="done-stories">Done Stories</button>
+            <button class="tab-btn" data-tab="metrics" id="metrics-tab" style="display: none;">Metrics</button>
+            <button class="tab-btn" data-tab="unusable-sprints">Unusable Sprints</button>
+          </div>
+
+          <!-- Tab Content -->
+          <div class="tab-content">
+            <div id="tab-boards" class="tab-pane active">
+              <div id="boards-content"></div>
+            </div>
+
+            <div id="tab-sprints" class="tab-pane">
+              <div id="sprints-content"></div>
+            </div>
+
+            <div id="tab-done-stories" class="tab-pane">
+              <div class="done-stories-controls">
+                <input type="text" id="search-box" placeholder="Search by key or summary...">
+                <div class="project-pills" id="project-pills"></div>
+              </div>
+              <div id="done-stories-content"></div>
+              <div id="done-stories-totals" class="totals-bar"></div>
+            </div>
+
+            <div id="tab-metrics" class="tab-pane">
+              <div id="metrics-content"></div>
+            </div>
+
+            <div id="tab-unusable-sprints" class="tab-pane">
+              <div id="unusable-sprints-content"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="report.js"></script>
+</body>
+</html>
