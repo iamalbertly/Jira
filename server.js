@@ -11,7 +11,7 @@ dotenv.config();
 import { createAgileClient, createVersion3Client } from './lib/jiraClients.js';
 import { discoverBoardsForProjects, discoverFields } from './lib/discovery.js';
 import { fetchSprintsForBoard, filterSprintsByOverlap } from './lib/sprints.js';
-import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints } from './lib/issues.js';
+import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues } from './lib/issues.js';
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
@@ -56,7 +56,7 @@ async function retryOnRateLimit(fn, maxRetries = 3, operation = 'unknown') {
         // Cap backoff to 30 seconds to avoid multi-minute stalls
         const delaySeconds = Math.min(parseInt(retryAfter, 10) || 0, 30) || Math.min(Math.pow(2, attempt), 30);
         const delay = delaySeconds * 1000;
-        logger.warn(`Rate limited on ${operation}, retrying after ${delay}ms`, { attempt: attempt + 1, maxRetries, operation });
+        logger.warn(`Rate limited on ${operation}, retrying after ${delay}ms`, { attempt: attempt + 1, maxRetries, operation, statusCode, retryAfter: delaySeconds });
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -307,6 +307,13 @@ app.get('/preview.json', async (req, res) => {
         const board = boards.find(b => b.id === sprint.boardId);
         
         try {
+          // Determine allowed issue types based on options
+          const allowedTypes = ['Story']; // Always include Stories
+          if (includeBugsForRework) {
+            allowedTypes.push('Bug');
+          }
+          // Note: Epic and Feature types can be added here if needed for future enhancements
+          
           const issues = await retryOnRateLimit(
             () =>
               fetchSprintIssues(
@@ -314,13 +321,14 @@ app.get('/preview.json', async (req, res) => {
                 agileClient,
                 selectedProjects,
                 requireResolvedBySprintEnd,
-                sprint.endDate
+                sprint.endDate,
+                allowedTypes
               ),
             3,
             `fetchSprintIssues:${sprintId}`
           );
 
-          logger.info(`Sprint ${sprintId} (${sprint.name}): found ${issues.length} done stories`);
+          logger.info(`Sprint ${sprintId} (${sprint.name}): found ${issues.length} done issues (types: ${allowedTypes.join(', ')})`);
           return issues.map(issue => 
             buildDrillDownRow(
               issue,
@@ -400,7 +408,20 @@ app.get('/preview.json', async (req, res) => {
       }
 
       if (includeEpicTTM) {
-        metrics.epicTTM = calculateEpicTTM(allRows);
+        // Collect unique Epic keys from rows
+        const epicKeys = [...new Set(allRows.map(row => row.epicKey).filter(Boolean))];
+        
+        // Fetch Epic issues directly for accurate start dates
+        let epicIssues = [];
+        if (epicKeys.length > 0) {
+          epicIssues = await retryOnRateLimit(
+            () => fetchEpicIssues(epicKeys, version3Client, 3),
+            3,
+            'fetchEpicIssues'
+          );
+        }
+        
+        metrics.epicTTM = calculateEpicTTM(allRows, epicIssues);
       }
 
       addPhase('calculateMetrics', {

@@ -15,6 +15,7 @@ const CSV_COLUMNS = [
   'issueKey',
   'issueSummary',
   'issueStatus',
+  'issueType',
   'assigneeDisplayName',
   'created',
   'updated',
@@ -639,6 +640,7 @@ function renderDoneStoriesTab(rows) {
                 <th>Key</th>
                 <th>Summary</th>
                 <th>Status</th>
+                <th>Type</th>
                 <th>Assignee</th>
                 <th>Created</th>
                 <th>Resolved</th>
@@ -658,6 +660,7 @@ function renderDoneStoriesTab(rows) {
           <td>${row.issueKey}</td>
           <td>${row.issueSummary}</td>
           <td>${row.issueStatus}</td>
+          <td>${row.issueType || ''}</td>
           <td>${row.assigneeDisplayName}</td>
           <td>${row.created}</td>
           <td>${row.resolutionDate || ''}</td>
@@ -814,11 +817,16 @@ function renderMetricsTab(metrics) {
   const content = document.getElementById('metrics-content');
   let html = '';
 
+  // Brief hint linking metrics to filter options
+  html += '<p class="metrics-hint"><small>Metrics sections depend on options in the filters panel (e.g. Story Points for Throughput, Bugs for Rework, Epic TTM for Epic Time-To-Market).</small></p>';
+
   if (metrics.throughput) {
     html += '<h3>Throughput</h3>';
     html += '<h4>Per Sprint</h4>';
     html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Total SP</th><th>Story Count</th></tr></thead><tbody>';
-    for (const [sprintId, data] of metrics.throughput.perSprint.entries()) {
+    const perSprint = metrics.throughput.perSprint || {};
+    for (const data of Object.values(perSprint)) {
+      if (!data) continue;
       html += `<tr><td>${data.sprintName}</td><td>${data.totalSP}</td><td>${data.storyCount}</td></tr>`;
     }
     html += '</tbody></table>';
@@ -830,6 +838,16 @@ function renderMetricsTab(metrics) {
       html += `<tr><td>${data.projectKey}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
     }
     html += '</tbody></table>';
+
+    if (metrics.throughput.perIssueType) {
+      html += '<h4>Per Issue Type</h4>';
+      html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
+      for (const issueType in metrics.throughput.perIssueType) {
+        const data = metrics.throughput.perIssueType[issueType];
+        html += `<tr><td>${data.issueType || 'Unknown'}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
   }
 
   if (metrics.rework) {
@@ -846,7 +864,9 @@ function renderMetricsTab(metrics) {
     html += '<h3>Predictability</h3>';
     html += `<p>Mode: ${metrics.predictability.mode}</p>`;
     html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Committed SP</th><th>Delivered Stories</th><th>Delivered SP</th><th>Predictability % (Stories)</th><th>Predictability % (SP)</th></tr></thead><tbody>';
-    for (const [sprintId, data] of metrics.predictability.perSprint.entries()) {
+    const predictPerSprint = metrics.predictability.perSprint || {};
+    for (const data of Object.values(predictPerSprint)) {
+      if (!data) continue;
       html += `<tr>
         <td>${data.sprintName}</td>
         <td>${data.committedStories}</td>

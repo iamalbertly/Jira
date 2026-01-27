@@ -112,4 +112,7 @@
 - `public/report.js`
   - Marker: `// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid introducing additional bundling or script loading complexity. Behaviour is cohesive around preview, tabs, and exports; future work can further split if a bundler is added.`
   - Rationale: The script is loaded directly in the browser without a bundler; splitting it into multiple files would complicate loading and ordering. Logic remains cohesive around the main report screen.
+-- `lib/metrics.js`
+  - Marker: `// SIZE-EXEMPT: Cohesive metrics domain logic (throughput, done comparison, rework, predictability, epic TTM) is kept in a single module to avoid scattering cross-related calculations and increasing coordination bugs.`
+  - Rationale: Metrics functions are tightly related and operate over the same row data; keeping them together avoids duplicated calculations and subtle drift between separate metric modules.
 

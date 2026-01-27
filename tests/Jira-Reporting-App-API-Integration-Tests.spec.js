@@ -66,6 +66,8 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       // Auth error is acceptable for this test
       const json = await response.json();
       expect(json).toHaveProperty('error');
+      // Typed error path should expose a code as well
+      expect(json).toHaveProperty('code');
     }
   });
 
@@ -94,7 +96,9 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       const a = await first.json();
       const b = await second.json();
       expect(a).toHaveProperty('error');
+      expect(a).toHaveProperty('code');
       expect(b).toHaveProperty('error');
+      expect(b).toHaveProperty('code');
     }
   });
 

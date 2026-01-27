@@ -284,4 +284,26 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
       expect(emptyStateText.toLowerCase()).toContain('require resolved by sprint end');
     }
   });
+
+  test('metrics tab renders when story points, rework, and epic TTM are enabled', async ({ page }) => {
+    // Enable metrics-related options
+    await page.check('#include-story-points');
+    await page.check('#include-bugs-for-rework');
+    await page.check('#include-epic-ttm');
+
+    // Run a default preview with Q2 window
+    await runDefaultPreview(page);
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      test.skip();
+    }
+
+    // Metrics tab should be visible and contain core sections
+    await page.click('.tab-btn[data-tab="metrics"]');
+    const metricsText = (await page.locator('#metrics-content').innerText())?.toLowerCase() || '';
+
+    expect(metricsText).toContain('throughput');
+    expect(metricsText).toContain('epic time-to-market');
+  });
 });
