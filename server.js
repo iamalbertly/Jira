@@ -1,6 +1,10 @@
 import express from 'express';
 import dotenv from 'dotenv';
 
+// SIZE-EXEMPT: Cohesive Express server entry and preview/export orchestration kept together
+// for operational transparency, logging, and simpler deployment without introducing additional
+// routing layers or indirection.
+
 // Load environment variables FIRST before any other imports
 dotenv.config();
 

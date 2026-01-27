@@ -1,3 +1,7 @@
+// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid
+// introducing additional bundling or script loading complexity. Behaviour is cohesive
+// around preview, tabs, and exports; future work can further split if a bundler is added.
+
 // CSV column order (must match server)
 const CSV_COLUMNS = [
   'projectKey',

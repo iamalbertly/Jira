@@ -106,5 +106,10 @@
 
 ### SIZE-EXEMPT Notes
 
-- No modules are currently marked `// SIZE-EXEMPT`. If future cohesive modules must exceed 300 LOC, add the marker and record the rationale here.
+- `server.js`
+  - Marker: `// SIZE-EXEMPT: Cohesive Express server entry and preview/export orchestration kept together for operational transparency, logging, and simpler deployment without introducing additional routing layers or indirection.`
+  - Rationale: Keeping startup, routing, and preview/export orchestration in one place simplifies operational debugging and avoids scattering core HTTP entry behaviour across multiple files.
+- `public/report.js`
+  - Marker: `// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid introducing additional bundling or script loading complexity. Behaviour is cohesive around preview, tabs, and exports; future work can further split if a bundler is added.`
+  - Rationale: The script is loaded directly in the browser without a bundler; splitting it into multiple files would complicate loading and ordering. Logic remains cohesive around the main report screen.
 
