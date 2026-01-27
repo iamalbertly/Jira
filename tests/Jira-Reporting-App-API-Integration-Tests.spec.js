@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_PREVIEW_URL = `/preview.json${DEFAULT_Q2_QUERY}`;
+
 test.describe('Jira Reporting App - API Integration Tests', () => {
   test('GET /report should return HTML page', async ({ request }) => {
     const response = await request.get('/report');
@@ -46,7 +49,7 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     // Increase timeout for real Jira API calls
     test.setTimeout(120000); // 2 minutes
     
-    const response = await request.get('/preview.json?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z', {
+    const response = await request.get(DEFAULT_PREVIEW_URL, {
       timeout: 120000
     });
     
@@ -63,6 +66,35 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       // Auth error is acceptable for this test
       const json = await response.json();
       expect(json).toHaveProperty('error');
+    }
+  });
+
+  test('GET /preview.json should return structurally consistent data across identical requests (basic caching sanity)', async ({ request }) => {
+    test.setTimeout(180000);
+
+    const first = await request.get(DEFAULT_PREVIEW_URL, { timeout: 120000 });
+    expect([200, 401, 403, 500]).toContain(first.status());
+
+    const second = await request.get(DEFAULT_PREVIEW_URL, { timeout: 120000 });
+    expect([200, 401, 403, 500]).toContain(second.status());
+
+    // If both succeed, ensure key shapes match; otherwise just confirm structured error payloads
+    if (first.status() === 200 && second.status() === 200) {
+      const a = await first.json();
+      const b = await second.json();
+
+      expect(Array.isArray(a.rows)).toBeTruthy();
+      expect(Array.isArray(b.rows)).toBeTruthy();
+      expect(Array.isArray(a.sprintsIncluded)).toBeTruthy();
+      expect(Array.isArray(b.sprintsIncluded)).toBeTruthy();
+
+      expect(a.rows.length).toBe(b.rows.length);
+      expect(a.sprintsIncluded.length).toBe(b.sprintsIncluded.length);
+    } else {
+      const a = await first.json();
+      const b = await second.json();
+      expect(a).toHaveProperty('error');
+      expect(b).toHaveProperty('error');
     }
   });
 

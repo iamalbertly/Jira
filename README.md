@@ -94,6 +94,20 @@ http://localhost:3000/report
    - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
    - **Export CSV (Raw Preview)**: Exports all preview data
 
+### Preview Behaviour & Feedback
+
+- **In-flight feedback**:
+  - When you click **Preview**, the button is temporarily disabled to prevent double-clicks while the loading overlay shows progress updates.
+  - The loading panel includes a live timer and step log (e.g. “Collecting filter parameters”, “Sending request to server”, “Received data from server”).
+- **Partial previews**:
+  - If the backend has to stop early (for example due to time budget or pagination limits), the response is marked as partial.
+  - The UI shows a warning banner near the preview summary and a matching hint near the export buttons. CSV exports will only contain the currently loaded data in this case.
+- **Require Resolved by Sprint End**:
+  - When this option is enabled, the **Done Stories** tab will explain when no rows passed this filter, and suggests turning it off or reviewing resolution vs sprint end dates in Jira.
+- **Exports and table state**:
+  - Export buttons remain disabled until there is at least one Done story in the preview.
+  - If you change filters and end up with no rows, the empty state explains whether this is due to filters, the “Require Resolved by Sprint End” option, or genuinely no Done stories.
+
 ### Filtering Done Stories
 
 - **Search Box**: Filter by issue key or summary (case-insensitive)
@@ -165,7 +179,7 @@ This runs the test orchestration script which:
 2. Runs E2E user journey tests
 3. Runs API integration tests
 4. Terminates on first error
-5. Shows all steps in foreground
+5. Shows all steps in foreground with live output from each test command
 
 ### Run Specific Test Suites
 ```bash
@@ -176,12 +190,34 @@ npm run test:e2e
 npm run test:api
 ```
 
-### Test Coverage
+### Test Coverage and Caching Behavior
 
 - **E2E Tests**: User interface interactions, tab navigation, filtering, export
 - **API Tests**: Endpoint validation, error handling, CSV generation
 
 **Note**: Some tests may require valid Jira credentials. Tests that require Jira access will gracefully handle authentication failures.
+
+### Test Orchestration & Playwright
+
+- The `Jira-Reporting-App-Test-Orchestration-Runner.js` script (`npm run test:all`) runs:
+  1. `npm install`
+  2. Playwright API integration tests (headed)
+  3. Playwright E2E user-journey tests (headed)
+- Playwright is configured (via `playwright.config.js`) to:
+  - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL`).
+  - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server).
+
+The backend maintains an in-memory TTL cache for several concerns:
+
+- **Boards and Sprints**: Cached per project/board for 10 minutes to avoid redundant Jira calls.
+- **Fields**: Story Points and Epic Link field IDs cached for 15 minutes.
+- **Preview Responses**: Full `/preview.json` payloads cached for 10 minutes per unique combination of:
+  - Sorted project list
+  - Start/end window
+  - All boolean toggles
+  - `predictabilityMode`
+
+Cached preview responses are immutable snapshots. If Jira data changes within the TTL, those changes will not be reflected until the cache entry expires or the server restarts. This keeps repeated previews (with identical filters) fast and predictable.
 
 ## Project Structure
 

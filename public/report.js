@@ -45,6 +45,7 @@ function generateCSVClient(columns, rows) {
 let previewData = null;
 let previewRows = [];
 let visibleRows = [];
+let previewHasRows = false;
 
 // DOM Elements
 const previewBtn = document.getElementById('preview-btn');
@@ -112,36 +113,95 @@ function updateLoadingMessage(message, step = null) {
   }
 }
 
+// Shared empty-state renderer
+function renderEmptyState(targetElement, title, message, hint) {
+  if (!targetElement) return;
+  targetElement.innerHTML = `
+      <div class="empty-state">
+        <p><strong>${title}</strong></p>
+        <p>${message}</p>
+        ${hint ? `<p><small>${hint}</small></p>` : ''}
+      </div>
+    `;
+}
+
 // Preview button
 previewBtn.addEventListener('click', async () => {
-  try {
-    loadingEl.style.display = 'block';
-    errorEl.style.display = 'none';
-    previewContent.style.display = 'none';
-    
-    // Clear previous steps
-    const loadingSteps = document.getElementById('loading-steps');
-    if (loadingSteps) loadingSteps.innerHTML = '';
+  let timeoutId;
+  let progressInterval;
 
-    updateLoadingMessage('Preparing request...', 'Collecting filter parameters');
-    
-    const params = collectFilterParams();
-    const queryString = new URLSearchParams(params).toString();
-    
+  // Capture existing export state so we can restore it on early validation errors
+  const prevExportFilteredDisabled = exportFilteredBtn.disabled;
+  const prevExportRawDisabled = exportRawBtn.disabled;
+
+  // Immediately prevent double-clicks and exporting while a preview is in flight
+  previewBtn.disabled = true;
+  exportFilteredBtn.disabled = true;
+  exportRawBtn.disabled = true;
+
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  previewContent.style.display = 'none';
+
+  // Clear previous steps
+  const loadingSteps = document.getElementById('loading-steps');
+  if (loadingSteps) loadingSteps.innerHTML = '';
+
+  updateLoadingMessage('Preparing request...', 'Collecting filter parameters');
+
+  let params;
+  try {
+    params = collectFilterParams();
+  } catch (error) {
+    // Client-side validation error before network call
+    loadingEl.style.display = 'none';
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Error:</strong> ${error.message}
+      <br><small>Please fix the filters above and try again.</small>
+    `;
+    // Re-enable preview and restore export buttons to their previous state
+    previewBtn.disabled = false;
+    exportFilteredBtn.disabled = prevExportFilteredDisabled;
+    exportRawBtn.disabled = prevExportRawDisabled;
+    return;
+  }
+
+  const queryString = new URLSearchParams(params).toString();
+
+  try {
     updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
     
-    // Add timeout handling
+    // Add timeout handling with progress updates
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+    timeoutId = setTimeout(() => {
+      // Abort the fetch; AbortError will be handled in the catch block
+      controller.abort();
+    }, 300000); // 5 minute timeout
+    
+    // Add progress polling to show activity
+    let elapsedSeconds = 0;
+    progressInterval = setInterval(() => {
+      elapsedSeconds += 2;
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+      updateLoadingMessage(`Fetching data from Jira... (${timeStr})`, null);
+    }, 2000);
     
     const response = await fetch(`/preview.json?${queryString}`, {
       signal: controller.signal
     });
     
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
     
     updateLoadingMessage('Processing response...', 'Received data from server');
-    
+  
     if (!response.ok) {
       const error = await response.json();
       const errorMsg = error.message || error.error || 'Failed to fetch preview';
@@ -175,27 +235,58 @@ previewBtn.addEventListener('click', async () => {
     previewData = await response.json();
     previewRows = previewData.rows || [];
     visibleRows = [...previewRows];
+    previewHasRows = previewRows.length > 0;
+    
+    // Log success with data summary
+    console.log('Preview loaded successfully', {
+      boards: previewData.boards?.length || 0,
+      sprints: previewData.sprintsIncluded?.length || 0,
+      rows: previewRows.length,
+      unusableSprints: previewData.sprintsUnusable?.length || 0
+    });
 
     updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
     renderPreview();
     
     loadingEl.style.display = 'none';
     previewContent.style.display = 'block';
-    exportFilteredBtn.disabled = false;
-    exportRawBtn.disabled = false;
+    exportFilteredBtn.disabled = !previewHasRows;
+    exportRawBtn.disabled = !previewHasRows;
   } catch (error) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
     loadingEl.style.display = 'none';
     errorEl.style.display = 'block';
-    
+
     let errorMsg = error.message;
     if (error.name === 'AbortError') {
-      errorMsg = 'Request timed out. The operation took too long. Please try with a smaller date range or fewer projects.';
+      errorMsg = 'Preview request timed out after 5 minutes. This can happen with very large date ranges or many sprints. Try a smaller date range, fewer projects, or check the server logs for more details.';
     }
-    
+
     errorEl.innerHTML = `
       <strong>Error:</strong> ${errorMsg}
       <br><small>If this problem persists, please check your Jira connection and try again.</small>
     `;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    // Re-enable preview regardless of outcome
+    previewBtn.disabled = false;
+
+    // Only enable exports if we have rows
+    const hasRows = Array.isArray(previewRows) && previewRows.length > 0;
+    exportFilteredBtn.disabled = !hasRows;
+    exportRawBtn.disabled = !hasRows;
   }
 });
 
@@ -234,6 +325,12 @@ function collectFilterParams() {
     endISO = '2025-06-30T23:59:59.999Z';
   }
 
+  const startTime = new Date(startISO).getTime();
+  const endTime = new Date(endISO).getTime();
+  if (!Number.isNaN(startTime) && !Number.isNaN(endTime) && startTime >= endTime) {
+    throw new Error('Start date must be before end date. Please adjust your date range.');
+  }
+
   const params = {
     projects: projects.join(','),
     start: startISO,
@@ -256,16 +353,86 @@ function renderPreview() {
 
   // Render meta
   const meta = previewData.meta;
+  const boardsCount = previewData.boards?.length || 0;
+  const sprintsCount = previewData.sprintsIncluded?.length || 0;
+  const rowsCount = (previewData.rows || []).length;
+  const unusableCount = previewData.sprintsUnusable?.length || 0;
   const startDate = new Date(meta.windowStart);
   const endDate = new Date(meta.windowEnd);
+  const fromCache = meta.fromCache === true;
+  const partial = meta.partial === true;
+  const partialReason = meta.partialReason || '';
+  const elapsedMs = typeof meta.elapsedMs === 'number' ? meta.elapsedMs : null;
+  const sourceLabel = fromCache ? 'Cache' : 'Jira (live)';
+
+  let detailsLines = [];
+  if (elapsedMs != null) {
+    const seconds = Math.round(elapsedMs / 1000);
+    detailsLines.push(`Generated in ~${seconds}s`);
+  }
+  if (meta.generatedAt) {
+    detailsLines.push(`Generated At: ${new Date(meta.generatedAt).toLocaleString()}`);
+  }
+  if (meta.requestedAt) {
+    detailsLines.push(`Request Time: ${new Date(meta.requestedAt).toLocaleString()}`);
+  }
+  if (fromCache && meta.cacheKey) {
+    detailsLines.push('Source: Cache');
+  } else {
+    detailsLines.push('Source: Jira (live request)');
+  }
+
+  const partialNotice = partial
+    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em> because: ${partialReason || 'time budget exceeded or limits reached.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
+    : '';
   
   previewMeta.innerHTML = `
     <div class="meta-info">
       <strong>Projects:</strong> ${meta.selectedProjects.join(', ')}<br>
       <strong>Date Window (UTC):</strong> ${meta.windowStart} to ${meta.windowEnd}<br>
-      <strong>Date Window (Local):</strong> ${startDate.toLocaleString()} to ${endDate.toLocaleString()}
+      <strong>Date Window (Local):</strong> ${startDate.toLocaleString()} to ${endDate.toLocaleString()}<br>
+      <strong>Summary:</strong> Boards: ${boardsCount} • Included sprints: ${sprintsCount} • Done stories: ${rowsCount} • Unusable sprints: ${unusableCount}<br>
+      <strong>Details:</strong> ${detailsLines.join(' • ')}
+      ${partialNotice}
     </div>
   `;
+
+  // Strong visual banner for partial previews
+  const statusEl = document.getElementById('preview-status');
+  if (statusEl) {
+    if (partial) {
+      statusEl.innerHTML = `
+        <div class="status-banner warning">
+          Preview is partial: ${partialReason || 'time budget or pagination limits reached.'}
+          <br><small>Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.</small>
+        </div>
+      `;
+      statusEl.style.display = 'block';
+    } else {
+      statusEl.innerHTML = '';
+      statusEl.style.display = 'none';
+    }
+  }
+
+  // Export buttons reflect data and partial state
+  const hasRows = rowsCount > 0;
+  exportFilteredBtn.disabled = !hasRows;
+  exportRawBtn.disabled = !hasRows;
+
+  const exportHint = document.getElementById('export-hint');
+  if (exportHint) {
+    if (!hasRows) {
+      exportHint.innerHTML = `
+        <small>Exports are available once there is at least one Done story in the preview.</small>
+      `;
+    } else if (partial) {
+      exportHint.innerHTML = `
+        <small>Note: Preview is partial; CSV exports will only contain currently loaded data.</small>
+      `;
+    } else {
+      exportHint.innerHTML = '';
+    }
+  }
 
   // Update date display
   updateDateDisplay();
@@ -313,13 +480,10 @@ function renderBoardsTab(boards) {
   const content = document.getElementById('boards-content');
   
   if (!boards || boards.length === 0) {
-    content.innerHTML = `
-      <div class="empty-state">
-        <p><strong>No boards found</strong></p>
-        <p>No boards were discovered for the selected projects (${previewData?.meta?.selectedProjects?.join(', ') || 'N/A'}) in the date window.</p>
-        <p><small>Try adjusting your project selection or date range, or verify that the projects have boards configured in Jira.</small></p>
-      </div>
-    `;
+    const title = 'No boards found';
+    const message = `No boards were discovered for the selected projects (${previewData?.meta?.selectedProjects?.join(', ') || 'N/A'}) in the date window.`;
+    const hint = 'Try adjusting your project selection or date range, or verify that the projects have boards configured in Jira.';
+    renderEmptyState(content, title, message, hint);
     return;
   }
 
@@ -348,13 +512,10 @@ function renderSprintsTab(sprints, metrics) {
     const windowInfo = previewData?.meta ? 
       `${new Date(previewData.meta.windowStart).toLocaleDateString()} to ${new Date(previewData.meta.windowEnd).toLocaleDateString()}` : 
       'selected date range';
-    content.innerHTML = `
-      <div class="empty-state">
-        <p><strong>No sprints found</strong></p>
-        <p>No sprints overlap with the selected date window (${windowInfo}).</p>
-        <p><small>Try adjusting your date range or enable "Include Active/Missing End Date Sprints" if you want to include active sprints.</small></p>
-      </div>
-    `;
+    const title = 'No sprints found';
+    const message = `No sprints overlap with the selected date window (${windowInfo}).`;
+    const hint = 'Try adjusting your date range or enable "Include Active/Missing End Date Sprints" if you want to include active sprints.';
+    renderEmptyState(content, title, message, hint);
     return;
   }
 
@@ -405,17 +566,25 @@ function renderDoneStoriesTab(rows) {
   if (!rows || rows.length === 0) {
     const searchText = document.getElementById('search-box')?.value || '';
     const activeProjects = Array.from(document.querySelectorAll('.pill.active')).map(p => p.dataset.project);
-    let message = '<p><strong>No done stories found</strong></p>';
-    
-    if (searchText || activeProjects.length < previewData?.meta?.selectedProjects?.length) {
-      message += '<p>No stories match your current filters.</p>';
-      message += '<p><small>Try adjusting your search text or project filters, or check if stories are marked as "Done" in the selected sprints.</small></p>';
+    const requireResolved = !!previewData?.meta?.requireResolvedBySprintEnd;
+    const totalPreviewRows = (previewData?.rows || []).length;
+
+    let title = 'No done stories found';
+    let message;
+    let hint;
+
+    if (requireResolved && totalPreviewRows > 0) {
+      message = 'No stories passed the "Require resolved by sprint end" filter.';
+      hint = 'Try turning off this option to see all Done stories, or inspect sprint end dates and resolution dates in Jira.';
+    } else if (searchText || activeProjects.length < previewData?.meta?.selectedProjects?.length) {
+      message = 'No stories match your current filters.';
+      hint = 'Try adjusting your search text or project filters, or check if stories are marked as "Done" in the selected sprints.';
     } else {
-      message += '<p>No stories with status "Done" were found in the selected sprints for the chosen projects.</p>';
-      message += '<p><small>This could mean: (1) No stories were completed in these sprints, (2) Stories are not marked as "Done", or (3) The "Require Resolved by Sprint End" filter is excluding stories. Try adjusting your filters.</small></p>';
+      message = 'No stories with status "Done" were found in the selected sprints for the chosen projects.';
+      hint = 'This could mean: (1) No stories were completed in these sprints, (2) Stories are not marked as "Done", or (3) the current filters are excluding stories. Try adjusting your filters.';
     }
-    
-    content.innerHTML = `<div class="empty-state">${message}</div>`;
+
+    renderEmptyState(content, title, message, hint);
     totalsBar.innerHTML = '';
     return;
   }
@@ -584,7 +753,11 @@ exportRawBtn.addEventListener('click', () => exportCSV(previewRows, 'raw'));
 
 async function exportCSV(rows, type) {
   if (rows.length === 0) {
-    alert('No data to export');
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> No data to export for the current ${type === 'filtered' ? 'filtered view' : 'preview'}.
+      <br><small>Adjust your filters or run a new preview that returns at least one row, then try exporting again.</small>
+    `;
     return;
   }
 
@@ -602,7 +775,7 @@ async function exportCSV(rows, type) {
       });
 
       if (!response.ok) {
-        throw new Error('Export failed');
+        throw new Error('Export failed. Please try again or check the server logs for details.');
       }
 
       const blob = await response.blob();
@@ -613,7 +786,11 @@ async function exportCSV(rows, type) {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      alert(`Export failed: ${error.message}`);
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> ${error.message}
+        <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+      `;
     }
   }
 }
@@ -696,13 +873,12 @@ function renderMetricsTab(metrics) {
   }
 
   if (!html) {
-    content.innerHTML = `
-      <div class="empty-state">
-        <p><strong>No metrics available</strong></p>
-        <p>Metrics are only calculated when the corresponding options are enabled in the filters panel.</p>
-        <p><small>Enable options like "Include Story Points", "Include Predictability", "Include Epic TTM", or "Include Bugs for Rework" to see metrics.</small></p>
-      </div>
-    `;
+    renderEmptyState(
+      content,
+      'No metrics available',
+      'Metrics are only calculated when the corresponding options are enabled in the filters panel.',
+      'Enable options like "Include Story Points", "Include Predictability", "Include Epic TTM", or "Include Bugs for Rework" to see metrics.'
+    );
   } else {
     content.innerHTML = html;
   }
@@ -713,13 +889,12 @@ function renderUnusableSprintsTab(unusable) {
   const content = document.getElementById('unusable-sprints-content');
   
   if (!unusable || unusable.length === 0) {
-    content.innerHTML = `
-      <div class="empty-state">
-        <p><strong>No unusable sprints</strong></p>
-        <p>All sprints in the selected date range have valid start and end dates.</p>
-        <p><small>Sprints are marked as unusable if they are missing start or end dates. Enable "Include Active/Missing End Date Sprints" to include sprints with missing end dates.</small></p>
-      </div>
-    `;
+    renderEmptyState(
+      content,
+      'No unusable sprints',
+      'All sprints in the selected date range have valid start and end dates.',
+      'Sprints are marked as unusable if they are missing start or end dates. Enable "Include Active/Missing End Date Sprints" to include sprints with missing end dates.'
+    );
     return;
   }
 

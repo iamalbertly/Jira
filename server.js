@@ -11,6 +11,15 @@ import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints } from './lib
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
+import { cache, CACHE_TTL } from './lib/cache.js';
+
+class PreviewError extends Error {
+  constructor(code, httpStatus, userMessage) {
+    super(userMessage);
+    this.code = code;
+    this.httpStatus = httpStatus;
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,8 +30,11 @@ app.use(express.static('public'));
 
 /**
  * Retry handler for 429 rate limit errors
+ * @param {Function} fn - async function to execute
+ * @param {number} maxRetries - maximum number of retries
+ * @param {string} operation - label for logging (boards/sprints/issues/bugs/fields)
  */
-async function retryOnRateLimit(fn, maxRetries = 3) {
+async function retryOnRateLimit(fn, maxRetries = 3, operation = 'unknown') {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
@@ -37,8 +49,10 @@ async function retryOnRateLimit(fn, maxRetries = 3) {
         const retryAfter = error.cause?.response?.headers?.['retry-after'] || 
                           error.response?.headers?.['retry-after'] ||
                           Math.pow(2, attempt);
-        const delay = parseInt(retryAfter) * 1000;
-        logger.warn(`Rate limited, retrying after ${delay}ms`, { attempt: attempt + 1, maxRetries });
+        // Cap backoff to 30 seconds to avoid multi-minute stalls
+        const delaySeconds = Math.min(parseInt(retryAfter, 10) || 0, 30) || Math.min(Math.pow(2, attempt), 30);
+        const delay = delaySeconds * 1000;
+        logger.warn(`Rate limited on ${operation}, retrying after ${delay}ms`, { attempt: attempt + 1, maxRetries, operation });
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -59,6 +73,22 @@ app.get('/report', (req, res) => {
  */
 app.get('/preview.json', async (req, res) => {
   try {
+    // Preview timing and phase tracking for transparency and partial responses
+    const MAX_PREVIEW_MS = 4 * 60 * 1000; // 4 minutes soft limit
+    const previewStartedAt = Date.now();
+    const requestedAt = new Date().toISOString();
+    const phaseLog = [];
+    let isPartial = false;
+    let partialReason = null;
+
+    const addPhase = (phase, data = {}) => {
+      phaseLog.push({
+        phase,
+        at: new Date().toISOString(),
+        ...data,
+      });
+    };
+
     // Parse query parameters
     const projectsParam = req.query.projects;
     // If projects param exists (even if empty string), parse it; otherwise use default
@@ -92,6 +122,7 @@ app.get('/preview.json', async (req, res) => {
     const predictabilityMode = req.query.predictabilityMode || 'approx';
     const includeEpicTTM = req.query.includeEpicTTM === 'true';
     const includeActiveOrMissingEndDateSprints = req.query.includeActiveOrMissingEndDateSprints === 'true';
+    const bypassCache = req.query.bypassCache === 'true';
 
     // Validate date window
     const startDate = new Date(windowStart);
@@ -122,6 +153,44 @@ app.get('/preview.json', async (req, res) => {
       });
     }
 
+    // Build a stable cache key for this preview request
+    const cacheKey = `preview:${JSON.stringify({
+      projects: [...selectedProjects].sort(),
+      windowStart,
+      windowEnd,
+      includeStoryPoints,
+      requireResolvedBySprintEnd,
+      includeBugsForRework,
+      includePredictability,
+      predictabilityMode,
+      includeEpicTTM,
+      includeActiveOrMissingEndDateSprints,
+    })}`;
+
+    // Serve from cache if available and not bypassed
+    const cachedPreview = !bypassCache ? cache.get(cacheKey) : null;
+    if (cachedPreview) {
+      logger.info('Serving preview response from cache', {
+        cacheKey,
+        projects: selectedProjects,
+        windowStart,
+        windowEnd,
+      });
+
+      // Augment meta with cache metadata without mutating cached snapshot
+      const cachedResponse = {
+        ...cachedPreview,
+        meta: {
+          ...cachedPreview.meta,
+          fromCache: true,
+          requestedAt,
+          cacheKey,
+        },
+      };
+
+      return res.json(cachedResponse);
+    }
+
     // Initialize clients
     logger.info('Initializing Jira clients', { projects: selectedProjects });
     let agileClient, version3Client;
@@ -131,23 +200,36 @@ app.get('/preview.json', async (req, res) => {
       logger.info('Jira clients initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize Jira clients', error);
-      throw error;
+      throw new PreviewError(
+        'AUTH_ERROR',
+        500,
+        'Jira authentication failed. Please check your JIRA_HOST, JIRA_EMAIL, and JIRA_API_TOKEN in the .env file.'
+      );
     }
 
     // Discovery
     logger.info('Starting board discovery', { projects: selectedProjects });
-    const boards = await retryOnRateLimit(() => 
-      discoverBoardsForProjects(selectedProjects, agileClient)
+    const boards = await retryOnRateLimit(
+      () => discoverBoardsForProjects(selectedProjects, agileClient),
+      3,
+      'discoverBoardsForProjects'
     );
     logger.info('Board discovery completed', { boardCount: boards.length });
+    addPhase('discoverBoards', { boardCount: boards.length });
 
     logger.info('Starting field discovery');
-    const fields = await retryOnRateLimit(() => 
-      discoverFields(version3Client)
+    const fields = await retryOnRateLimit(
+      () => discoverFields(version3Client),
+      3,
+      'discoverFields'
     );
     logger.info('Field discovery completed', { 
       storyPointsFieldId: fields.storyPointsFieldId ? 'found' : 'not found',
       epicLinkFieldId: fields.epicLinkFieldId ? 'found' : 'not found'
+    });
+    addPhase('discoverFields', {
+      hasStoryPointsField: !!fields.storyPointsFieldId,
+      hasEpicLinkField: !!fields.epicLinkFieldId,
     });
 
     // Fetch sprints for all boards
@@ -155,13 +237,16 @@ app.get('/preview.json', async (req, res) => {
     const allSprints = [];
     for (const board of boards) {
       logger.debug(`Fetching sprints for board ${board.id} (${board.name})`);
-      const sprints = await retryOnRateLimit(() => 
-        fetchSprintsForBoard(board.id, agileClient)
+      const sprints = await retryOnRateLimit(
+        () => fetchSprintsForBoard(board.id, agileClient),
+        3,
+        `fetchSprintsForBoard:${board.id}`
       );
       logger.debug(`Found ${sprints.length} sprints for board ${board.id}`);
       allSprints.push(...sprints.map(s => ({ ...s, boardId: board.id, boardName: board.name })));
     }
     logger.info('Sprint fetching completed', { totalSprints: allSprints.length });
+    addPhase('fetchSprints', { totalSprints: allSprints.length });
 
     // Filter sprints by overlap
     logger.info('Filtering sprints by date overlap', { 
@@ -175,6 +260,10 @@ app.get('/preview.json', async (req, res) => {
       included: sprintsIncluded.length, 
       unusable: sprintsUnusable.length 
     });
+    addPhase('filterSprints', {
+      included: sprintsIncluded.length,
+      unusable: sprintsUnusable.length,
+    });
 
     // Create sprint map for quick lookup
     const sprintMap = new Map();
@@ -186,76 +275,137 @@ app.get('/preview.json', async (req, res) => {
     logger.info('Fetching issues for sprints', { sprintCount: sprintsIncluded.length });
     const allRows = [];
     const sprintIds = sprintsIncluded.map(s => s.id);
+    const totalChunks = Math.ceil(sprintIds.length / 3);
     
     for (let i = 0; i < sprintIds.length; i += 3) {
+      // Check time budget before processing each chunk
+      if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
+        isPartial = true;
+        partialReason = 'Time budget exceeded while fetching sprint issues';
+        logger.warn('Preview time budget exceeded during issue fetching', {
+          sprintCount: sprintIds.length,
+          processedChunks: Math.floor(i / 3),
+          totalChunks,
+          elapsedMs: Date.now() - previewStartedAt,
+        });
+        break;
+      }
+
       const chunk = sprintIds.slice(i, i + 3);
-      logger.debug(`Processing sprint chunk ${Math.floor(i/3) + 1}, sprints: ${chunk.join(', ')}`);
+      const chunkNumber = Math.floor(i/3) + 1;
+      logger.info(`Processing sprint chunk ${chunkNumber}/${totalChunks}`, { 
+        sprints: chunk.join(', '),
+        progress: `${chunkNumber}/${totalChunks}`
+      });
       
       const chunkPromises = chunk.map(async (sprintId) => {
         const sprint = sprintMap.get(sprintId);
         const board = boards.find(b => b.id === sprint.boardId);
         
-        const issues = await retryOnRateLimit(() =>
-          fetchSprintIssues(
-            sprintId,
-            agileClient,
-            selectedProjects,
-            requireResolvedBySprintEnd,
-            sprint.endDate
-          )
-        );
+        try {
+          const issues = await retryOnRateLimit(
+            () =>
+              fetchSprintIssues(
+                sprintId,
+                agileClient,
+                selectedProjects,
+                requireResolvedBySprintEnd,
+                sprint.endDate
+              ),
+            3,
+            `fetchSprintIssues:${sprintId}`
+          );
 
-        logger.debug(`Sprint ${sprintId}: found ${issues.length} done stories`);
-        return issues.map(issue => 
-          buildDrillDownRow(
-            issue,
-            sprint,
-            board,
-            fields,
-            { includeStoryPoints, includeEpicTTM }
-          )
-        );
+          logger.info(`Sprint ${sprintId} (${sprint.name}): found ${issues.length} done stories`);
+          return issues.map(issue => 
+            buildDrillDownRow(
+              issue,
+              sprint,
+              board,
+              fields,
+              { includeStoryPoints, includeEpicTTM }
+            )
+          );
+        } catch (error) {
+          logger.error(`Failed to fetch issues for sprint ${sprintId}`, {
+            error: error.message,
+            sprintName: sprint?.name
+          });
+          // Return empty array to continue processing other sprints
+          return [];
+        }
       });
 
       const chunkRows = await Promise.all(chunkPromises);
-      allRows.push(...chunkRows.flat());
+      const flatChunkRows = chunkRows.flat();
+      const chunkRowCount = flatChunkRows.length;
+      allRows.push(...flatChunkRows);
+      logger.info(`Chunk ${chunkNumber}/${totalChunks} completed`, {
+        rowsInChunk: chunkRowCount,
+        totalRowsSoFar: allRows.length
+      });
     }
-    logger.info('Issue fetching completed', { totalRows: allRows.length });
+    logger.info('Issue fetching completed', { totalRows: allRows.length, totalSprints: sprintIds.length });
+    addPhase('fetchIssues', {
+      totalRows: allRows.length,
+      sprintCount: sprintIds.length,
+      partial: isPartial,
+    });
 
     // Calculate metrics
     const metrics = {};
 
-    if (includeStoryPoints) {
-      metrics.throughput = calculateThroughput(allRows, includeStoryPoints);
-    }
+    // Respect time budget before running metrics (they can be expensive)
+    if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
+      isPartial = true;
+      partialReason = 'Time budget exceeded before metrics; metrics were skipped';
+      logger.warn('Preview time budget exceeded before metrics calculation', {
+        elapsedMs: Date.now() - previewStartedAt,
+        totalRows: allRows.length,
+      });
+    } else {
+      if (includeStoryPoints) {
+        metrics.throughput = calculateThroughput(allRows, includeStoryPoints);
+      }
 
-    if (requireResolvedBySprintEnd) {
-      metrics.doneComparison = calculateDoneComparison(allRows, requireResolvedBySprintEnd);
-    }
+      if (requireResolvedBySprintEnd) {
+        metrics.doneComparison = calculateDoneComparison(allRows, requireResolvedBySprintEnd);
+      }
 
-    if (includeBugsForRework) {
-      const bugIssues = await retryOnRateLimit(() =>
-        fetchBugsForSprints(sprintIds, agileClient, selectedProjects, 3)
-      );
-      metrics.rework = calculateReworkRatio(
-        allRows,
-        bugIssues,
-        includeStoryPoints,
-        fields.storyPointsFieldId
-      );
-    }
+      if (includeBugsForRework) {
+        const bugIssues = await retryOnRateLimit(
+          () => fetchBugsForSprints(sprintIds, agileClient, selectedProjects, 3),
+          3,
+          'fetchBugsForSprints'
+        );
+        metrics.rework = calculateReworkRatio(
+          allRows,
+          bugIssues,
+          includeStoryPoints,
+          fields.storyPointsFieldId
+        );
+      }
 
-    if (includePredictability) {
-      metrics.predictability = await calculatePredictability(
-        allRows,
-        sprintsIncluded,
-        predictabilityMode,
-        version3Client
-      );
-    }
+      if (includePredictability) {
+        metrics.predictability = await calculatePredictability(
+          allRows,
+          sprintsIncluded,
+          predictabilityMode,
+          version3Client
+        );
+      }
 
-    if (includeEpicTTM) {
-      metrics.epicTTM = calculateEpicTTM(allRows);
+      if (includeEpicTTM) {
+        metrics.epicTTM = calculateEpicTTM(allRows);
+      }
+
+      addPhase('calculateMetrics', {
+        hasThroughput: !!metrics.throughput,
+        hasDoneComparison: !!metrics.doneComparison,
+        hasRework: !!metrics.rework,
+        hasPredictability: !!metrics.predictability,
+        hasEpicTTM: !!metrics.epicTTM,
+      });
     }
 
     // Build sprint counts for display
@@ -289,13 +439,24 @@ app.get('/preview.json', async (req, res) => {
       };
     });
 
-    // Response
-    res.json({
+    // Response payload
+    const generatedAt = new Date().toISOString();
+    const elapsedMs = Date.now() - previewStartedAt;
+
+    const responsePayload = {
       meta: {
         selectedProjects,
         windowStart,
         windowEnd,
         discoveredFields: fields,
+        fromCache: false,
+        requestedAt,
+        generatedAt,
+        elapsedMs,
+        partial: isPartial,
+        partialReason,
+        requireResolvedBySprintEnd,
+        phaseLog,
       },
       boards: boards.map(b => {
         // Try to extract project key from board location
@@ -321,35 +482,41 @@ app.get('/preview.json', async (req, res) => {
       })),
       rows: allRows,
       metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
-    });
+    };
+
+    // Store in cache for subsequent identical requests
+    try {
+      cache.set(cacheKey, responsePayload, CACHE_TTL.PREVIEW);
+      logger.info('Cached preview response', {
+        cacheKey,
+        ttlMs: CACHE_TTL.PREVIEW,
+        projects: selectedProjects,
+      });
+    } catch (cacheError) {
+      // Cache failures should not break the request
+      logger.warn('Failed to cache preview response', {
+        error: cacheError.message,
+      });
+    }
+
+    res.json(responsePayload);
 
   } catch (error) {
     logger.error('Error generating preview', error);
-    
-    // Provide specific error messages based on error type
-    let errorMessage = 'Failed to generate preview';
-    let errorCode = 'PREVIEW_ERROR';
-    let userMessage = error.message || 'An unexpected error occurred while generating the preview.';
-    
-    if (error.message?.includes('Missing required Jira credentials')) {
-      errorCode = 'AUTH_ERROR';
-      userMessage = 'Jira authentication failed. Please check your JIRA_HOST, JIRA_EMAIL, and JIRA_API_TOKEN in the .env file.';
-    } else if (error.message?.includes('Failed to fetch boards')) {
-      errorCode = 'BOARD_FETCH_ERROR';
-      userMessage = 'Unable to fetch boards from Jira. Please verify the project keys are correct and you have access to the projects.';
-    } else if (error.message?.includes('Rate limited') || error.statusCode === 429) {
-      errorCode = 'RATE_LIMIT_ERROR';
-      userMessage = 'Jira API rate limit exceeded. Please wait a moment and try again.';
-    } else if (error.message?.includes('network') || error.code === 'ECONNREFUSED') {
-      errorCode = 'NETWORK_ERROR';
-      userMessage = 'Network error connecting to Jira. Please check your internet connection and JIRA_HOST setting.';
-    }
-    
-    res.status(500).json({ 
-      error: errorMessage,
+
+    const isPreviewError = error instanceof PreviewError;
+    const errorCode = isPreviewError ? error.code : 'PREVIEW_ERROR';
+    const httpStatus = isPreviewError ? error.httpStatus : 500;
+    const userMessage =
+      isPreviewError
+        ? error.message
+        : (error.message || 'An unexpected error occurred while generating the preview.');
+
+    res.status(httpStatus).json({
+      error: 'Failed to generate preview',
       code: errorCode,
       message: userMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });

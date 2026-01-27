@@ -85,6 +85,7 @@
           <button id="preview-btn" class="btn btn-primary">Preview</button>
           <button id="export-filtered-btn" class="btn btn-secondary" disabled>Export CSV (Filtered View)</button>
           <button id="export-raw-btn" class="btn btn-secondary" disabled>Export CSV (Raw Preview)</button>
+          <div id="export-hint" class="export-hint"></div>
         </div>
       </aside>
 
@@ -101,6 +102,7 @@
         <div id="preview-content" style="display: none;">
           <div class="preview-header">
             <div id="preview-meta"></div>
+            <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
 
           <!-- Tabs -->

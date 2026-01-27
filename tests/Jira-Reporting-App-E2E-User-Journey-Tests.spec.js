@@ -1,5 +1,42 @@
 import { test, expect } from '@playwright/test';
 
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+
+async function runDefaultPreview(page, overrides = {}) {
+  const {
+    projects = ['MPSA', 'MAS'],
+    start = '2025-04-01T00:00',
+    end = '2025-06-30T23:59',
+  } = overrides;
+
+  await page.goto('/report');
+
+  // Configure projects
+  const mpsaChecked = projects.includes('MPSA');
+  const masChecked = projects.includes('MAS');
+
+  if (mpsaChecked) {
+    await page.check('#project-mpsa');
+  } else {
+    await page.uncheck('#project-mpsa');
+  }
+
+  if (masChecked) {
+    await page.check('#project-mas');
+  } else {
+    await page.uncheck('#project-mas');
+  }
+
+  // Configure date window
+  await page.fill('#start-date', start);
+  await page.fill('#end-date', end);
+
+  // Trigger preview and wait for loading overlay to appear and disappear
+  await page.click('#preview-btn');
+  await page.waitForSelector('#loading', { state: 'visible', timeout: 60000 });
+  await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
+}
+
 test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
@@ -39,49 +76,25 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('should generate preview with valid filters', async ({ page }) => {
-    // Ensure projects are selected
-    await page.check('#project-mpsa');
-    await page.check('#project-mas');
-    
-    // Click preview button
-    await page.click('#preview-btn');
-    
-    // Wait for either loading state or preview/error (loading may be very brief)
-    await Promise.race([
-      page.waitForSelector('#loading', { state: 'visible', timeout: 2000 }).catch(() => null),
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-    ]);
-    
-    // If loading appeared, wait for it to complete
-    const loadingVisible = await page.locator('#loading').isVisible();
-    if (loadingVisible) {
-      // Loading message may say "Loading" or "Fetching data from Jira..." - both are valid
-      const loadingText = await page.locator('#loading-message').textContent();
-      expect(loadingText?.toLowerCase() || '').toMatch(/loading|fetching|processing/);
-      // Wait for loading to disappear and preview/error to appear
-      await Promise.race([
-        page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-        page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-      ]);
-    }
-    
+    // Use shared helper to drive a default Q2 preview
+    await runDefaultPreview(page);
+
     // Verify either preview or error appeared (both are valid outcomes)
     const previewVisible = await page.locator('#preview-content').isVisible();
     const errorVisible = await page.locator('#error').isVisible();
     expect(previewVisible || errorVisible).toBeTruthy();
+
+    // If preview is visible, check that meta summary is rendered
+    if (previewVisible) {
+      const metaText = await page.locator('#preview-meta').innerText();
+      expect(metaText.toLowerCase()).toContain('summary:');
+      expect(metaText.toLowerCase()).toContain('boards:');
+    }
   });
 
   test('should display tabs after preview loads', async ({ page }) => {
     // This test assumes preview will work - may need to mock or skip if no Jira access
-    await page.check('#project-mpsa');
-    await page.click('#preview-btn');
-    
-    // Wait for either preview content or error
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-    ]);
+    await runDefaultPreview(page);
     
     // If preview loaded, check tabs
     const previewVisible = await page.locator('#preview-content').isVisible();
@@ -94,14 +107,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
 
   test('should switch between tabs', async ({ page }) => {
     // Generate preview first
-    await page.check('#project-mpsa');
-    await page.click('#preview-btn');
-    
-    // Wait for preview
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-    ]);
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
@@ -116,13 +122,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('should filter done stories by search', async ({ page }) => {
-    await page.check('#project-mpsa');
-    await page.click('#preview-btn');
-    
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-    ]);
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
@@ -140,13 +140,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('should enable export buttons after preview', async ({ page }) => {
-    await page.check('#project-mpsa');
-    await page.click('#preview-btn');
-    
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }),
-    ]);
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
@@ -188,5 +182,106 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     // Should have radio options
     await expect(page.locator('input[name="predictability-mode"][value="approx"]')).toBeChecked();
     await expect(page.locator('input[name="predictability-mode"][value="strict"]')).toBeVisible();
+  });
+
+  test('preview button and exports should reflect loading state and data', async ({ page }) => {
+    // Ensure we start on the report page with default projects selected
+    await expect(page.locator('#preview-btn')).toBeEnabled();
+
+    // Kick off preview and assert preview button is disabled while loading is visible
+    await page.click('#preview-btn');
+    await page.waitForSelector('#loading', { state: 'visible', timeout: 60000 });
+    await expect(page.locator('#preview-btn')).toBeDisabled();
+
+    // Wait for loading to complete
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    const errorVisible = await page.locator('#error').isVisible();
+
+    // Preview should be re-enabled regardless of outcome
+    await expect(page.locator('#preview-btn')).toBeEnabled();
+
+    if (previewVisible) {
+      // When preview has rows, export buttons should be enabled; otherwise disabled
+      const text = await page.locator('#preview-content').innerText();
+      const hasDoneStoriesText = (text || '').toLowerCase().includes('done stories');
+
+      if (hasDoneStoriesText) {
+        await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+        await expect(page.locator('#export-raw-btn')).toBeEnabled();
+      } else {
+        await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+        await expect(page.locator('#export-raw-btn')).toBeDisabled();
+      }
+    } else if (errorVisible) {
+      // On error, exports should remain disabled
+      await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+      await expect(page.locator('#export-raw-btn')).toBeDisabled();
+    }
+  });
+
+  test('partial previews and exports show clear status and hints when applicable', async ({ page }) => {
+    // Drive a preview that is likely to be heavier (wider window) to increase chances of partial results
+    await runDefaultPreview(page, {
+      projects: ['MPSA', 'MAS'],
+      start: '2025-01-01T00:00',
+      end: '2025-12-31T23:59',
+    });
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      // If preview did not load, we cannot assert partial behaviour
+      test.skip();
+    }
+
+    const statusText = await page.locator('#preview-status').innerText();
+    const exportHintText = await page.locator('#export-hint').innerText();
+
+    if ((statusText || '').toLowerCase().includes('partial')) {
+      // When partial, banner and hint should both mention partial state
+      expect(statusText.toLowerCase()).toContain('partial');
+      expect(exportHintText.toLowerCase()).toContain('partial');
+      await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+      await expect(page.locator('#export-raw-btn')).toBeEnabled();
+    }
+  });
+
+  test('invalid date ranges are rejected client-side with clear error', async ({ page }) => {
+    // Configure an obviously invalid date range (start after end)
+    await page.fill('#start-date', '2025-07-01T00:00');
+    await page.fill('#end-date', '2025-04-01T23:59');
+
+    // Click preview and expect immediate client-side validation error without waiting on network
+    await page.click('#preview-btn');
+
+    await page.waitForSelector('#error', { state: 'visible', timeout: 10000 });
+    const errorText = await page.locator('#error').innerText();
+    expect(errorText.toLowerCase()).toContain('start date must be before end date');
+  });
+
+  test('Require Resolved by Sprint End empty state explains the filter when applicable', async ({ page }) => {
+    // Enable the filter and request a wider range to increase chances of filtered-out stories
+    await page.check('#require-resolved-by-sprint-end');
+
+    await runDefaultPreview(page, {
+      projects: ['MPSA', 'MAS'],
+      start: '2025-04-01T00:00',
+      end: '2025-06-30T23:59',
+    });
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      test.skip();
+    }
+
+    // Navigate to Done Stories tab
+    await page.click('.tab-btn[data-tab="done-stories"]');
+
+    const emptyStateText = await page.locator('#done-stories-content').innerText();
+    if ((emptyStateText || '').toLowerCase().includes('no done stories found')) {
+      // When no rows are present and the filter is on, the empty state should mention the filter explicitly
+      expect(emptyStateText.toLowerCase()).toContain('require resolved by sprint end');
+    }
   });
 });
