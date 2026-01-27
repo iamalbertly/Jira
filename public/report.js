@@ -22,6 +22,8 @@ const CSV_COLUMNS = [
   'resolutionDate',
   'storyPoints',
   'epicKey',
+  'epicTitle',
+  'epicSummary',
 ];
 
 // CSV generation (client-side)
@@ -241,14 +243,6 @@ previewBtn.addEventListener('click', async () => {
     previewRows = previewData.rows || [];
     visibleRows = [...previewRows];
     previewHasRows = previewRows.length > 0;
-    
-    // Log success with data summary
-    console.log('Preview loaded successfully', {
-      boards: previewData.boards?.length || 0,
-      sprints: previewData.sprintsIncluded?.length || 0,
-      rows: previewRows.length,
-      unusableSprints: previewData.sprintsUnusable?.length || 0
-    });
 
     updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
     renderPreview();
@@ -456,6 +450,30 @@ function renderPreview() {
   }
   
   renderUnusableSprintsTab(previewData.sprintsUnusable);
+  
+  // Show/hide per-section export buttons based on data availability
+  // Use requestAnimationFrame to ensure DOM updates complete before checking button visibility
+  requestAnimationFrame(() => {
+    const boardsBtn = document.querySelector('.export-section-btn[data-section="boards"]');
+    if (boardsBtn && boardsBtn.parentElement) {
+      boardsBtn.style.display = (previewData.boards && previewData.boards.length > 0) ? 'inline-block' : 'none';
+    }
+    
+    const sprintsBtn = document.querySelector('.export-section-btn[data-section="sprints"]');
+    if (sprintsBtn && sprintsBtn.parentElement) {
+      sprintsBtn.style.display = (previewData.sprintsIncluded && previewData.sprintsIncluded.length > 0) ? 'inline-block' : 'none';
+    }
+    
+    const doneStoriesBtn = document.querySelector('.export-section-btn[data-section="done-stories"]');
+    if (doneStoriesBtn && doneStoriesBtn.parentElement) {
+      doneStoriesBtn.style.display = (visibleRows.length > 0 || previewRows.length > 0) ? 'inline-block' : 'none';
+    }
+    
+    const metricsBtn = document.querySelector('.export-section-btn[data-section="metrics"]');
+    if (metricsBtn && metricsBtn.parentElement) {
+      metricsBtn.style.display = (previewData.metrics && Object.keys(previewData.metrics).length > 0) ? 'inline-block' : 'none';
+    }
+  });
 }
 
 // Update date display
@@ -525,19 +543,31 @@ function renderSprintsTab(sprints, metrics) {
     return;
   }
 
-  let html = '<table class="data-table"><thead><tr><th>Project</th><th>Board</th><th>Sprint</th><th>Start</th><th>End</th><th>State</th><th>Done Now</th>';
+  // Create throughput map for quick lookup
+  const throughputMap = new Map();
+  if (metrics?.throughput?.perSprint) {
+    for (const data of Object.values(metrics.throughput.perSprint)) {
+      if (data?.sprintId) {
+        throughputMap.set(data.sprintId, data);
+      }
+    }
+  }
+
+  let html = '<table class="data-table"><thead><tr><th>Project</th><th>Board</th><th>Sprint</th><th>Start</th><th>End</th><th>State</th><th title="Stories currently marked Done vs stories resolved by the sprint end date">Stories Completed (Total)</th>';
   
   if (metrics?.doneComparison) {
-    html += '<th>Done by End</th>';
+    html += '<th title="Stories currently marked Done vs stories resolved by the sprint end date">Completed Within Sprint End Date</th>';
   }
   
   if (metrics?.throughput) {
-    html += '<th>Done SP</th>';
+    html += '<th>Done SP</th><th>Total SP</th><th>Story Count</th>';
   }
   
   html += '</tr></thead><tbody>';
   
   for (const sprint of sprints) {
+    const throughputData = throughputMap.get(sprint.id);
+    
     html += `
       <tr>
         <td>${sprint.projectKeys?.join(', ') || ''}</td>
@@ -555,6 +585,13 @@ function renderSprintsTab(sprints, metrics) {
     
     if (metrics?.throughput) {
       html += `<td>${sprint.doneSP || 0}</td>`;
+      if (throughputData) {
+        html += `<td>${throughputData.totalSP || 0}</td>`;
+        html += `<td>${throughputData.storyCount || 0}</td>`;
+      } else {
+        html += '<td>N/A</td>';
+        html += '<td>N/A</td>';
+      }
     }
     
     html += '</tr>';
@@ -646,7 +683,7 @@ function renderDoneStoriesTab(rows) {
                 <th>Created</th>
                 <th>Resolved</th>
                 ${previewData?.meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
-                ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic</th>' : ''}
+                ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -656,6 +693,18 @@ function renderDoneStoriesTab(rows) {
     const sortedRows = group.rows.sort((a, b) => a.issueKey.localeCompare(b.issueKey));
     
     for (const row of sortedRows) {
+      // Handle Epic Summary truncation (100 chars with tooltip)
+      let epicSummaryDisplay = '';
+      let epicSummaryTitle = '';
+      if (previewData?.meta?.discoveredFields?.epicLinkFieldId && row.epicSummary && typeof row.epicSummary === 'string' && row.epicSummary.length > 0) {
+        if (row.epicSummary.length > 100) {
+          epicSummaryDisplay = row.epicSummary.substring(0, 100) + '...';
+          epicSummaryTitle = row.epicSummary;
+        } else {
+          epicSummaryDisplay = row.epicSummary;
+        }
+      }
+      
       html += `
         <tr>
           <td>${row.issueKey}</td>
@@ -666,7 +715,11 @@ function renderDoneStoriesTab(rows) {
           <td>${row.created}</td>
           <td>${row.resolutionDate || ''}</td>
           ${previewData?.meta?.discoveredFields?.storyPointsFieldId ? `<td>${row.storyPoints || ''}</td>` : ''}
-          ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? `<td>${row.epicKey || ''}</td>` : ''}
+          ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? `
+            <td>${row.epicKey || ''}</td>
+            <td>${row.epicTitle || ''}</td>
+            <td${epicSummaryTitle ? ` title="${epicSummaryTitle.replace(/"/g, '&quot;')}"` : ''}>${epicSummaryDisplay || ''}</td>
+          ` : ''}
         </tr>
       `;
     }
@@ -844,6 +897,241 @@ function downloadCSV(csv, filename) {
   window.URL.revokeObjectURL(url);
 }
 
+// Per-section CSV export
+async function exportSectionCSV(sectionName, data, button = null) {
+  // Store original button state
+  const originalButtonText = button ? button.textContent : '';
+  const originalButtonDisabled = button ? button.disabled : false;
+  
+  // Set loading state
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Exporting...';
+  }
+  
+  try {
+    if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0)) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> No data to export for ${sectionName} section.
+        <br><small>This section has no data to export.</small>
+      `;
+      return;
+    }
+
+    let csv = '';
+    let columns = [];
+    let rows = [];
+
+  // Prepare data based on section
+  switch (sectionName) {
+    case 'boards':
+      columns = ['id', 'name', 'type', 'projectKeys'];
+      rows = (previewData?.boards || []).map(board => ({
+        id: board.id,
+        name: board.name,
+        type: board.type || '',
+        projectKeys: (board.projectKeys || []).join('; ')
+      }));
+      break;
+    case 'sprints':
+      columns = ['id', 'name', 'boardName', 'startDate', 'endDate', 'state', 'projectKeys', 'doneStoriesNow', 'doneStoriesBySprintEnd', 'doneSP'];
+      rows = (previewData?.sprintsIncluded || []).map(sprint => ({
+        id: sprint.id,
+        name: sprint.name,
+        boardName: sprint.boardName || '',
+        startDate: sprint.startDate || '',
+        endDate: sprint.endDate || '',
+        state: sprint.state || '',
+        projectKeys: (sprint.projectKeys || []).join('; '),
+        doneStoriesNow: sprint.doneStoriesNow || 0,
+        doneStoriesBySprintEnd: sprint.doneStoriesBySprintEnd || 0,
+        doneSP: sprint.doneSP || 0
+      }));
+      break;
+    case 'done-stories':
+      columns = CSV_COLUMNS;
+      rows = visibleRows.length > 0 ? visibleRows : previewRows;
+      break;
+    case 'metrics':
+      // Export metrics as JSON-like CSV (flattened structure)
+      const metrics = previewData?.metrics || {};
+      const metricsRows = [];
+      
+      if (metrics.throughput) {
+        if (metrics.throughput.perProject) {
+          for (const projectKey in metrics.throughput.perProject) {
+            const data = metrics.throughput.perProject[projectKey];
+            metricsRows.push({
+              metric: 'Throughput - Per Project',
+              project: projectKey,
+              totalSP: data.totalSP,
+              sprintCount: data.sprintCount,
+              averageSPPerSprint: data.averageSPPerSprint,
+              storyCount: data.storyCount
+            });
+          }
+        }
+        if (metrics.throughput.perIssueType) {
+          for (const issueType in metrics.throughput.perIssueType) {
+            const data = metrics.throughput.perIssueType[issueType];
+            metricsRows.push({
+              metric: 'Throughput - Per Issue Type',
+              issueType: issueType,
+              totalSP: data.totalSP,
+              issueCount: data.issueCount
+            });
+          }
+        }
+      }
+      
+      if (metrics.rework) {
+        metricsRows.push({
+          metric: 'Rework Ratio',
+          reworkRatio: metrics.rework.reworkRatio,
+          bugSP: metrics.rework.bugSP,
+          storySP: metrics.rework.storySP,
+          bugCount: metrics.rework.bugCount,
+          storyCount: metrics.rework.storyCount
+        });
+      }
+      
+      if (metrics.predictability) {
+        const predictPerSprint = metrics.predictability.perSprint || {};
+        for (const data of Object.values(predictPerSprint)) {
+          metricsRows.push({
+            metric: 'Predictability',
+            sprint: data.sprintName,
+            committedStories: data.committedStories,
+            committedSP: data.committedSP,
+            deliveredStories: data.deliveredStories,
+            deliveredSP: data.deliveredSP,
+            predictabilityStories: data.predictabilityStories,
+            predictabilitySP: data.predictabilitySP
+          });
+        }
+      }
+      
+      if (metrics.epicTTM) {
+        for (const epic of metrics.epicTTM) {
+          metricsRows.push({
+            metric: 'Epic Time-To-Market',
+            epicKey: epic.epicKey,
+            storyCount: epic.storyCount,
+            startDate: epic.startDate,
+            endDate: epic.endDate || '',
+            calendarTTMdays: epic.calendarTTMdays || '',
+            workingTTMdays: epic.workingTTMdays || ''
+          });
+        }
+      }
+      
+      if (metricsRows.length > 0) {
+        // Get all unique keys from all rows
+        const allKeys = new Set();
+        metricsRows.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
+        columns = Array.from(allKeys);
+        rows = metricsRows;
+      } else {
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `
+          <strong>Export error:</strong> No metrics data to export.
+          <br><small>Enable metrics options in the filters panel to generate metrics data.</small>
+        `;
+        return;
+      }
+      break;
+    default:
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> Unknown section: ${sectionName}
+      `;
+      return;
+    }
+
+    if (rows.length === 0) {
+      errorEl.style.display = 'block';
+      let errorMessage = `No data to export for ${sectionName} section.`;
+      if (sectionName === 'done-stories' && previewData?.meta?.discoveredFields?.epicLinkFieldId) {
+        errorMessage += ' Note: Epic Title and Summary columns will be empty if Epic Link field exists but Epic issues are unavailable or stories are not linked to Epics.';
+      } else if (sectionName === 'done-stories' && !previewData?.meta?.discoveredFields?.epicLinkFieldId) {
+        errorMessage += ' Note: Epic data (Epic Key, Title, Summary) is only available when Epic Link field is discovered in your Jira instance.';
+      }
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> ${errorMessage}
+      `;
+      return;
+    }
+
+    // Generate CSV
+    if (rows.length <= 5000) {
+      csv = generateCSVClient(columns, rows);
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadCSV(csv, `${sectionName}-${dateStr}.csv`);
+    } else {
+      // Server-side streaming for large datasets
+      try {
+        const response = await fetch('/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columns, rows }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Export failed. Please try again or check the server logs for details.');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.download = `${sectionName}-${dateStr}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `
+          <strong>Export error:</strong> ${error.message}
+          <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+        `;
+      }
+    }
+  } finally {
+    // Restore button state
+    if (button) {
+      button.disabled = originalButtonDisabled;
+      button.textContent = originalButtonText;
+    }
+  }
+}
+
+// Wire up per-section export buttons using event delegation
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('export-section-btn')) {
+    const button = e.target;
+    const section = button.dataset.section;
+    let data = null;
+    
+    switch (section) {
+      case 'boards':
+        data = previewData?.boards || [];
+        break;
+      case 'sprints':
+        data = previewData?.sprintsIncluded || [];
+        break;
+      case 'done-stories':
+        data = visibleRows.length > 0 ? visibleRows : previewRows;
+        break;
+      case 'metrics':
+        data = previewData?.metrics || {};
+        break;
+    }
+    
+    exportSectionCSV(section, data, button);
+  }
+});
+
 // Render Metrics tab
 function renderMetricsTab(metrics) {
   const content = document.getElementById('metrics-content');
@@ -854,15 +1142,7 @@ function renderMetricsTab(metrics) {
 
   if (metrics.throughput) {
     html += '<h3>Throughput</h3>';
-    html += '<h4>Per Sprint</h4>';
-    html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Total SP</th><th>Story Count</th></tr></thead><tbody>';
-    const perSprint = metrics.throughput.perSprint || {};
-    for (const data of Object.values(perSprint)) {
-      if (!data) continue;
-      html += `<tr><td>${data.sprintName}</td><td>${data.totalSP}</td><td>${data.storyCount}</td></tr>`;
-    }
-    html += '</tbody></table>';
-
+    html += '<p class="metrics-hint"><small>Note: Per Sprint data is shown in the Sprints tab. Below are aggregated views.</small></p>';
     html += '<h4>Per Project</h4>';
     html += '<table class="data-table"><thead><tr><th>Project</th><th>Total SP</th><th>Sprint Count</th><th>Average SP/Sprint</th><th>Story Count</th></tr></thead><tbody>';
     for (const projectKey in metrics.throughput.perProject) {
@@ -917,6 +1197,7 @@ function renderMetricsTab(metrics) {
 
   if (metrics.epicTTM) {
     html += '<h3>Epic Time-To-Market</h3>';
+    html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
     if (previewData?.meta?.epicTTMFallbackCount > 0) {
       html += `<p class="data-quality-warning"><small>Note: ${previewData.meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
     }

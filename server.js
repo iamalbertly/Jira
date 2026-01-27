@@ -370,6 +370,87 @@ app.get('/preview.json', async (req, res) => {
       partial: isPartial,
     });
 
+    // Fetch Epic issues and enrich rows with Epic title/summary when epicLinkFieldId exists
+    let epicMap = new Map();
+    let epicIssuesForTTM = []; // Store Epic issues for potential TTM reuse
+    if (fields.epicLinkFieldId) {
+      // Collect unique Epic keys from rows
+      const epicKeys = [...new Set(allRows.map(row => row.epicKey).filter(Boolean))];
+      
+      if (epicKeys.length > 0) {
+        const epicFetchStart = Date.now();
+        try {
+          epicIssuesForTTM = await retryOnRateLimit(
+            () => fetchEpicIssues(epicKeys, version3Client, 3),
+            3,
+            'fetchEpicIssues'
+          );
+          const epicFetchDuration = Date.now() - epicFetchStart;
+          
+          // Create epicMap from fetched Epic issues
+          for (const epic of epicIssuesForTTM) {
+            if (epic?.key) {
+              epicMap.set(epic.key, {
+                title: epic.fields?.summary || '',
+                summary: epic.fields?.description || ''
+              });
+            }
+          }
+          
+          // Enrich allRows with epicTitle and epicSummary
+          for (const row of allRows) {
+            if (row.epicKey) {
+              const epicData = epicMap.get(row.epicKey);
+              if (epicData) {
+                row.epicTitle = epicData.title;
+                row.epicSummary = epicData.summary;
+              } else {
+                row.epicTitle = '';
+                row.epicSummary = '';
+              }
+            } else {
+              row.epicTitle = '';
+              row.epicSummary = '';
+            }
+          }
+          
+          addPhase('fetchEpicIssues', {
+            epicCount: epicIssuesForTTM.length,
+            requestedCount: epicKeys.length,
+            durationMs: epicFetchDuration
+          });
+          logger.info(`Enriched ${allRows.filter(r => r.epicKey).length} rows with Epic data`);
+        } catch (error) {
+          logger.warn('Epic fetch failed, continuing without Epic title/summary', {
+            error: error.message,
+            epicKeyCount: epicKeys.length
+          });
+          // Gracefully degrade - set empty strings for all rows
+          for (const row of allRows) {
+            row.epicTitle = '';
+            row.epicSummary = '';
+          }
+          addPhase('fetchEpicIssues', {
+            epicCount: 0,
+            requestedCount: epicKeys.length,
+            error: error.message
+          });
+        }
+      } else {
+        // No Epic keys found, set empty strings
+        for (const row of allRows) {
+          row.epicTitle = '';
+          row.epicSummary = '';
+        }
+      }
+    } else {
+      // No epicLinkFieldId, set empty strings
+      for (const row of allRows) {
+        row.epicTitle = '';
+        row.epicSummary = '';
+      }
+    }
+
     // Calculate metrics
     const metrics = {};
 
@@ -414,36 +495,38 @@ app.get('/preview.json', async (req, res) => {
       }
 
       if (includeEpicTTM) {
-        // Collect unique Epic keys from rows
-        const epicKeys = [...new Set(allRows.map(row => row.epicKey).filter(Boolean))];
-        
-        // Fetch Epic issues directly for accurate start dates
-        let epicIssues = [];
-        if (epicKeys.length > 0) {
-          const epicFetchStart = Date.now();
-          try {
-            epicIssues = await retryOnRateLimit(
-              () => fetchEpicIssues(epicKeys, version3Client, 3),
-              3,
-              'fetchEpicIssues'
-            );
-            const epicFetchDuration = Date.now() - epicFetchStart;
-            addPhase('fetchEpicIssues', {
-              epicCount: epicIssues.length,
-              requestedCount: epicKeys.length,
-              durationMs: epicFetchDuration
-            });
-          } catch (error) {
-            logger.error('Epic fetch failed, continuing with story-based calculation', {
-              error: error.message,
-              epicKeyCount: epicKeys.length
-            });
-            // Continue with empty epicIssues array - calculateEpicTTM will use fallback
-            addPhase('fetchEpicIssues', {
-              epicCount: 0,
-              requestedCount: epicKeys.length,
-              error: error.message
-            });
+        // Reuse Epic issues if already fetched for enrichment, otherwise fetch them
+        let epicIssues = epicIssuesForTTM;
+        if (epicIssues.length === 0) {
+          // Epic issues not yet fetched, fetch them now
+          const epicKeys = [...new Set(allRows.map(row => row.epicKey).filter(Boolean))];
+          
+          if (epicKeys.length > 0) {
+            const epicFetchStart = Date.now();
+            try {
+              epicIssues = await retryOnRateLimit(
+                () => fetchEpicIssues(epicKeys, version3Client, 3),
+                3,
+                'fetchEpicIssues'
+              );
+              const epicFetchDuration = Date.now() - epicFetchStart;
+              addPhase('fetchEpicIssues', {
+                epicCount: epicIssues.length,
+                requestedCount: epicKeys.length,
+                durationMs: epicFetchDuration
+              });
+            } catch (error) {
+              logger.error('Epic fetch failed, continuing with story-based calculation', {
+                error: error.message,
+                epicKeyCount: epicKeys.length
+              });
+              // Continue with empty epicIssues array - calculateEpicTTM will use fallback
+              addPhase('fetchEpicIssues', {
+                epicCount: 0,
+                requestedCount: epicKeys.length,
+                error: error.message
+              });
+            }
           }
         }
         

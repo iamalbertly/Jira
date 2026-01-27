@@ -38,6 +38,12 @@ const steps = [
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js', '--reporter=list', '--headed'],
     cwd: projectRoot,
   },
+  {
+    name: 'Run UX Critical Fixes Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js', '--reporter=list', '--headed'],
+    cwd: projectRoot,
+  },
 ];
 
 function runStep(step, stepIndex) {

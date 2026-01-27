@@ -84,18 +84,21 @@ http://localhost:3000/report
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-   - **Boards**: Shows discovered boards for selected projects
-   - **Sprints**: Lists sprints overlapping the date window with counts
-   - **Done Stories**: Drill-down view of completed stories, grouped by sprint (shows issue type; displays "Unknown" for missing types)
+   - **Boards**: Shows discovered boards for selected projects. Includes per-section CSV export button.
+   - **Sprints**: Lists sprints overlapping the date window with completion counts. When "Include Story Points" is enabled, shows "Total SP" and "Story Count" columns merged from throughput metrics. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). Includes per-section CSV export button.
+   - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. Includes per-section CSV export button.
    - **Metrics**: Shows calculated metrics (when enabled)
-     - **Throughput**: Per sprint, per project, and per issue type breakdown
+     - **Throughput**: Per project and per issue type breakdown (Per Sprint data is shown in Sprints tab to avoid duplication)
      - **Per Issue Type**: Shows breakdown by issue type (Story, Bug, etc.). If empty, displays message to enable "Include Bugs for Rework"
-     - **Epic TTM**: Shows Epic Time-To-Market with fallback warning if Epic issues unavailable
+     - **Epic TTM**: Shows Epic Time-To-Market with definition: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)." Includes fallback warning if Epic issues unavailable. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
 6. **Export CSV**:
-   - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
-   - **Export CSV (Raw Preview)**: Exports all preview data
+   - **Per-Section Exports**: Each tab (Boards, Sprints, Done Stories, Metrics) has its own "Export CSV" button with descriptive filenames (e.g., `sprints-2025-01-27.csv`, `done-stories-2025-01-27.csv`). Buttons show loading state ("Exporting...") during export and are disabled to prevent duplicate exports.
+   - **General Exports** (bottom of filters panel):
+     - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
+     - **Export CSV (Raw Preview)**: Exports all preview data
+   - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
 
 ### Preview Behaviour & Feedback
 
@@ -185,8 +188,9 @@ This runs the test orchestration script which:
 2. Runs API integration tests
 3. Runs E2E user journey tests
 4. Runs UX reliability tests (validates data quality indicators, error handling, UI improvements)
-5. Terminates on first error
-6. Shows all steps in foreground with live output from each test command
+5. Runs UX critical fixes tests (validates Epic Title/Summary, merged throughput, renamed labels, per-section exports, TTM definition, export loading states, button visibility)
+6. Terminates on first error
+7. Shows all steps in foreground with live output from each test command
 
 ### Run Specific Test Suites
 ```bash
@@ -202,16 +206,19 @@ npm run test:api
 - **E2E Tests**: User interface interactions, tab navigation, filtering, export
 - **API Tests**: Endpoint validation, error handling, CSV generation
 - **UX Reliability Tests**: Data quality indicators (Unknown issueType display, Epic TTM fallback warnings), cache age display, error recovery
+- **UX Critical Fixes Tests**: Epic Title/Summary display, merged Sprint Throughput data, renamed column labels with tooltips, per-section CSV export buttons and filenames, TTM definition header, export button loading states, button visibility after async renders, Epic Summary truncation edge cases
 
 **Note**: Some tests may require valid Jira credentials. Tests that require Jira access will gracefully handle authentication failures.
 
 ### Data Quality & Reliability Features
 
 - **Issue Type Tracking**: All rows include `issueType` field. Missing types display as "Unknown" in UI and are logged as warnings.
-- **Epic TTM Accuracy**: Epic TTM uses Epic issue dates when available. Falls back to story dates if Epic issues unavailable, with warning displayed in Metrics tab.
+- **Epic Data Enrichment**: When Epic Link field is available, rows include Epic Key, Epic Title, and Epic Summary. Epic Summary is truncated to 100 characters in table view with full text in tooltip. Epic fetch failures gracefully degrade - empty strings are used if Epic issues unavailable.
+- **Epic TTM Accuracy**: Epic TTM uses Epic issue dates when available. Falls back to story dates if Epic issues unavailable, with warning displayed in Metrics tab. Definition clearly explained: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)."
 - **Cache Transparency**: Preview meta shows cache age when data is served from cache, enabling users to assess data freshness.
 - **Error Recovery**: Epic fetch failures don't break preview generation - system gracefully degrades to story-based calculation.
-- **CSV Validation**: Client-side validation ensures required columns (issueKey, issueType, issueStatus) are present before export.
+- **CSV Validation**: Client-side validation ensures required columns (issueKey, issueType, issueStatus) are present before export. CSV exports include Epic Key, Epic Title, and Epic Summary when available.
+- **Export UX**: Per-section export buttons show loading state ("Exporting...") and are disabled during export to prevent duplicate exports. Buttons are visible after async rendering completes.
 
 ### Test Orchestration & Playwright
 
@@ -258,7 +265,10 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 │   └── styles.css           # Styling
 ├── tests/
 │   ├── Jira-Reporting-App-E2E-User-Journey-Tests.spec.js
-│   └── Jira-Reporting-App-API-Integration-Tests.spec.js
+│   ├── Jira-Reporting-App-API-Integration-Tests.spec.js
+│   ├── Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
+│   ├── Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
+│   └── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
 └── scripts/
     └── Jira-Reporting-App-Test-Orchestration-Runner.js
 ```
