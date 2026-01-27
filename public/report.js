@@ -381,8 +381,11 @@ function renderPreview() {
   if (meta.requestedAt) {
     detailsLines.push(`Request Time: ${new Date(meta.requestedAt).toLocaleString()}`);
   }
-  if (fromCache && meta.cacheKey) {
+  if (fromCache) {
     detailsLines.push('Source: Cache');
+    if (meta.cacheAgeMinutes !== undefined) {
+      detailsLines.push(`Cache age: ${meta.cacheAgeMinutes} minutes`);
+    }
   } else {
     detailsLines.push('Source: Jira (live request)');
   }
@@ -450,8 +453,6 @@ function renderPreview() {
   if (previewData.metrics) {
     document.getElementById('metrics-tab').style.display = 'inline-block';
     renderMetricsTab(previewData.metrics);
-  } else {
-    document.getElementById('metrics-tab').style.display = 'none';
   }
   
   renderUnusableSprintsTab(previewData.sprintsUnusable);
@@ -660,7 +661,7 @@ function renderDoneStoriesTab(rows) {
           <td>${row.issueKey}</td>
           <td>${row.issueSummary}</td>
           <td>${row.issueStatus}</td>
-          <td>${row.issueType || ''}</td>
+          <td>${row.issueType || '<em>Unknown</em>'}</td>
           <td>${row.assigneeDisplayName}</td>
           <td>${row.created}</td>
           <td>${row.resolutionDate || ''}</td>
@@ -758,12 +759,43 @@ function applyFilters() {
 exportFilteredBtn.addEventListener('click', () => exportCSV(visibleRows, 'filtered'));
 exportRawBtn.addEventListener('click', () => exportCSV(previewRows, 'raw'));
 
+// Validate CSV columns before export
+function validateCSVColumns(columns, rows) {
+  // Check critical columns exist
+  const requiredColumns = ['issueKey', 'issueType', 'issueStatus'];
+  for (const reqCol of requiredColumns) {
+    if (!columns.includes(reqCol)) {
+      throw new Error(`Missing required CSV column: ${reqCol}`);
+    }
+  }
+  
+  // Warn if column count doesn't match expected
+  if (columns.length !== CSV_COLUMNS.length) {
+    console.warn('CSV column count mismatch', {
+      client: columns.length,
+      server: CSV_COLUMNS.length
+    });
+  }
+}
+
 async function exportCSV(rows, type) {
   if (rows.length === 0) {
     errorEl.style.display = 'block';
     errorEl.innerHTML = `
       <strong>Export error:</strong> No data to export for the current ${type === 'filtered' ? 'filtered view' : 'preview'}.
       <br><small>Adjust your filters or run a new preview that returns at least one row, then try exporting again.</small>
+    `;
+    return;
+  }
+
+  // Validate columns before export
+  try {
+    validateCSVColumns(CSV_COLUMNS, rows);
+  } catch (error) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> ${error.message}
+      <br><small>CSV export validation failed. Please refresh the page and try again.</small>
     `;
     return;
   }
@@ -839,7 +871,7 @@ function renderMetricsTab(metrics) {
     }
     html += '</tbody></table>';
 
-    if (metrics.throughput.perIssueType) {
+    if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
       html += '<h4>Per Issue Type</h4>';
       html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
       for (const issueType in metrics.throughput.perIssueType) {
@@ -847,6 +879,9 @@ function renderMetricsTab(metrics) {
         html += `<tr><td>${data.issueType || 'Unknown'}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
       }
       html += '</tbody></table>';
+    } else if (metrics.throughput && previewData?.meta?.discoveredFields?.storyPointsFieldId) {
+      html += '<h4>Per Issue Type</h4>';
+      html += '<p><em>No issue type breakdown available. Enable "Include Bugs for Rework" to see Bug vs Story breakdown.</em></p>';
     }
   }
 
@@ -882,6 +917,9 @@ function renderMetricsTab(metrics) {
 
   if (metrics.epicTTM) {
     html += '<h3>Epic Time-To-Market</h3>';
+    if (previewData?.meta?.epicTTMFallbackCount > 0) {
+      html += `<p class="data-quality-warning"><small>Note: ${previewData.meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
+    }
     html += '<table class="data-table"><thead><tr><th>Epic Key</th><th>Story Count</th><th>Start Date</th><th>End Date</th><th>Calendar TTM (days)</th><th>Working TTM (days)</th></tr></thead><tbody>';
     for (const epic of metrics.epicTTM) {
       html += `<tr>

@@ -86,8 +86,11 @@ http://localhost:3000/report
 5. **Review Tabs**:
    - **Boards**: Shows discovered boards for selected projects
    - **Sprints**: Lists sprints overlapping the date window with counts
-   - **Done Stories**: Drill-down view of completed stories, grouped by sprint
+   - **Done Stories**: Drill-down view of completed stories, grouped by sprint (shows issue type; displays "Unknown" for missing types)
    - **Metrics**: Shows calculated metrics (when enabled)
+     - **Throughput**: Per sprint, per project, and per issue type breakdown
+     - **Per Issue Type**: Shows breakdown by issue type (Story, Bug, etc.). If empty, displays message to enable "Include Bugs for Rework"
+     - **Epic TTM**: Shows Epic Time-To-Market with fallback warning if Epic issues unavailable
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
 6. **Export CSV**:
@@ -144,7 +147,10 @@ Generates preview data from Jira.
     "discoveredFields": {
       "storyPointsFieldId": "customfield_10016",
       "epicLinkFieldId": "customfield_10014"
-    }
+    },
+    "fromCache": false,
+    "cacheAgeMinutes": 5,
+    "epicTTMFallbackCount": 2
   },
   "boards": [...],
   "sprintsIncluded": [...],
@@ -176,10 +182,11 @@ npm run test:all
 
 This runs the test orchestration script which:
 1. Installs dependencies
-2. Runs E2E user journey tests
-3. Runs API integration tests
-4. Terminates on first error
-5. Shows all steps in foreground with live output from each test command
+2. Runs API integration tests
+3. Runs E2E user journey tests
+4. Runs UX reliability tests (validates data quality indicators, error handling, UI improvements)
+5. Terminates on first error
+6. Shows all steps in foreground with live output from each test command
 
 ### Run Specific Test Suites
 ```bash
@@ -194,8 +201,17 @@ npm run test:api
 
 - **E2E Tests**: User interface interactions, tab navigation, filtering, export
 - **API Tests**: Endpoint validation, error handling, CSV generation
+- **UX Reliability Tests**: Data quality indicators (Unknown issueType display, Epic TTM fallback warnings), cache age display, error recovery
 
 **Note**: Some tests may require valid Jira credentials. Tests that require Jira access will gracefully handle authentication failures.
+
+### Data Quality & Reliability Features
+
+- **Issue Type Tracking**: All rows include `issueType` field. Missing types display as "Unknown" in UI and are logged as warnings.
+- **Epic TTM Accuracy**: Epic TTM uses Epic issue dates when available. Falls back to story dates if Epic issues unavailable, with warning displayed in Metrics tab.
+- **Cache Transparency**: Preview meta shows cache age when data is served from cache, enabling users to assess data freshness.
+- **Error Recovery**: Epic fetch failures don't break preview generation - system gracefully degrades to story-based calculation.
+- **CSV Validation**: Client-side validation ensures required columns (issueKey, issueType, issueStatus) are present before export.
 
 ### Test Orchestration & Playwright
 

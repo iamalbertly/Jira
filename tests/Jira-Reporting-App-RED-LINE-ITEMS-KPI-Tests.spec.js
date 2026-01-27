@@ -91,14 +91,9 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     if (response.status() === 200) {
       const data = await response.json();
       if (data.rows && data.rows.length > 0) {
-        // Verify issueType is in rows (may be missing if server has old code cached)
-        if (data.rows[0].hasOwnProperty('issueType')) {
-          expect(data.rows[0]).toHaveProperty('issueType');
-          console.log('[TEST] ✓ issueType found in API response rows');
-        } else {
-          console.log('[TEST] ⚠ issueType not in rows - server may need restart to load new code');
-          // Code is correct, but server is running old version
-        }
+        // Verify issueType is in rows - test should fail if missing
+        expect(data.rows[0]).toHaveProperty('issueType');
+        console.log('[TEST] ✓ issueType found in API response rows');
         
         // Test CSV export via API
         const exportResponse = await request.post('/export', {
@@ -179,16 +174,11 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
         const hasBugs = data.rows.some(row => row.issueType === 'Bug');
         console.log(`[TEST] ${hasBugs ? '✓' : '⚠'} Bugs ${hasBugs ? 'found' : 'not found'} in rows (may be no bugs in date range)`);
         
-        // Verify issueType is present for all rows (may be missing if server has old code)
-        const hasIssueType = data.rows.length > 0 && data.rows[0].hasOwnProperty('issueType');
-        if (hasIssueType) {
-          data.rows.forEach(row => {
-            expect(row).toHaveProperty('issueType');
-          });
-          console.log('[TEST] ✓ All rows have issueType property');
-        } else {
-          console.log('[TEST] ⚠ issueType not in rows - server may need restart');
-        }
+        // Verify issueType is present for all rows
+        data.rows.forEach(row => {
+          expect(row).toHaveProperty('issueType');
+        });
+        console.log('[TEST] ✓ All rows have issueType property');
       } else {
         console.log('[TEST] ⚠ No rows in response');
       }
@@ -209,10 +199,9 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     if (response.status() === 200) {
       const data = await response.json();
       if (data.metrics?.throughput) {
-        // Verify perIssueType exists (may be missing if server has old code)
-        if (data.metrics.throughput.hasOwnProperty('perIssueType')) {
-          expect(data.metrics.throughput).toHaveProperty('perIssueType');
-          console.log('[TEST] ✓ perIssueType breakdown found in metrics');
+        // Verify perIssueType exists
+        expect(data.metrics.throughput).toHaveProperty('perIssueType');
+        console.log('[TEST] ✓ perIssueType breakdown found in metrics');
         
         const perIssueType = data.metrics.throughput.perIssueType;
         if (Object.keys(perIssueType).length > 0) {
@@ -248,18 +237,14 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     if (response.status() === 200) {
       const data = await response.json();
       if (data.rows && data.rows.length > 0) {
-        // Verify all rows have issueType (may be missing if server has old code)
-        if (data.rows.length > 0 && data.rows[0].hasOwnProperty('issueType')) {
-          data.rows.forEach((row, index) => {
-            expect(row).toHaveProperty('issueType', expect.anything());
-            if (index < 5) {
-              console.log(`[TEST] Row ${index}: issueType=${row.issueType || 'empty'}`);
-            }
-          });
-          console.log('[TEST] ✓ All rows contain issueType property');
-        } else {
-          console.log('[TEST] ⚠ issueType not in rows - server may need restart');
-        }
+        // Verify all rows have issueType
+        data.rows.forEach((row, index) => {
+          expect(row).toHaveProperty('issueType', expect.anything());
+          if (index < 5) {
+            console.log(`[TEST] Row ${index}: issueType=${row.issueType || 'empty'}`);
+          }
+        });
+        console.log('[TEST] ✓ All rows contain issueType property');
       } else {
         console.log('[TEST] ⚠ No rows in response');
       }
@@ -288,25 +273,31 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
       timeout: 120000
     });
 
-    if (response.status() === 200) {
-      const data = await response.json();
-      
-      if (data.metrics?.epicTTM && Array.isArray(data.metrics.epicTTM)) {
-        console.log(`[TEST] ✓ Epic TTM data found: ${data.metrics.epicTTM.length} epics`);
+      if (response.status() === 200) {
+        const data = await response.json();
         
-        // Verify Epic TTM entries have start and end dates
-        for (const epic of data.metrics.epicTTM) {
-          expect(epic).toHaveProperty('epicKey');
-          expect(epic).toHaveProperty('startDate');
-          // endDate may be empty if Epic not resolved
-          console.log(`[TEST] Epic ${epic.epicKey}: startDate=${epic.startDate}, endDate=${epic.endDate || 'N/A'}`);
+        if (data.metrics?.epicTTM && Array.isArray(data.metrics.epicTTM)) {
+          console.log(`[TEST] ✓ Epic TTM data found: ${data.metrics.epicTTM.length} epics`);
+          
+          // Verify Epic TTM entries have start and end dates
+          for (const epic of data.metrics.epicTTM) {
+            expect(epic).toHaveProperty('epicKey');
+            expect(epic).toHaveProperty('startDate');
+            // endDate may be empty if Epic not resolved
+            console.log(`[TEST] Epic ${epic.epicKey}: startDate=${epic.startDate}, endDate=${epic.endDate || 'N/A'}`);
+          }
+          
+          // Verify fallback count in meta if present
+          if (data.meta?.epicTTMFallbackCount !== undefined) {
+            console.log(`[TEST] ✓ Epic TTM fallback count in meta: ${data.meta.epicTTMFallbackCount}`);
+            expect(typeof data.meta.epicTTMFallbackCount).toBe('number');
+          }
+        } else {
+          console.log('[TEST] ⚠ No Epic TTM data in response (may be no epics in date range)');
         }
       } else {
-        console.log('[TEST] ⚠ No Epic TTM data in response (may be no epics in date range)');
+        console.log(`[TEST] ⚠ API returned status ${response.status()}, may need Jira credentials`);
       }
-    } else {
-      console.log(`[TEST] ⚠ API returned status ${response.status()}, may need Jira credentials`);
-    }
   });
 
   test('should handle CSV export with new columns correctly', async ({ request }) => {

@@ -172,13 +172,17 @@ app.get('/preview.json', async (req, res) => {
     })}`;
 
     // Serve from cache if available and not bypassed
-    const cachedPreview = !bypassCache ? cache.get(cacheKey) : null;
-    if (cachedPreview) {
+    const cachedEntry = !bypassCache ? cache.get(cacheKey) : null;
+    if (cachedEntry) {
+      const cachedPreview = cachedEntry.value || cachedEntry; // Handle both formats
+      const cacheAge = cachedEntry.cachedAt ? Date.now() - cachedEntry.cachedAt : null;
+      
       logger.info('Serving preview response from cache', {
         cacheKey,
         projects: selectedProjects,
         windowStart,
         windowEnd,
+        cacheAgeMs: cacheAge,
       });
 
       // Augment meta with cache metadata without mutating cached snapshot
@@ -187,6 +191,8 @@ app.get('/preview.json', async (req, res) => {
         meta: {
           ...cachedPreview.meta,
           fromCache: true,
+          cacheAgeMs: cacheAge,
+          cacheAgeMinutes: cacheAge ? Math.floor(cacheAge / 60000) : undefined,
           requestedAt,
           cacheKey,
         },
@@ -414,14 +420,44 @@ app.get('/preview.json', async (req, res) => {
         // Fetch Epic issues directly for accurate start dates
         let epicIssues = [];
         if (epicKeys.length > 0) {
-          epicIssues = await retryOnRateLimit(
-            () => fetchEpicIssues(epicKeys, version3Client, 3),
-            3,
-            'fetchEpicIssues'
-          );
+          const epicFetchStart = Date.now();
+          try {
+            epicIssues = await retryOnRateLimit(
+              () => fetchEpicIssues(epicKeys, version3Client, 3),
+              3,
+              'fetchEpicIssues'
+            );
+            const epicFetchDuration = Date.now() - epicFetchStart;
+            addPhase('fetchEpicIssues', {
+              epicCount: epicIssues.length,
+              requestedCount: epicKeys.length,
+              durationMs: epicFetchDuration
+            });
+          } catch (error) {
+            logger.error('Epic fetch failed, continuing with story-based calculation', {
+              error: error.message,
+              epicKeyCount: epicKeys.length
+            });
+            // Continue with empty epicIssues array - calculateEpicTTM will use fallback
+            addPhase('fetchEpicIssues', {
+              epicCount: 0,
+              requestedCount: epicKeys.length,
+              error: error.message
+            });
+          }
         }
         
-        metrics.epicTTM = calculateEpicTTM(allRows, epicIssues);
+        const epicTTMResult = calculateEpicTTM(allRows, epicIssues);
+        // Handle both old format (array) and new format (object with metadata)
+        if (Array.isArray(epicTTMResult)) {
+          metrics.epicTTM = epicTTMResult;
+        } else {
+          metrics.epicTTM = epicTTMResult.epicTTM;
+          if (epicTTMResult.fallbackCount > 0) {
+            meta.epicTTMFallbackCount = epicTTMResult.fallbackCount;
+            logger.info(`Epic TTM: ${epicTTMResult.fallbackCount} epic(s) used story date fallback`);
+          }
+        }
       }
 
       addPhase('calculateMetrics', {
