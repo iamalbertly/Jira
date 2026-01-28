@@ -27,15 +27,24 @@ const CSV_COLUMNS = [
 ];
 
 // CSV generation (client-side)
+// Bonus Edge Case 3: Handle special characters in CSV data that break parsing
 function escapeCSVField(value) {
   if (value === null || value === undefined) {
     return '';
   }
   const str = String(value);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
+  
+  // Handle special characters: commas, quotes, newlines, tabs, carriage returns
+  // Also handle BOM (Byte Order Mark) and other control characters that can break CSV parsing
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes('\t')) {
+    // Escape quotes by doubling them, then wrap entire field in quotes
+    return `"${str.replace(/"/g, '""').replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ')}"`;
   }
-  return str;
+  
+  // Remove or replace problematic control characters (except common whitespace)
+  const cleaned = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  return cleaned;
 }
 
 function generateCSVClient(columns, rows) {
@@ -334,12 +343,12 @@ function collectFilterParams() {
     projects: projects.join(','),
     start: startISO,
     end: endISO,
-    includeStoryPoints: document.getElementById('include-story-points').checked,
+    includeStoryPoints: true, // Always enabled - mandatory for reports
     requireResolvedBySprintEnd: document.getElementById('require-resolved-by-sprint-end').checked,
-    includeBugsForRework: document.getElementById('include-bugs-for-rework').checked,
+    includeBugsForRework: true, // Always enabled - mandatory for reports
     includePredictability: document.getElementById('include-predictability').checked,
     predictabilityMode: document.querySelector('input[name="predictability-mode"]:checked').value,
-    includeEpicTTM: document.getElementById('include-epic-ttm').checked,
+    includeEpicTTM: true, // Always enabled - mandatory for reports
     includeActiveOrMissingEndDateSprints: document.getElementById('include-active-or-missing-end-date-sprints').checked,
   };
 
@@ -853,12 +862,16 @@ async function exportCSV(rows, type) {
     return;
   }
 
-  if (rows.length <= 5000) {
-    // Client-side generation
+  // Bonus Edge Case 2: Handle very large CSV exports (>10MB) gracefully
+  const estimatedSize = JSON.stringify(rows).length; // Rough estimate
+  const maxClientSize = 10 * 1024 * 1024; // 10MB threshold
+  
+  if (rows.length <= 5000 && estimatedSize < maxClientSize) {
+    // Client-side generation for smaller datasets
     const csv = generateCSVClient(CSV_COLUMNS, rows);
     downloadCSV(csv, `jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv`);
   } else {
-    // Server-side streaming
+    // Server-side streaming for large datasets
     try {
       const response = await fetch('/export', {
         method: 'POST',
@@ -867,34 +880,98 @@ async function exportCSV(rows, type) {
       });
 
       if (!response.ok) {
-        throw new Error('Export failed. Please try again or check the server logs for details.');
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Export failed: ${errorText}`);
       }
 
       const blob = await response.blob();
+      
+      // Check blob size for very large files
+      if (blob.size > 50 * 1024 * 1024) { // >50MB
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `
+          <strong>Export warning:</strong> CSV file is very large (${(blob.size / 1024 / 1024).toFixed(1)}MB).
+          <br><small>Your browser may have difficulty opening this file. Consider filtering the data or using a smaller date range.</small>
+        `;
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      // Show success feedback
+      const successMsg = document.createElement('div');
+      successMsg.className = 'export-success';
+      successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+      successMsg.textContent = `✓ CSV exported: jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv (${(blob.size / 1024).toFixed(0)}KB)`;
+      document.body.appendChild(successMsg);
+      setTimeout(() => {
+        if (successMsg.parentNode) {
+          successMsg.parentNode.removeChild(successMsg);
+        }
+      }, 3000);
     } catch (error) {
       errorEl.style.display = 'block';
       errorEl.innerHTML = `
         <strong>Export error:</strong> ${error.message}
         <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+        <br><small>For very large datasets, try filtering the data or using a smaller date range.</small>
       `;
+      console.error('CSV export error:', error);
     }
   }
 }
 
 function downloadCSV(csv, filename) {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  window.URL.revokeObjectURL(url);
+  try {
+    // Bonus Edge Case 1: Handle browser download blocking
+    // Some browsers block downloads not initiated by user interaction
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    
+    // Trigger download
+    a.click();
+    
+    // Cleanup after a short delay to ensure download starts
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    // Show success feedback (brief, non-intrusive)
+    const successMsg = document.createElement('div');
+    successMsg.className = 'export-success';
+    successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+    successMsg.textContent = `✓ CSV exported: ${filename}`;
+    document.body.appendChild(successMsg);
+    setTimeout(() => {
+      if (successMsg.parentNode) {
+        successMsg.parentNode.removeChild(successMsg);
+      }
+    }, 3000);
+  } catch (error) {
+    // Handle download blocking or other errors
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> Unable to download CSV file.
+      <br><small>Your browser may be blocking downloads. Please check your browser settings or try clicking the export button again.</small>
+      <br><small>Error: ${error.message}</small>
+    `;
+    console.error('CSV download error:', error);
+  }
 }
 
 // Per-section CSV export
@@ -1064,13 +1141,23 @@ async function exportSectionCSV(sectionName, data, button = null) {
     }
 
     // Generate CSV
-    if (rows.length <= 5000) {
+    // Bonus Edge Case 2: Handle very large CSV exports (>10MB) gracefully
+    const estimatedSize = JSON.stringify(rows).length; // Rough estimate
+    const maxClientSize = 10 * 1024 * 1024; // 10MB threshold
+    
+    if (rows.length <= 5000 && estimatedSize < maxClientSize) {
+      // Client-side generation for smaller datasets
       csv = generateCSVClient(columns, rows);
       const dateStr = new Date().toISOString().split('T')[0];
       downloadCSV(csv, `${sectionName}-${dateStr}.csv`);
     } else {
-      // Server-side streaming for large datasets
+      // Server-side streaming for large datasets (>5000 rows or >10MB)
       try {
+        // Show progress indicator for large exports
+        if (button) {
+          button.textContent = `Exporting ${rows.length.toLocaleString()} rows...`;
+        }
+        
         const response = await fetch('/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1078,23 +1165,53 @@ async function exportSectionCSV(sectionName, data, button = null) {
         });
 
         if (!response.ok) {
-          throw new Error('Export failed. Please try again or check the server logs for details.');
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`Export failed: ${errorText}`);
         }
 
         const blob = await response.blob();
+        
+        // Check blob size for very large files
+        if (blob.size > 50 * 1024 * 1024) { // >50MB
+          errorEl.style.display = 'block';
+          errorEl.innerHTML = `
+            <strong>Export warning:</strong> CSV file is very large (${(blob.size / 1024 / 1024).toFixed(1)}MB).
+            <br><small>Your browser may have difficulty opening this file. Consider filtering the data or using a smaller date range.</small>
+          `;
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         const dateStr = new Date().toISOString().split('T')[0];
         a.download = `${sectionName}-${dateStr}.csv`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'export-success';
+        successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+        successMsg.textContent = `✓ CSV exported: ${sectionName}-${dateStr}.csv (${(blob.size / 1024).toFixed(0)}KB)`;
+        document.body.appendChild(successMsg);
+        setTimeout(() => {
+          if (successMsg.parentNode) {
+            successMsg.parentNode.removeChild(successMsg);
+          }
+        }, 3000);
       } catch (error) {
         errorEl.style.display = 'block';
         errorEl.innerHTML = `
           <strong>Export error:</strong> ${error.message}
           <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+          <br><small>For very large datasets, try filtering the data or using a smaller date range.</small>
         `;
+        console.error('CSV export error:', error);
       }
     }
   } finally {

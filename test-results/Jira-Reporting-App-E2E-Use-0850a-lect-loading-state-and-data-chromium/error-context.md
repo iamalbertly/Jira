@@ -1,0 +1,249 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Jira Sprint Report" [level=1] [ref=e4]
+    - paragraph [ref=e5]: MPSA & MAS Projects - Q2 2025
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - heading "Filters" [level=2] [ref=e8]
+      - generic [ref=e9]:
+        - heading "Projects" [level=3] [ref=e10]
+        - generic [ref=e11] [cursor=pointer]:
+          - checkbox "MPSA" [checked] [ref=e12]
+          - text: MPSA
+        - generic [ref=e13] [cursor=pointer]:
+          - checkbox "MAS" [checked] [ref=e14]
+          - text: MAS
+      - generic [ref=e15]:
+        - heading "Date Window" [level=3] [ref=e16]
+        - generic [ref=e17]:
+          - text: Start Date/Time (UTC)
+          - textbox "Start Date/Time (UTC)" [ref=e18]: 2025-04-01T00:00
+        - generic [ref=e19]:
+          - text: End Date/Time (UTC)
+          - textbox "End Date/Time (UTC)" [ref=e20]: 2025-06-30T23:59
+        - generic [ref=e22]:
+          - text: "UTC: 2025-03-31T21:00:00.000Z to 2025-06-30T20:59:59.999Z"
+          - text: "Local: 4/1/2025, 12:00:00 AM to 6/30/2025, 11:59:59 PM"
+      - generic [ref=e23]:
+        - heading "Options" [level=3] [ref=e24]
+        - paragraph [ref=e25]:
+          - generic [ref=e26]:
+            - strong [ref=e27]: "Note:"
+            - text: Story Points, Epic TTM, and Bugs/Rework are always included in reports.
+        - generic [ref=e28] [cursor=pointer]:
+          - checkbox "Require Resolved by Sprint End" [ref=e29]
+          - text: Require Resolved by Sprint End
+        - generic [ref=e30] [cursor=pointer]:
+          - checkbox "Include Predictability" [ref=e31]
+          - text: Include Predictability
+        - generic [ref=e32] [cursor=pointer]:
+          - checkbox "Include Active/Missing End Date Sprints" [ref=e33]
+          - text: Include Active/Missing End Date Sprints
+      - generic [ref=e34]:
+        - button "Preview" [ref=e35] [cursor=pointer]
+        - button "Export CSV (Filtered View)" [ref=e36] [cursor=pointer]
+        - button "Export CSV (Raw Preview)" [ref=e37] [cursor=pointer]
+    - main [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e42]:
+          - strong [ref=e43]: "Projects:"
+          - text: MPSA, MAS
+          - strong [ref=e44]: "Date Window (UTC):"
+          - text: 2025-04-01T00:00:00.000Z to 2025-06-30T23:59:59.999Z
+          - strong [ref=e45]: "Date Window (Local):"
+          - text: 4/1/2025, 3:00:00 AM to 7/1/2025, 2:59:59 AM
+          - strong [ref=e46]: "Summary:"
+          - text: "Boards: 2 • Included sprints: 15 • Done stories: 117 • Unusable sprints: 7"
+          - strong [ref=e47]: "Details:"
+          - text: "Generated in ~14s • Generated At: 1/28/2026, 3:07:37 AM • Request Time: 1/28/2026, 3:07:41 AM • Source: Cache"
+        - generic [ref=e48]:
+          - button "Boards" [ref=e49] [cursor=pointer]
+          - button "Sprints" [ref=e50] [cursor=pointer]
+          - button "Done Stories" [ref=e51] [cursor=pointer]
+          - button "Metrics" [ref=e52] [cursor=pointer]
+          - button "Unusable Sprints" [ref=e53] [cursor=pointer]
+        - generic [ref=e55]:
+          - table [ref=e57]:
+            - rowgroup [ref=e58]:
+              - row "Project Board Sprint Start End State Stories Completed (Total) Done SP Total SP Story Count" [ref=e59]:
+                - columnheader "Project" [ref=e60]
+                - columnheader "Board" [ref=e61]
+                - columnheader "Sprint" [ref=e62]
+                - columnheader "Start" [ref=e63]
+                - columnheader "End" [ref=e64]
+                - columnheader "State" [ref=e65]
+                - columnheader "Stories Completed (Total)" [ref=e66]
+                - columnheader "Done SP" [ref=e67]
+                - columnheader "Total SP" [ref=e68]
+                - columnheader "Story Count" [ref=e69]
+            - rowgroup [ref=e70]:
+              - row "MPSA MPSA board FY26Q1 MPSA 1 2025-04-02T12:30:42.642Z 2025-04-15T07:00:00.000Z closed 6 63 63 6" [ref=e71]:
+                - cell "MPSA" [ref=e72]
+                - cell "MPSA board" [ref=e73]
+                - cell "FY26Q1 MPSA 1" [ref=e74]
+                - cell "2025-04-02T12:30:42.642Z" [ref=e75]
+                - cell "2025-04-15T07:00:00.000Z" [ref=e76]
+                - cell "closed" [ref=e77]
+                - cell "6" [ref=e78]
+                - cell "63" [ref=e79]
+                - cell "63" [ref=e80]
+                - cell "6" [ref=e81]
+              - row "MPSA MPSA board FY26Q1 MPSA 2 2025-04-16T06:00:31.837Z 2025-04-28T21:00:00.000Z closed 5 55 55 5" [ref=e82]:
+                - cell "MPSA" [ref=e83]
+                - cell "MPSA board" [ref=e84]
+                - cell "FY26Q1 MPSA 2" [ref=e85]
+                - cell "2025-04-16T06:00:31.837Z" [ref=e86]
+                - cell "2025-04-28T21:00:00.000Z" [ref=e87]
+                - cell "closed" [ref=e88]
+                - cell "5" [ref=e89]
+                - cell "55" [ref=e90]
+                - cell "55" [ref=e91]
+                - cell "5" [ref=e92]
+              - row "MPSA MPSA board FY26Q1 MPSA 3 2025-04-29T07:00:03.000Z 2025-05-13T07:00:00.000Z closed 7 81 81 7" [ref=e93]:
+                - cell "MPSA" [ref=e94]
+                - cell "MPSA board" [ref=e95]
+                - cell "FY26Q1 MPSA 3" [ref=e96]
+                - cell "2025-04-29T07:00:03.000Z" [ref=e97]
+                - cell "2025-05-13T07:00:00.000Z" [ref=e98]
+                - cell "closed" [ref=e99]
+                - cell "7" [ref=e100]
+                - cell "81" [ref=e101]
+                - cell "81" [ref=e102]
+                - cell "7" [ref=e103]
+              - row "MPSA MPSA board FY24Q1 MPSA 4 2025-05-14T09:22:41.934Z 2025-05-27T19:00:00.000Z closed 12 128 128 12" [ref=e104]:
+                - cell "MPSA" [ref=e105]
+                - cell "MPSA board" [ref=e106]
+                - cell "FY24Q1 MPSA 4" [ref=e107]
+                - cell "2025-05-14T09:22:41.934Z" [ref=e108]
+                - cell "2025-05-27T19:00:00.000Z" [ref=e109]
+                - cell "closed" [ref=e110]
+                - cell "12" [ref=e111]
+                - cell "128" [ref=e112]
+                - cell "128" [ref=e113]
+                - cell "12" [ref=e114]
+              - row "MPSA MPSA board FY26Q1 MPSA 5 2025-05-27T07:00:20.169Z 2025-06-09T19:39:10.000Z closed 14 151 151 14" [ref=e115]:
+                - cell "MPSA" [ref=e116]
+                - cell "MPSA board" [ref=e117]
+                - cell "FY26Q1 MPSA 5" [ref=e118]
+                - cell "2025-05-27T07:00:20.169Z" [ref=e119]
+                - cell "2025-06-09T19:39:10.000Z" [ref=e120]
+                - cell "closed" [ref=e121]
+                - cell "14" [ref=e122]
+                - cell "151" [ref=e123]
+                - cell "151" [ref=e124]
+                - cell "14" [ref=e125]
+              - row "MPSA MPSA board FY26Q1 MPSA 6 2025-06-12T08:39:18.854Z 2025-06-23T21:00:00.000Z closed 6 86 86 6" [ref=e126]:
+                - cell "MPSA" [ref=e127]
+                - cell "MPSA board" [ref=e128]
+                - cell "FY26Q1 MPSA 6" [ref=e129]
+                - cell "2025-06-12T08:39:18.854Z" [ref=e130]
+                - cell "2025-06-23T21:00:00.000Z" [ref=e131]
+                - cell "closed" [ref=e132]
+                - cell "6" [ref=e133]
+                - cell "86" [ref=e134]
+                - cell "86" [ref=e135]
+                - cell "6" [ref=e136]
+              - row "MPSA MPSA board FY26Q2 MPSA1 2025-06-24T07:00:42.211Z 2025-07-08T07:00:00.000Z closed 15 167 167 15" [ref=e137]:
+                - cell "MPSA" [ref=e138]
+                - cell "MPSA board" [ref=e139]
+                - cell "FY26Q2 MPSA1" [ref=e140]
+                - cell "2025-06-24T07:00:42.211Z" [ref=e141]
+                - cell "2025-07-08T07:00:00.000Z" [ref=e142]
+                - cell "closed" [ref=e143]
+                - cell "15" [ref=e144]
+                - cell "167" [ref=e145]
+                - cell "167" [ref=e146]
+                - cell "15" [ref=e147]
+              - row "MAS MAS board FY25MAS 24 2025-03-19T09:12:16.625Z 2025-04-01T19:18:00.000Z closed 8 26 26 8" [ref=e148]:
+                - cell "MAS" [ref=e149]
+                - cell "MAS board" [ref=e150]
+                - cell "FY25MAS 24" [ref=e151]
+                - cell "2025-03-19T09:12:16.625Z" [ref=e152]
+                - cell "2025-04-01T19:18:00.000Z" [ref=e153]
+                - cell "closed" [ref=e154]
+                - cell "8" [ref=e155]
+                - cell "26" [ref=e156]
+                - cell "26" [ref=e157]
+                - cell "8" [ref=e158]
+              - row "MAS MAS board FY25Q1MAS 25 2025-04-02T11:51:00.000Z 2025-04-15T11:51:00.000Z closed 6 21 21 6" [ref=e159]:
+                - cell "MAS" [ref=e160]
+                - cell "MAS board" [ref=e161]
+                - cell "FY25Q1MAS 25" [ref=e162]
+                - cell "2025-04-02T11:51:00.000Z" [ref=e163]
+                - cell "2025-04-15T11:51:00.000Z" [ref=e164]
+                - cell "closed" [ref=e165]
+                - cell "6" [ref=e166]
+                - cell "21" [ref=e167]
+                - cell "21" [ref=e168]
+                - cell "6" [ref=e169]
+              - row "MAS MAS board FY25Q1MAS 26 2025-04-15T21:00:30.000Z 2025-04-29T21:00:00.000Z closed 6 19 19 6" [ref=e170]:
+                - cell "MAS" [ref=e171]
+                - cell "MAS board" [ref=e172]
+                - cell "FY25Q1MAS 26" [ref=e173]
+                - cell "2025-04-15T21:00:30.000Z" [ref=e174]
+                - cell "2025-04-29T21:00:00.000Z" [ref=e175]
+                - cell "closed" [ref=e176]
+                - cell "6" [ref=e177]
+                - cell "19" [ref=e178]
+                - cell "19" [ref=e179]
+                - cell "6" [ref=e180]
+              - row "MAS MAS board FY25Q1MAS 27 2025-05-05T10:17:08.006Z 2025-05-13T21:00:00.000Z closed 7 26 26 7" [ref=e181]:
+                - cell "MAS" [ref=e182]
+                - cell "MAS board" [ref=e183]
+                - cell "FY25Q1MAS 27" [ref=e184]
+                - cell "2025-05-05T10:17:08.006Z" [ref=e185]
+                - cell "2025-05-13T21:00:00.000Z" [ref=e186]
+                - cell "closed" [ref=e187]
+                - cell "7" [ref=e188]
+                - cell "26" [ref=e189]
+                - cell "26" [ref=e190]
+                - cell "7" [ref=e191]
+              - row "MAS MAS board FY25Q1MAS 28 2025-05-14T08:55:12.888Z 2025-05-28T08:55:00.000Z closed 8 30 30 8" [ref=e192]:
+                - cell "MAS" [ref=e193]
+                - cell "MAS board" [ref=e194]
+                - cell "FY25Q1MAS 28" [ref=e195]
+                - cell "2025-05-14T08:55:12.888Z" [ref=e196]
+                - cell "2025-05-28T08:55:00.000Z" [ref=e197]
+                - cell "closed" [ref=e198]
+                - cell "8" [ref=e199]
+                - cell "30" [ref=e200]
+                - cell "30" [ref=e201]
+                - cell "8" [ref=e202]
+              - row "MAS MAS board FY25Q1MAS 29 2025-05-28T06:57:40.692Z 2025-06-11T06:57:00.000Z closed 4 15 15 4" [ref=e203]:
+                - cell "MAS" [ref=e204]
+                - cell "MAS board" [ref=e205]
+                - cell "FY25Q1MAS 29" [ref=e206]
+                - cell "2025-05-28T06:57:40.692Z" [ref=e207]
+                - cell "2025-06-11T06:57:00.000Z" [ref=e208]
+                - cell "closed" [ref=e209]
+                - cell "4" [ref=e210]
+                - cell "15" [ref=e211]
+                - cell "15" [ref=e212]
+                - cell "4" [ref=e213]
+              - row "MAS MAS board FY25Q1MAS 30 2025-06-10T22:27:55.255Z 2025-06-24T21:00:00.000Z closed 6 22 22 6" [ref=e214]:
+                - cell "MAS" [ref=e215]
+                - cell "MAS board" [ref=e216]
+                - cell "FY25Q1MAS 30" [ref=e217]
+                - cell "2025-06-10T22:27:55.255Z" [ref=e218]
+                - cell "2025-06-24T21:00:00.000Z" [ref=e219]
+                - cell "closed" [ref=e220]
+                - cell "6" [ref=e221]
+                - cell "22" [ref=e222]
+                - cell "22" [ref=e223]
+                - cell "6" [ref=e224]
+              - row "MAS MAS board FY25Q1MAS 31 2025-06-25T15:32:55.299Z 2025-07-09T15:32:00.000Z closed 7 25 25 7" [ref=e225]:
+                - cell "MAS" [ref=e226]
+                - cell "MAS board" [ref=e227]
+                - cell "FY25Q1MAS 31" [ref=e228]
+                - cell "2025-06-25T15:32:55.299Z" [ref=e229]
+                - cell "2025-07-09T15:32:00.000Z" [ref=e230]
+                - cell "closed" [ref=e231]
+                - cell "7" [ref=e232]
+                - cell "25" [ref=e233]
+                - cell "25" [ref=e234]
+                - cell "7" [ref=e235]
+          - button "Export CSV" [ref=e237] [cursor=pointer]
+```

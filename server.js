@@ -119,12 +119,13 @@ app.get('/preview.json', async (req, res) => {
     const windowStart = req.query.start || '2025-04-01T00:00:00.000Z';
     const windowEnd = req.query.end || '2025-06-30T23:59:59.999Z';
     
-    const includeStoryPoints = req.query.includeStoryPoints === 'true';
+    // Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+    const includeStoryPoints = req.query.includeStoryPoints !== 'false'; // Default to true, allow override for backward compatibility
     const requireResolvedBySprintEnd = req.query.requireResolvedBySprintEnd === 'true';
-    const includeBugsForRework = req.query.includeBugsForRework === 'true';
+    const includeBugsForRework = req.query.includeBugsForRework !== 'false'; // Default to true, allow override for backward compatibility
     const includePredictability = req.query.includePredictability === 'true';
     const predictabilityMode = req.query.predictabilityMode || 'approx';
-    const includeEpicTTM = req.query.includeEpicTTM === 'true';
+    const includeEpicTTM = req.query.includeEpicTTM !== 'false'; // Default to true, allow override for backward compatibility
     const includeActiveOrMissingEndDateSprints = req.query.includeActiveOrMissingEndDateSprints === 'true';
     const bypassCache = req.query.bypassCache === 'true';
 

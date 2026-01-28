@@ -286,10 +286,8 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('metrics tab renders when story points, rework, and epic TTM are enabled', async ({ page }) => {
-    // Enable metrics-related options
-    await page.check('#include-story-points');
-    await page.check('#include-bugs-for-rework');
-    await page.check('#include-epic-ttm');
+    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+    // No need to check these options - they're always included in reports
 
     // Run a default preview with Q2 window
     await runDefaultPreview(page);

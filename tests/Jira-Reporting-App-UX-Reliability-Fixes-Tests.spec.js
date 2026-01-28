@@ -68,23 +68,8 @@ async function runDefaultPreview(page, overrides = {}) {
   await page.fill('#end-date', end);
 
   // Configure options
-  if (includeStoryPoints) {
-    await page.check('#include-story-points');
-  } else {
-    await page.uncheck('#include-story-points');
-  }
-
-  if (includeBugsForRework) {
-    await page.check('#include-bugs-for-rework');
-  } else {
-    await page.uncheck('#include-bugs-for-rework');
-  }
-
-  if (includeEpicTTM) {
-    await page.check('#include-epic-ttm');
-  } else {
-    await page.uncheck('#include-epic-ttm');
-  }
+  // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+  // No need to check/uncheck these options - they're always included in reports
 
   // Trigger preview
   await waitForPreview(page);

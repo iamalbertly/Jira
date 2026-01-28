@@ -73,13 +73,11 @@ http://localhost:3000/report
    - Adjust start and end dates as needed
    - Dates are in UTC
 
-3. **Configure Options** (all optional):
-   - **Include Story Points**: Calculate throughput metrics
-   - **Require Resolved by Sprint End**: Only include stories resolved before sprint end
-   - **Include Bugs for Rework**: Calculate rework ratio
-   - **Include Predictability**: Calculate committed vs delivered (approx or strict mode)
-   - **Include Epic TTM**: Calculate Epic Time-To-Market
-   - **Include Active/Missing End Date Sprints**: Include sprints with missing end dates
+3. **Configure Options**:
+   - **Story Points, Epic TTM, and Bugs/Rework**: Always included in reports (mandatory)
+   - **Require Resolved by Sprint End** (optional): Only include stories resolved before sprint end
+   - **Include Predictability** (optional): Calculate committed vs delivered (approx or strict mode)
+   - **Include Active/Missing End Date Sprints** (optional): Include sprints with missing end dates
 
 4. **Click Preview**: Generates preview data from Jira
 
@@ -87,9 +85,10 @@ http://localhost:3000/report
    - **Boards**: Shows discovered boards for selected projects. Includes per-section CSV export button.
    - **Sprints**: Lists sprints overlapping the date window with completion counts. When "Include Story Points" is enabled, shows "Total SP" and "Story Count" columns merged from throughput metrics. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. Includes per-section CSV export button.
-   - **Metrics**: Shows calculated metrics (when enabled)
+   - **Metrics**: Shows calculated metrics (Story Points, Epic TTM, and Bugs/Rework are always included)
      - **Throughput**: Per project and per issue type breakdown (Per Sprint data is shown in Sprints tab to avoid duplication)
-     - **Per Issue Type**: Shows breakdown by issue type (Story, Bug, etc.). If empty, displays message to enable "Include Bugs for Rework"
+     - **Per Issue Type**: Shows breakdown by issue type (Story, Bug, etc.)
+     - **Rework Ratio**: Shows bug vs story ratio (always included)
      - **Epic TTM**: Shows Epic Time-To-Market with definition: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)." Includes fallback warning if Epic issues unavailable. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
@@ -132,12 +131,12 @@ Generates preview data from Jira.
 - `projects` (required): Comma-separated project keys (e.g., `MPSA,MAS`)
 - `start` (optional): Start date in ISO 8601 format (default: `2025-04-01T00:00:00.000Z`)
 - `end` (optional): End date in ISO 8601 format (default: `2025-06-30T23:59:59.999Z`)
-- `includeStoryPoints` (optional): `true` or `false`
+- `includeStoryPoints` (mandatory): Always `true` - Story Points are always included in reports
 - `requireResolvedBySprintEnd` (optional): `true` or `false`
-- `includeBugsForRework` (optional): `true` or `false`
+- `includeBugsForRework` (mandatory): Always `true` - Bugs/Rework are always included in reports
 - `includePredictability` (optional): `true` or `false`
 - `predictabilityMode` (optional): `approx` or `strict` (default: `approx`)
-- `includeEpicTTM` (optional): `true` or `false`
+- `includeEpicTTM` (mandatory): Always `true` - Epic TTM is always included in reports
 - `includeActiveOrMissingEndDateSprints` (optional): `true` or `false`
 
 **Response:**
