@@ -2,6 +2,8 @@
 
 A Node.js web application for generating sprint reports from Jira for MPSA and MAS projects. The app provides a preview-first workflow where users can configure filters, preview data in a tabbed interface, and export CSV files without re-fetching from Jira.
 
+This README is the SSOT for usage and validation. Supplemental documents (e.g. `Jira-Reporting-Gap-Analysis-Plan.md`) provide planning context only and do not supersede this guide.
+
 ## Features
 
 - **Preview-First Workflow**: Preview data before exporting to ensure accuracy
@@ -69,7 +71,7 @@ http://localhost:3000/report
 1. **Select Projects**: Check MPSA and/or MAS (at least one required)
 
 2. **Set Date Window**: 
-   - Default is Q2 2025 (April 1 - June 30, 2025)
+   - Default is Q2 2025 (July 1 - September 30, 2025)
    - Adjust start and end dates as needed
    - Dates are in UTC
 
@@ -107,6 +109,7 @@ http://localhost:3000/report
 7. **Export CSV** (Secondary Option):
    - **Per-Section Exports**: Each tab has its own "Export CSV" button for quick single-section exports
    - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
+   - **File Naming**: `{Projects}_{DateRange}_{Section}_{ExportDate}.csv` (includes `_PARTIAL` when preview data is partial)
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
 
 ### Preview Behaviour & Feedback
@@ -114,6 +117,8 @@ http://localhost:3000/report
 - **In-flight feedback**:
   - When you click **Preview**, the button is temporarily disabled to prevent double-clicks while the loading overlay shows progress updates.
   - The loading panel includes a live timer and step log (e.g. “Collecting filter parameters”, “Sending request to server”, “Received data from server”).
+  - If a previous preview is already visible, the UI keeps it on-screen while the new request runs and shows a refresh banner so users see immediate results.
+  - The step log keeps only the most recent entries to avoid overwhelming the UI during long-running previews.
 - **Partial previews**:
   - If the backend has to stop early (for example due to time budget or pagination limits), the response is marked as partial.
   - The UI shows a warning banner near the preview summary and a matching hint near the export buttons. CSV exports will only contain the currently loaded data in this case.
@@ -122,6 +127,8 @@ http://localhost:3000/report
 - **Exports and table state**:
   - Export buttons remain disabled until there is at least one Done story in the preview.
   - If you change filters and end up with no rows, the empty state explains whether this is due to filters, the “Require Resolved by Sprint End” option, or genuinely no Done stories.
+  - Filtered CSV export is disabled when filters match zero rows, with a hint explaining why.
+  - Invalid date inputs are caught client-side with a clear error before any request is sent.
 
 ### Filtering Done Stories
 
@@ -139,8 +146,8 @@ Generates preview data from Jira.
 
 **Query Parameters:**
 - `projects` (required): Comma-separated project keys (e.g., `MPSA,MAS`)
-- `start` (optional): Start date in ISO 8601 format (default: `2025-04-01T00:00:00.000Z`)
-- `end` (optional): End date in ISO 8601 format (default: `2025-06-30T23:59:59.999Z`)
+- `start` (optional): Start date in ISO 8601 format (default: `2025-07-01T00:00:00.000Z`)
+- `end` (optional): End date in ISO 8601 format (default: `2025-09-30T23:59:59.999Z`)
 - `includeStoryPoints` (mandatory): Always `true` - Story Points are always included in reports
 - `requireResolvedBySprintEnd` (optional): `true` or `false`
 - `includeBugsForRework` (mandatory): Always `true` - Bugs/Rework are always included in reports
@@ -171,8 +178,8 @@ Generates Excel workbook (.xlsx) with multiple sheets.
   },
   "meta": {
     "selectedProjects": ["MPSA", "MAS"],
-    "windowStart": "2025-04-01T00:00:00.000Z",
-    "windowEnd": "2025-06-30T23:59:59.999Z"
+    "windowStart": "2025-07-01T00:00:00.000Z",
+    "windowEnd": "2025-09-30T23:59:59.999Z"
   }
 }
 ```
@@ -184,8 +191,8 @@ Generates Excel workbook (.xlsx) with multiple sheets.
 {
   "meta": {
     "selectedProjects": ["MPSA", "MAS"],
-    "windowStart": "2025-04-01T00:00:00.000Z",
-    "windowEnd": "2025-06-30T23:59:59.999Z",
+    "windowStart": "2025-07-01T00:00:00.000Z",
+    "windowEnd": "2025-09-30T23:59:59.999Z",
     "discoveredFields": {
       "storyPointsFieldId": "customfield_10016",
       "epicLinkFieldId": "customfield_10014"
@@ -238,6 +245,9 @@ npm run test:e2e
 
 # API tests only
 npm run test:api
+
+# Validation plan tests (UI + telemetry)
+npm run test:validation
 ```
 
 ### Test Coverage and Caching Behavior

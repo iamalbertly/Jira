@@ -20,6 +20,14 @@ import { addKPIColumns } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
 
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', error);
+});
+
 class PreviewError extends Error {
   constructor(code, httpStatus, userMessage) {
     super(userMessage);
@@ -30,6 +38,8 @@ class PreviewError extends Error {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
+const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
 
 // Middleware
 app.use(express.json({ limit: '50mb' })); // Increase limit for large CSV exports
@@ -119,8 +129,8 @@ app.get('/preview.json', async (req, res) => {
       });
     }
     
-    const windowStart = req.query.start || '2025-04-01T00:00:00.000Z';
-    const windowEnd = req.query.end || '2025-06-30T23:59:59.999Z';
+    const windowStart = req.query.start || DEFAULT_WINDOW_START;
+    const windowEnd = req.query.end || DEFAULT_WINDOW_END;
     
     // Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
     const includeStoryPoints = req.query.includeStoryPoints !== 'false'; // Default to true, allow override for backward compatibility
@@ -139,7 +149,7 @@ app.get('/preview.json', async (req, res) => {
       return res.status(400).json({ 
         error: 'Invalid date window',
         code: 'INVALID_DATE_FORMAT',
-        message: 'Please provide valid start and end dates in ISO 8601 format (e.g., 2025-04-01T00:00:00.000Z)'
+        message: `Please provide valid start and end dates in ISO 8601 format (e.g., ${DEFAULT_WINDOW_START})`
       });
     }
     if (startDate >= endDate) {
@@ -457,6 +467,20 @@ app.get('/preview.json', async (req, res) => {
 
     // Calculate metrics
     const metrics = {};
+    const meta = {
+      selectedProjects,
+      windowStart,
+      windowEnd,
+      discoveredFields: fields,
+      fromCache: false,
+      requestedAt,
+      generatedAt: null,
+      elapsedMs: null,
+      partial: isPartial,
+      partialReason,
+      requireResolvedBySprintEnd,
+      phaseLog,
+    };
 
     // Respect time budget before running metrics (they can be expensive)
     if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
@@ -591,21 +615,13 @@ app.get('/preview.json', async (req, res) => {
     const generatedAt = new Date().toISOString();
     const elapsedMs = Date.now() - previewStartedAt;
 
+    meta.generatedAt = generatedAt;
+    meta.elapsedMs = elapsedMs;
+    meta.partial = isPartial;
+    meta.partialReason = partialReason;
+
     const responsePayload = {
-      meta: {
-        selectedProjects,
-        windowStart,
-        windowEnd,
-        discoveredFields: fields,
-        fromCache: false,
-        requestedAt,
-        generatedAt,
-        elapsedMs,
-        partial: isPartial,
-        partialReason,
-        requireResolvedBySprintEnd,
-        phaseLog,
-      },
+      meta,
       boards: boards.map(b => {
         // Try to extract project key from board location
         const projectKey = b.location?.projectKey || 

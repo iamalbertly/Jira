@@ -231,6 +231,29 @@ header h1 {
   line-height: 1.8;
 }
 
+.status-banner {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.status-banner.warning {
+  background: #fff3cd;
+  color: #8a6d3b;
+  border: 1px solid #ffeeba;
+}
+
+.status-banner.info {
+  background: #e8f1ff;
+  color: #1b4f9c;
+  border: 1px solid #c9dbff;
+}
+
+.partial-warning {
+  color: #8a6d3b;
+}
+
 /* Tabs */
 .tabs {
   display: flex;

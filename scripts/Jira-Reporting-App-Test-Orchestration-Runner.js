@@ -8,10 +8,39 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import net from 'net';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+const resolvedPort = (() => {
+  let manualServer = null;
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.port) return Number(parsed.port);
+    return parsed.protocol === 'https:' ? 443 : 80;
+  } catch (error) {
+    return Number(process.env.PORT) || 3000;
+  }
+})();
+
+function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(1000);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once('error', () => resolve(false));
+    socket.connect(port, '127.0.0.1');
+  });
+}
 
 const steps = [
   {
@@ -23,36 +52,42 @@ const steps = [
   {
     name: 'Run API Integration Tests',
     command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-API-Integration-Tests.spec.js', '--reporter=list', '--headed'],
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-API-Integration-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
   {
     name: 'Run E2E User Journey Tests',
     command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js', '--reporter=list', '--headed'],
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
   {
     name: 'Run UX Reliability Tests',
     command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js', '--reporter=list', '--headed'],
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
   {
     name: 'Run UX Critical Fixes Tests',
     command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js', '--reporter=list', '--headed'],
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Validation Plan Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
   {
     name: 'Run Excel Export Tests',
     command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Excel-Export-Tests.spec.js', '--reporter=list', '--headed'],
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Excel-Export-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
 ];
 
-function runStep(step, stepIndex) {
+function runStep(step, stepIndex, envOverrides = {}) {
   return new Promise((resolve, reject) => {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Step ${stepIndex + 1}/${steps.length}: ${step.name}`);
@@ -65,6 +100,7 @@ function runStep(step, stepIndex) {
       cwd: step.cwd,
       stdio: 'inherit',
       shell: process.platform === 'win32',
+      env: { ...process.env, ...envOverrides },
     });
 
     proc.on('close', (code) => {
@@ -96,20 +132,50 @@ async function runAllTests() {
   console.log(`Total Steps: ${steps.length}`);
   console.log('Terminating on first error\n');
 
+  let manualServer = null;
   try {
+    const portInUse = await isPortInUse(resolvedPort);
+    const skipWebServer = process.env.SKIP_WEBSERVER === 'true' || portInUse;
+    if (portInUse && process.env.SKIP_WEBSERVER !== 'true') {
+      console.log(`[INFO] Port ${resolvedPort} already in use. Reusing existing server.`);
+    }
+    console.log(`[INFO] BASE_URL: ${baseUrl}`);
+    console.log(`[INFO] WebServer: ${skipWebServer ? 'skip (reuse existing)' : 'managed by Playwright'}\n`);
+
+    if (skipWebServer && !portInUse) {
+      console.log(`[INFO] Starting local server on port ${resolvedPort}...`);
+      manualServer = spawn('node', ['server.js'], {
+        cwd: projectRoot,
+        stdio: 'inherit',
+        shell: process.platform === 'win32',
+        env: { ...process.env, PORT: String(resolvedPort) },
+      });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
     for (let i = 0; i < steps.length; i++) {
-      await runStep(steps[i], i);
+      await runStep(steps[i], i, {
+        BASE_URL: baseUrl,
+        PORT: process.env.PORT || String(resolvedPort),
+        SKIP_WEBSERVER: skipWebServer ? 'true' : (process.env.SKIP_WEBSERVER || ''),
+      });
     }
 
     console.log('\n' + '='.repeat(60));
     console.log('✓ ALL TESTS PASSED');
     console.log('='.repeat(60) + '\n');
+    if (manualServer) {
+      manualServer.kill();
+    }
     process.exit(0);
   } catch (error) {
     console.error('\n' + '='.repeat(60));
     console.error('✗ TEST ORCHESTRATION FAILED');
     console.error('='.repeat(60));
     console.error(`Error: ${error.message}\n`);
+    if (manualServer) {
+      manualServer.kill();
+    }
     process.exit(1);
   }
 }

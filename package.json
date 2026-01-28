@@ -9,7 +9,8 @@
     "start": "node server.js",
     "test:all": "node scripts/Jira-Reporting-App-Test-Orchestration-Runner.js",
     "test:e2e": "playwright test tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js",
-    "test:api": "playwright test tests/Jira-Reporting-App-API-Integration-Tests.spec.js"
+    "test:api": "playwright test tests/Jira-Reporting-App-API-Integration-Tests.spec.js",
+    "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js"
   },
   "keywords": ["jira", "reporting", "sprint"],
   "author": "",

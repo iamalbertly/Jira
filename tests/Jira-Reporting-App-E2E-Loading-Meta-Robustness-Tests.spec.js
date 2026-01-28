@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 
 // Canonical helper: wait for preview or error, handling fast and slow responses.
 async function waitForPreview(page) {

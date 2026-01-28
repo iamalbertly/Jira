@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 
 // Helper: Wait for preview to complete
 async function waitForPreview(page) {
@@ -29,8 +29,8 @@ async function waitForPreview(page) {
 async function runDefaultPreview(page, overrides = {}) {
   const {
     projects = ['MPSA', 'MAS'],
-    start = '2025-04-01T00:00',
-    end = '2025-06-30T23:59',
+    start = '2025-07-01T00:00',
+    end = '2025-09-30T23:59',
     // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
     // No need to pass these parameters - they're always included in reports
   } = overrides;
@@ -149,6 +149,32 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       expect(metricsText).toContain('Per Sprint data is shown in the Sprints tab');
       console.log('[TEST] ✓ Note about Per Sprint data location found');
     }
+  });
+
+  test('filtered export disables when filters yield zero rows', async ({ page }) => {
+    test.setTimeout(120000);
+    await runDefaultPreview(page);
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      test.skip();
+      return;
+    }
+
+    await page.click('.tab-btn[data-tab="done-stories"]');
+    await expect(page.locator('#tab-done-stories')).toHaveClass(/active/);
+
+    await page.fill('#search-box', 'NO_MATCH_FILTER_987654321');
+    await page.waitForTimeout(500);
+
+    const emptyStateVisible = await page.locator('#done-stories-content .empty-state').isVisible().catch(() => false);
+    if (!emptyStateVisible) {
+      test.skip();
+      return;
+    }
+
+    await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+    await expect(page.locator('#export-hint')).toContainText('No rows match');
   });
 
   test('should display renamed column labels with tooltips in Sprints tab', async ({ page }) => {

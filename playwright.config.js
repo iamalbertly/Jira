@@ -25,7 +25,7 @@ export default defineConfig({
 
   webServer: process.env.SKIP_WEBSERVER !== 'true' ? {
     command: 'npm run start',
-    url: 'http://localhost:3000',
+    url: process.env.BASE_URL || 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   } : undefined,

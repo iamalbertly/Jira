@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 
-const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 
 async function runDefaultPreview(page, overrides = {}) {
   const {
     projects = ['MPSA', 'MAS'],
-    start = '2025-04-01T00:00',
-    end = '2025-06-30T23:59',
+    start = '2025-07-01T00:00',
+    end = '2025-09-30T23:59',
     // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
     // No need to pass these parameters - they're always included in reports
   } = overrides;

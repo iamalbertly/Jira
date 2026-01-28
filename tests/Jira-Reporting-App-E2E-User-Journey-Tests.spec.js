@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 
 async function runDefaultPreview(page, overrides = {}) {
   const {
     projects = ['MPSA', 'MAS'],
-    start = '2025-04-01T00:00',
-    end = '2025-06-30T23:59',
+    start = '2025-07-01T00:00',
+    end = '2025-09-30T23:59',
   } = overrides;
 
   await page.goto('/report');
@@ -118,7 +118,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     // If preview loaded, check tabs
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
-      await expect(page.locator('.tab-btn[data-tab="boards"]')).toBeVisible();
+      await expect(page.locator('.tab-btn[data-tab="project-epic-level"]')).toBeVisible();
       await expect(page.locator('.tab-btn[data-tab="sprints"]')).toBeVisible();
       await expect(page.locator('.tab-btn[data-tab="done-stories"]')).toBeVisible();
     }
@@ -269,7 +269,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   test('invalid date ranges are rejected client-side with clear error', async ({ page }) => {
     // Configure an obviously invalid date range (start after end)
     await page.fill('#start-date', '2025-07-01T00:00');
-    await page.fill('#end-date', '2025-04-01T23:59');
+    await page.fill('#end-date', '2025-06-30T23:59');
 
     // Click preview and expect immediate client-side validation error without waiting on network
     await page.click('#preview-btn');
@@ -285,8 +285,8 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
 
     await runDefaultPreview(page, {
       projects: ['MPSA', 'MAS'],
-      start: '2025-04-01T00:00',
-      end: '2025-06-30T23:59',
+      start: '2025-07-01T00:00',
+      end: '2025-09-30T23:59',
     });
 
     const previewVisible = await page.locator('#preview-content').isVisible();

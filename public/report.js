@@ -26,6 +26,12 @@ const CSV_COLUMNS = [
   'epicSummary',
 ];
 
+const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
+const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
+const DEFAULT_WINDOW_START_LOCAL = '2025-07-01T00:00';
+const DEFAULT_WINDOW_END_LOCAL = '2025-09-30T23:59';
+const LOADING_STEP_LIMIT = 6;
+
 // CSV generation (client-side)
 // Bonus Edge Case 3: Handle special characters in CSV data that break parsing
 function escapeCSVField(value) {
@@ -45,6 +51,38 @@ function escapeCSVField(value) {
   const cleaned = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   
   return cleaned;
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeText(value, fallback = '') {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  const str = String(value);
+  return str.trim() === '' ? fallback : str;
+}
+
+function toUtcIsoFromLocalInput(value, isEndOfDay = false) {
+  if (!value) return null;
+  const local = new Date(value);
+  if (Number.isNaN(local.getTime())) {
+    return null;
+  }
+  if (isEndOfDay) {
+    local.setHours(23, 59, 59, 999);
+  }
+  return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
 }
 
 function generateCSVClient(columns, rows) {
@@ -115,18 +153,61 @@ updatePreviewButtonState();
 // Update loading message
 function updateLoadingMessage(message, step = null) {
   const loadingMessage = document.getElementById('loading-message');
-  const loadingSteps = document.getElementById('loading-steps');
-  
+
   if (loadingMessage) {
     loadingMessage.textContent = message;
   }
-  
-  if (step && loadingSteps) {
-    const stepEl = document.createElement('div');
-    stepEl.className = 'loading-step';
-    stepEl.textContent = step;
-    loadingSteps.appendChild(stepEl);
+
+  if (step) {
+    appendLoadingStep(step);
   }
+}
+
+function clearLoadingSteps() {
+  const loadingSteps = document.getElementById('loading-steps');
+  if (loadingSteps) {
+    loadingSteps.innerHTML = '';
+  }
+}
+
+function appendLoadingStep(step) {
+  const loadingSteps = document.getElementById('loading-steps');
+  if (!loadingSteps) return;
+
+  const stepEl = document.createElement('div');
+  stepEl.className = 'loading-step';
+  stepEl.textContent = step;
+  loadingSteps.appendChild(stepEl);
+
+  const items = loadingSteps.querySelectorAll('.loading-step');
+  if (items.length > LOADING_STEP_LIMIT) {
+    for (let i = 0; i < items.length - LOADING_STEP_LIMIT; i++) {
+      loadingSteps.removeChild(items[i]);
+    }
+  }
+}
+
+function scheduleRender(work) {
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => work(), { timeout: 1000 });
+  } else {
+    setTimeout(work, 0);
+  }
+}
+
+async function readResponseJson(response) {
+  const contentType = response.headers?.get?.('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      return { data: await response.json(), text: null };
+    } catch (error) {
+      const text = await response.text().catch(() => '');
+      return { data: null, text };
+    }
+  }
+
+  const text = await response.text().catch(() => '');
+  return { data: null, text };
 }
 
 // Shared empty-state renderer
@@ -134,9 +215,9 @@ function renderEmptyState(targetElement, title, message, hint) {
   if (!targetElement) return;
   targetElement.innerHTML = `
       <div class="empty-state">
-        <p><strong>${title}</strong></p>
-        <p>${message}</p>
-        ${hint ? `<p><small>${hint}</small></p>` : ''}
+        <p><strong>${escapeHtml(title)}</strong></p>
+        <p>${escapeHtml(message)}</p>
+        ${hint ? `<p><small>${escapeHtml(hint)}</small></p>` : ''}
       </div>
     `;
 }
@@ -163,11 +244,24 @@ previewBtn.addEventListener('click', async () => {
     });
   }
   errorEl.style.display = 'none';
-  previewContent.style.display = 'none';
+
+  const hasExistingPreview = !!previewData && previewContent && previewContent.style.display !== 'none';
+  const statusEl = document.getElementById('preview-status');
+  if (hasExistingPreview && statusEl) {
+    statusEl.innerHTML = `
+      <div class="status-banner info">
+        Refreshing preview... Showing the last successful results while new data loads.
+      </div>
+    `;
+    statusEl.style.display = 'block';
+  }
+
+  if (!hasExistingPreview) {
+    previewContent.style.display = 'none';
+  }
 
   // Clear previous steps
-  const loadingSteps = document.getElementById('loading-steps');
-  if (loadingSteps) loadingSteps.innerHTML = '';
+  clearLoadingSteps();
 
   updateLoadingMessage('Preparing request...', 'Collecting filter parameters');
 
@@ -179,7 +273,7 @@ previewBtn.addEventListener('click', async () => {
     loadingEl.style.display = 'none';
     errorEl.style.display = 'block';
     errorEl.innerHTML = `
-      <strong>Error:</strong> ${error.message}
+      <strong>Error:</strong> ${escapeHtml(error.message)}
       <br><small>Please fix the filters above and try again.</small>
     `;
     // Re-enable preview and restore export buttons to their previous state
@@ -224,10 +318,11 @@ previewBtn.addEventListener('click', async () => {
     
     updateLoadingMessage('Processing response...', 'Received data from server');
   
+    const { data: responseJson, text: responseText } = await readResponseJson(response);
+
     if (!response.ok) {
-      const error = await response.json();
-      const errorMsg = error.message || error.error || 'Failed to fetch preview';
-      const errorCode = error.code || 'UNKNOWN_ERROR';
+      const errorMsg = responseJson?.message || responseJson?.error || responseText || 'Failed to fetch preview';
+      const errorCode = responseJson?.code || 'UNKNOWN_ERROR';
       
       // Format error message with actionable guidance
       let displayMessage = errorMsg;
@@ -253,8 +348,12 @@ previewBtn.addEventListener('click', async () => {
     }
 
     updateLoadingMessage('Rendering preview...', 'Processing preview data');
-    
-    previewData = await response.json();
+
+    if (!responseJson) {
+      throw new Error('Preview response was not valid JSON. Please check server logs and try again.');
+    }
+
+    previewData = responseJson;
     previewRows = previewData.rows || [];
     visibleRows = [...previewRows];
     previewHasRows = previewRows.length > 0;
@@ -283,9 +382,23 @@ previewBtn.addEventListener('click', async () => {
     }
 
     errorEl.innerHTML = `
-      <strong>Error:</strong> ${errorMsg}
+      <strong>Error:</strong> ${escapeHtml(errorMsg)}
       <br><small>If this problem persists, please check your Jira connection and try again.</small>
     `;
+    if (statusEl) {
+      if (hasExistingPreview) {
+        statusEl.innerHTML = `
+          <div class="status-banner warn">
+            Refresh failed. Showing the last successful preview. Please retry when ready.
+          </div>
+        `;
+        statusEl.style.display = 'block';
+        previewContent.style.display = 'block';
+      } else {
+        statusEl.innerHTML = '';
+        statusEl.style.display = 'none';
+      }
+    }
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -322,21 +435,29 @@ function collectFilterParams() {
   // Fix: datetime-local values are in local time, need to convert properly
   let startISO, endISO;
   if (startDate) {
-    // datetime-local format: YYYY-MM-DDTHH:mm
-    // Create date in local timezone, then convert to UTC
-    const localStart = new Date(startDate);
-    startISO = new Date(localStart.getTime() - localStart.getTimezoneOffset() * 60000).toISOString();
+    startISO = toUtcIsoFromLocalInput(startDate);
+    if (!startISO) {
+      throw new Error('Invalid start date. Please provide a valid start date and time.');
+    }
   } else {
-    startISO = '2025-04-01T00:00:00.000Z';
+    const startInput = document.getElementById('start-date');
+    if (startInput && !startInput.value) {
+      startInput.value = DEFAULT_WINDOW_START_LOCAL;
+    }
+    startISO = DEFAULT_WINDOW_START;
   }
   
   if (endDate) {
-    const localEnd = new Date(endDate);
-    // Set to end of day (23:59:59.999)
-    localEnd.setHours(23, 59, 59, 999);
-    endISO = new Date(localEnd.getTime() - localEnd.getTimezoneOffset() * 60000).toISOString();
+    endISO = toUtcIsoFromLocalInput(endDate, true);
+    if (!endISO) {
+      throw new Error('Invalid end date. Please provide a valid end date and time.');
+    }
   } else {
-    endISO = '2025-06-30T23:59:59.999Z';
+    const endInput = document.getElementById('end-date');
+    if (endInput && !endInput.value) {
+      endInput.value = DEFAULT_WINDOW_END_LOCAL;
+    }
+    endISO = DEFAULT_WINDOW_END;
   }
 
   const startTime = new Date(startISO).getTime();
@@ -394,6 +515,16 @@ function getSafeMeta(preview) {
   return safe;
 }
 
+function buildCsvFilename(section, meta, qualifier = '') {
+  const projects = (meta?.selectedProjects || []).join('-') || 'Projects';
+  const dateRange = formatDateRangeForFilename(meta?.windowStart || '', meta?.windowEnd || '');
+  const exportDate = new Date().toISOString().split('T')[0];
+  const partialSuffix = meta?.partial ? '_PARTIAL' : '';
+  const cleanedSection = section.replace(/[^a-z0-9-]/gi, '-');
+  const cleanedQualifier = qualifier ? `_${qualifier.replace(/[^a-z0-9-]/gi, '-')}` : '';
+  return `${projects}_${dateRange}_${cleanedSection}${cleanedQualifier}${partialSuffix}_${exportDate}.csv`;
+}
+
 // Render preview
 function renderPreview() {
   if (!previewData) return;
@@ -448,13 +579,14 @@ function renderPreview() {
     ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em> because: ${partialReason || 'time budget exceeded or limits reached.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
     : '';
   
+  const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
   previewMeta.innerHTML = `
     <div class="meta-info">
-      <strong>Projects:</strong> ${meta.selectedProjects.join(', ')}<br>
-      <strong>Date Window (UTC):</strong> ${meta.windowStart} to ${meta.windowEnd}<br>
+      <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
+      <strong>Date Window (UTC):</strong> ${escapeHtml(meta.windowStart)} to ${escapeHtml(meta.windowEnd)}<br>
       <strong>Date Window (Local):</strong> ${startDate.toLocaleString()} to ${endDate.toLocaleString()}<br>
-      <strong>Summary:</strong> Boards: ${boardsCount} • Included sprints: ${sprintsCount} • Done stories: ${rowsCount} • Unusable sprints: ${unusableCount}<br>
-      <strong>Details:</strong> ${detailsLines.join(' • ')}
+      <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
+      <strong>Details:</strong> ${escapeHtml(detailsLines.join(' - '))}
       ${partialNotice}
     </div>
   `;
@@ -499,32 +631,32 @@ function renderPreview() {
   // Update date display
   updateDateDisplay();
 
-  // Render tabs
-  renderProjectEpicLevelTab(previewData.boards, previewData.metrics);
-  renderSprintsTab(previewData.sprintsIncluded, previewData.metrics);
-  renderDoneStoriesTab(visibleRows);
-  renderUnusableSprintsTab(previewData.sprintsUnusable);
-  
-  // Show/hide per-section export buttons based on data availability
-  // Use requestAnimationFrame to ensure DOM updates complete before checking button visibility
-  requestAnimationFrame(() => {
-    const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');
-    if (projectEpicLevelBtn && projectEpicLevelBtn.parentElement) {
-      const hasBoards = previewData.boards && previewData.boards.length > 0;
-      const hasMetrics = previewData.metrics && Object.keys(previewData.metrics).length > 0;
-      projectEpicLevelBtn.style.display = (hasBoards || hasMetrics) ? 'inline-block' : 'none';
-    }
-    
-    const sprintsBtn = document.querySelector('.export-section-btn[data-section="sprints"]');
-    if (sprintsBtn && sprintsBtn.parentElement) {
-      sprintsBtn.style.display = (previewData.sprintsIncluded && previewData.sprintsIncluded.length > 0) ? 'inline-block' : 'none';
-    }
-    
-    const doneStoriesBtn = document.querySelector('.export-section-btn[data-section="done-stories"]');
-    if (doneStoriesBtn && doneStoriesBtn.parentElement) {
-      doneStoriesBtn.style.display = (visibleRows.length > 0 || previewRows.length > 0) ? 'inline-block' : 'none';
-    }
-    
+  // Render tabs after the browser has a chance to paint the meta/summary.
+  scheduleRender(() => {
+    renderProjectEpicLevelTab(previewData.boards, previewData.metrics);
+    renderSprintsTab(previewData.sprintsIncluded, previewData.metrics);
+    renderDoneStoriesTab(visibleRows);
+    renderUnusableSprintsTab(previewData.sprintsUnusable);
+
+    // Show/hide per-section export buttons based on data availability
+    requestAnimationFrame(() => {
+      const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');
+      if (projectEpicLevelBtn && projectEpicLevelBtn.parentElement) {
+        const hasBoards = previewData.boards && previewData.boards.length > 0;
+        const hasMetrics = previewData.metrics && Object.keys(previewData.metrics).length > 0;
+        projectEpicLevelBtn.style.display = (hasBoards || hasMetrics) ? 'inline-block' : 'none';
+      }
+
+      const sprintsBtn = document.querySelector('.export-section-btn[data-section="sprints"]');
+      if (sprintsBtn && sprintsBtn.parentElement) {
+        sprintsBtn.style.display = (previewData.sprintsIncluded && previewData.sprintsIncluded.length > 0) ? 'inline-block' : 'none';
+      }
+
+      const doneStoriesBtn = document.querySelector('.export-section-btn[data-section="done-stories"]');
+      if (doneStoriesBtn && doneStoriesBtn.parentElement) {
+        doneStoriesBtn.style.display = (visibleRows.length > 0 || previewRows.length > 0) ? 'inline-block' : 'none';
+      }
+    });
   });
 }
 
@@ -532,13 +664,22 @@ function renderPreview() {
 function updateDateDisplay() {
   const startDate = document.getElementById('start-date').value;
   const endDate = document.getElementById('end-date').value;
-  
+
   if (startDate && endDate) {
-    const startISO = new Date(startDate).toISOString();
-    const endISO = new Date(endDate + ':59.999').toISOString();
+    const startISO = toUtcIsoFromLocalInput(startDate);
+    const endISO = toUtcIsoFromLocalInput(endDate, true);
+    if (!startISO || !endISO) {
+      document.getElementById('date-display').innerHTML = `
+        <small>
+          UTC: Invalid date input<br>
+          Local: Invalid date input
+        </small>
+      `;
+      return;
+    }
     const startLocal = new Date(startDate).toLocaleString();
-    const endLocal = new Date(endDate + ':59.999').toLocaleString();
-    
+    const endLocal = new Date(endDate).toLocaleString();
+
     document.getElementById('date-display').innerHTML = `
       <small>
         UTC: ${startISO} to ${endISO}<br>
@@ -554,6 +695,7 @@ document.getElementById('end-date').addEventListener('change', updateDateDisplay
 // Render Project & Epic Level tab (merged Boards + Metrics)
 function renderProjectEpicLevelTab(boards, metrics) {
   const content = document.getElementById('project-epic-level-content');
+  const meta = getSafeMeta(previewData);
   let html = '';
 
   // Section 1: Boards
@@ -565,10 +707,10 @@ function renderProjectEpicLevelTab(boards, metrics) {
     for (const board of boards) {
       html += `
         <tr>
-          <td>${board.id}</td>
-          <td>${board.name}</td>
-          <td>${board.type || ''}</td>
-          <td>${board.projectKeys?.join(', ') || ''}</td>
+          <td>${escapeHtml(board.id)}</td>
+          <td>${escapeHtml(board.name)}</td>
+          <td>${escapeHtml(board.type || '')}</td>
+          <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
         </tr>
       `;
     }
@@ -588,7 +730,7 @@ function renderProjectEpicLevelTab(boards, metrics) {
       html += '<table class="data-table"><thead><tr><th>Project</th><th>Total SP</th><th>Sprint Count</th><th>Average SP/Sprint</th><th>Story Count</th></tr></thead><tbody>';
       for (const projectKey in metrics.throughput.perProject) {
         const data = metrics.throughput.perProject[projectKey];
-        html += `<tr><td>${data.projectKey}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
+        html += `<tr><td>${escapeHtml(data.projectKey)}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
       }
       html += '</tbody></table>';
 
@@ -597,7 +739,7 @@ function renderProjectEpicLevelTab(boards, metrics) {
         html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
         for (const issueType in metrics.throughput.perIssueType) {
           const data = metrics.throughput.perIssueType[issueType];
-          html += `<tr><td>${data.issueType || 'Unknown'}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
+          html += `<tr><td>${escapeHtml(data.issueType || 'Unknown')}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
         }
         html += '</tbody></table>';
       }
@@ -617,13 +759,13 @@ function renderProjectEpicLevelTab(boards, metrics) {
     // Predictability
     if (metrics.predictability) {
       html += '<h3>Predictability</h3>';
-      html += `<p>Mode: ${metrics.predictability.mode}</p>`;
+      html += `<p>Mode: ${escapeHtml(metrics.predictability.mode)}</p>`;
       html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Committed SP</th><th>Delivered Stories</th><th>Delivered SP</th><th>Predictability % (Stories)</th><th>Predictability % (SP)</th></tr></thead><tbody>';
       const predictPerSprint = metrics.predictability.perSprint || {};
       for (const data of Object.values(predictPerSprint)) {
         if (!data) continue;
-        html += `<tr>
-          <td>${data.sprintName}</td>
+      html += `<tr>
+          <td>${escapeHtml(data.sprintName)}</td>
           <td>${data.committedStories}</td>
           <td>${data.committedSP}</td>
           <td>${data.deliveredStories}</td>
@@ -639,16 +781,16 @@ function renderProjectEpicLevelTab(boards, metrics) {
     if (metrics.epicTTM) {
       html += '<h3>Epic Time-To-Market</h3>';
       html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
-      if (previewData?.meta?.epicTTMFallbackCount > 0) {
-        html += `<p class="data-quality-warning"><small>Note: ${previewData.meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
+      if (meta?.epicTTMFallbackCount > 0) {
+        html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
       }
       html += '<table class="data-table"><thead><tr><th>Epic Key</th><th>Story Count</th><th>Start Date</th><th>End Date</th><th>Calendar TTM (days)</th><th>Working TTM (days)</th></tr></thead><tbody>';
       for (const epic of metrics.epicTTM) {
         html += `<tr>
-          <td>${epic.epicKey}</td>
+          <td>${escapeHtml(epic.epicKey)}</td>
           <td>${epic.storyCount}</td>
-          <td>${epic.startDate}</td>
-          <td>${epic.endDate || ''}</td>
+          <td>${escapeHtml(epic.startDate)}</td>
+          <td>${escapeHtml(epic.endDate || '')}</td>
           <td>${epic.calendarTTMdays ?? ''}</td>
           <td>${epic.workingTTMdays ?? ''}</td>
         </tr>`;
@@ -666,10 +808,11 @@ function renderProjectEpicLevelTab(boards, metrics) {
 // Render Sprints tab
 function renderSprintsTab(sprints, metrics) {
   const content = document.getElementById('sprints-content');
-  
+  const meta = getSafeMeta(previewData);
+
   if (!sprints || sprints.length === 0) {
-    const windowInfo = previewData?.meta ? 
-      `${new Date(previewData.meta.windowStart).toLocaleDateString()} to ${new Date(previewData.meta.windowEnd).toLocaleDateString()}` : 
+    const windowInfo = meta ?
+      `${new Date(meta.windowStart).toLocaleDateString()} to ${new Date(meta.windowEnd).toLocaleDateString()}` :
       'selected date range';
     const title = 'No sprints found';
     const message = `No sprints overlap with the selected date window (${windowInfo}).`;
@@ -705,12 +848,12 @@ function renderSprintsTab(sprints, metrics) {
     
     html += `
       <tr>
-        <td>${sprint.projectKeys?.join(', ') || ''}</td>
-        <td>${sprint.boardName || ''}</td>
-        <td>${sprint.name || ''}</td>
-        <td>${sprint.startDate || ''}</td>
-        <td>${sprint.endDate || ''}</td>
-        <td>${sprint.state || ''}</td>
+        <td>${escapeHtml((sprint.projectKeys || []).join(', '))}</td>
+        <td>${escapeHtml(sprint.boardName || '')}</td>
+        <td>${escapeHtml(sprint.name || '')}</td>
+        <td>${escapeHtml(sprint.startDate || '')}</td>
+        <td>${escapeHtml(sprint.endDate || '')}</td>
+        <td>${escapeHtml(sprint.state || '')}</td>
         <td>${sprint.doneStoriesNow || 0}</td>
     `;
     
@@ -740,11 +883,12 @@ function renderSprintsTab(sprints, metrics) {
 function renderDoneStoriesTab(rows) {
   const content = document.getElementById('done-stories-content');
   const totalsBar = document.getElementById('done-stories-totals');
+  const meta = getSafeMeta(previewData);
   
   if (!rows || rows.length === 0) {
     const searchText = document.getElementById('search-box')?.value || '';
     const activeProjects = Array.from(document.querySelectorAll('.pill.active')).map(p => p.dataset.project);
-    const requireResolved = !!previewData?.meta?.requireResolvedBySprintEnd;
+    const requireResolved = !!meta?.requireResolvedBySprintEnd;
     const totalPreviewRows = (previewData?.rows || []).length;
 
     let title = 'No done stories found';
@@ -754,7 +898,7 @@ function renderDoneStoriesTab(rows) {
     if (requireResolved && totalPreviewRows > 0) {
       message = 'No stories passed the "Require resolved by sprint end" filter.';
       hint = 'Try turning off this option to see all Done stories, or inspect sprint end dates and resolution dates in Jira.';
-    } else if (searchText || activeProjects.length < previewData?.meta?.selectedProjects?.length) {
+    } else if (searchText || (meta?.selectedProjects && activeProjects.length < meta.selectedProjects.length)) {
       message = 'No stories match your current filters.';
       hint = 'Try adjusting your search text or project filters, or check if stories are marked as "Done" in the selected sprints.';
     } else {
@@ -764,6 +908,11 @@ function renderDoneStoriesTab(rows) {
 
     renderEmptyState(content, title, message, hint);
     totalsBar.innerHTML = '';
+    const projectPills = document.getElementById('project-pills');
+    if (projectPills) {
+      projectPills.innerHTML = '';
+    }
+    exportFilteredBtn.disabled = true;
     return;
   }
 
@@ -802,8 +951,8 @@ function renderDoneStoriesTab(rows) {
       <div class="sprint-group">
         <button class="sprint-header" onclick="toggleSprint('${sprintKey}')">
           <span class="toggle-icon">▼</span>
-          <strong>${group.sprint.name}</strong>
-          <span class="sprint-meta">${group.sprint.startDate} to ${group.sprint.endDate}</span>
+          <strong>${escapeHtml(group.sprint.name)}</strong>
+          <span class="sprint-meta">${escapeHtml(group.sprint.startDate)} to ${escapeHtml(group.sprint.endDate)}</span>
           <span class="story-count">${group.rows.length} stories</span>
         </button>
         <div class="sprint-content" id="${sprintKey}" style="display: none;">
@@ -817,8 +966,8 @@ function renderDoneStoriesTab(rows) {
                 <th>Assignee</th>
                 <th>Created</th>
                 <th>Resolved</th>
-                ${previewData?.meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
-                ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
+                ${meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
+                ${meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -831,7 +980,7 @@ function renderDoneStoriesTab(rows) {
       // Handle Epic Summary truncation (100 chars with tooltip)
       let epicSummaryDisplay = '';
       let epicSummaryTitle = '';
-      if (previewData?.meta?.discoveredFields?.epicLinkFieldId && row.epicSummary && typeof row.epicSummary === 'string' && row.epicSummary.length > 0) {
+      if (meta?.discoveredFields?.epicLinkFieldId && row.epicSummary && typeof row.epicSummary === 'string' && row.epicSummary.length > 0) {
         if (row.epicSummary.length > 100) {
           epicSummaryDisplay = row.epicSummary.substring(0, 100) + '...';
           epicSummaryTitle = row.epicSummary;
@@ -842,18 +991,18 @@ function renderDoneStoriesTab(rows) {
       
       html += `
         <tr>
-          <td>${row.issueKey}</td>
-          <td>${row.issueSummary}</td>
-          <td>${row.issueStatus}</td>
-          <td>${row.issueType || '<em>Unknown</em>'}</td>
-          <td>${row.assigneeDisplayName}</td>
-          <td>${row.created}</td>
-          <td>${row.resolutionDate || ''}</td>
-          ${previewData?.meta?.discoveredFields?.storyPointsFieldId ? `<td>${row.storyPoints || ''}</td>` : ''}
-          ${previewData?.meta?.discoveredFields?.epicLinkFieldId ? `
-            <td>${row.epicKey || ''}</td>
-            <td>${row.epicTitle || ''}</td>
-            <td${epicSummaryTitle ? ` title="${epicSummaryTitle.replace(/"/g, '&quot;')}"` : ''}>${epicSummaryDisplay || ''}</td>
+          <td>${escapeHtml(row.issueKey)}</td>
+          <td>${escapeHtml(row.issueSummary)}</td>
+          <td>${escapeHtml(row.issueStatus)}</td>
+          <td>${row.issueType ? escapeHtml(row.issueType) : '<em>Unknown</em>'}</td>
+          <td>${escapeHtml(row.assigneeDisplayName)}</td>
+          <td>${escapeHtml(row.created)}</td>
+          <td>${escapeHtml(row.resolutionDate || '')}</td>
+          ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${escapeHtml(row.storyPoints || '')}</td>` : ''}
+          ${meta?.discoveredFields?.epicLinkFieldId ? `
+            <td>${escapeHtml(row.epicKey || '')}</td>
+            <td>${escapeHtml(row.epicTitle || '')}</td>
+            <td${epicSummaryTitle ? ` title="${escapeHtml(epicSummaryTitle)}"` : ''}>${escapeHtml(epicSummaryDisplay || '')}</td>
           ` : ''}
         </tr>
       `;
@@ -873,7 +1022,7 @@ function renderDoneStoriesTab(rows) {
   // Render totals
   const uniqueSprints = new Set(rows.map(r => r.sprintId)).size;
   let totalSP = 0;
-  if (previewData?.meta?.discoveredFields?.storyPointsFieldId) {
+  if (meta?.discoveredFields?.storyPointsFieldId) {
     totalSP = rows.reduce((sum, r) => sum + (parseFloat(r.storyPoints) || 0), 0);
   }
 
@@ -881,7 +1030,7 @@ function renderDoneStoriesTab(rows) {
     <div class="totals">
       <strong>Total Rows:</strong> ${rows.length} | 
       <strong>Unique Sprints:</strong> ${uniqueSprints}
-      ${previewData?.meta?.discoveredFields?.storyPointsFieldId ? ` | <strong>Total SP:</strong> ${totalSP}` : ''}
+      ${meta?.discoveredFields?.storyPointsFieldId ? ` | <strong>Total SP:</strong> ${totalSP}` : ''}
     </div>
   `;
 
@@ -889,7 +1038,7 @@ function renderDoneStoriesTab(rows) {
   const projectPills = document.getElementById('project-pills');
   const projects = [...new Set(rows.map(r => r.projectKey))];
   projectPills.innerHTML = projects.map(p => 
-    `<span class="pill active" data-project="${p}">${p}</span>`
+    `<span class="pill active" data-project="${escapeHtml(p)}">${escapeHtml(p)}</span>`
   ).join('');
 
   // Add pill click handlers
@@ -921,14 +1070,17 @@ const searchBox = document.getElementById('search-box');
 searchBox.addEventListener('input', applyFilters);
 
 function applyFilters() {
-  const searchText = searchBox.value.toLowerCase();
+  const searchText = (searchBox.value || '').toLowerCase();
   const activeProjects = Array.from(document.querySelectorAll('.pill.active')).map(p => p.dataset.project);
+  const meta = getSafeMeta(previewData);
 
   visibleRows = previewRows.filter(row => {
     // Search filter
     if (searchText) {
-      const matchesKey = row.issueKey.toLowerCase().includes(searchText);
-      const matchesSummary = row.issueSummary.toLowerCase().includes(searchText);
+      const issueKey = (row.issueKey || '').toLowerCase();
+      const issueSummary = (row.issueSummary || '').toLowerCase();
+      const matchesKey = issueKey.includes(searchText);
+      const matchesSummary = issueSummary.includes(searchText);
       if (!matchesKey && !matchesSummary) return false;
     }
 
@@ -941,6 +1093,22 @@ function applyFilters() {
   });
 
   renderDoneStoriesTab(visibleRows);
+
+  exportFilteredBtn.disabled = visibleRows.length === 0;
+  const exportHint = document.getElementById('export-hint');
+  if (exportHint) {
+    if (previewRows.length > 0 && visibleRows.length === 0) {
+      exportHint.innerHTML = `
+        <small>No rows match the current filters. Adjust search or project filters to enable filtered export.</small>
+      `;
+    } else if (meta?.partial) {
+      exportHint.innerHTML = `
+        <small>Note: Preview is partial; CSV exports will only contain currently loaded data.</small>
+      `;
+    } else if (previewRows.length > 0) {
+      exportHint.innerHTML = '';
+    }
+  }
 }
 
 // Export functions
@@ -961,10 +1129,18 @@ function validateCSVColumns(columns, rows) {
 }
 
 async function exportCSV(rows, type) {
+  if (!previewData) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> No preview data available.
+      <br><small>Run a preview first, then try exporting.</small>
+    `;
+    return;
+  }
   if (rows.length === 0) {
     errorEl.style.display = 'block';
     errorEl.innerHTML = `
-      <strong>Export error:</strong> No data to export for the current ${type === 'filtered' ? 'filtered view' : 'preview'}.
+      <strong>Export error:</strong> No data to export for the current ${escapeHtml(type === 'filtered' ? 'filtered view' : 'preview')}.
       <br><small>Adjust your filters or run a new preview that returns at least one row, then try exporting again.</small>
     `;
     return;
@@ -976,11 +1152,14 @@ async function exportCSV(rows, type) {
   } catch (error) {
     errorEl.style.display = 'block';
     errorEl.innerHTML = `
-      <strong>Export error:</strong> ${error.message}
+      <strong>Export error:</strong> ${escapeHtml(error.message)}
       <br><small>CSV export validation failed. Please refresh the page and try again.</small>
     `;
     return;
   }
+
+  const meta = getSafeMeta(previewData);
+  const filename = buildCsvFilename('jira-report', meta, type);
 
   // Bonus Edge Case 2: Handle very large CSV exports (>10MB) gracefully
   const estimatedSize = JSON.stringify(rows).length; // Rough estimate
@@ -989,7 +1168,7 @@ async function exportCSV(rows, type) {
   if (rows.length <= 5000 && estimatedSize < maxClientSize) {
     // Client-side generation for smaller datasets
     const csv = generateCSVClient(CSV_COLUMNS, rows);
-    downloadCSV(csv, `jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv`);
+    downloadCSV(csv, filename);
   } else {
     // Server-side streaming for large datasets
     try {
@@ -1018,7 +1197,7 @@ async function exportCSV(rows, type) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = filename;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -1031,7 +1210,7 @@ async function exportCSV(rows, type) {
       const successMsg = document.createElement('div');
       successMsg.className = 'export-success';
       successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-      successMsg.textContent = `✓ CSV exported: jira-report-${type}-${new Date().toISOString().split('T')[0]}.csv (${(blob.size / 1024).toFixed(0)}KB)`;
+      successMsg.textContent = `✓ CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
       document.body.appendChild(successMsg);
       setTimeout(() => {
         if (successMsg.parentNode) {
@@ -1041,7 +1220,7 @@ async function exportCSV(rows, type) {
     } catch (error) {
       errorEl.style.display = 'block';
       errorEl.innerHTML = `
-        <strong>Export error:</strong> ${error.message}
+        <strong>Export error:</strong> ${escapeHtml(error.message)}
         <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
         <br><small>For very large datasets, try filtering the data or using a smaller date range.</small>
       `;
@@ -1087,7 +1266,7 @@ function downloadCSV(csv, filename) {
     errorEl.innerHTML = `
       <strong>Export error:</strong> Unable to download CSV file.
       <br><small>Your browser may be blocking downloads. Please check your browser settings or try clicking the export button again.</small>
-      <br><small>Error: ${error.message}</small>
+      <br><small>Error: ${escapeHtml(error.message)}</small>
     `;
   }
 }
@@ -1550,13 +1729,14 @@ function formatDateRangeForFilename(startDate, endDate) {
     const endYear = end.getFullYear();
     
     if (startYear === endYear) {
-      if (startMonth >= 1 && startMonth <= 3 && endMonth >= 1 && endMonth <= 3) {
+      // Vodacom quarters: Q1 Apr-Jun, Q2 Jul-Sep, Q3 Oct-Dec, Q4 Jan-Mar
+      if (startMonth >= 4 && startMonth <= 6 && endMonth >= 4 && endMonth <= 6) {
         return `Q1-${startYear}`;
-      } else if (startMonth >= 4 && startMonth <= 6 && endMonth >= 4 && endMonth <= 6) {
-        return `Q2-${startYear}`;
       } else if (startMonth >= 7 && startMonth <= 9 && endMonth >= 7 && endMonth <= 9) {
-        return `Q3-${startYear}`;
+        return `Q2-${startYear}`;
       } else if (startMonth >= 10 && startMonth <= 12 && endMonth >= 10 && endMonth <= 12) {
+        return `Q3-${startYear}`;
+      } else if (startMonth >= 1 && startMonth <= 3 && endMonth >= 1 && endMonth <= 3) {
         return `Q4-${startYear}`;
       }
     }
@@ -1624,6 +1804,8 @@ async function exportSectionCSV(sectionName, data, button = null) {
   // Store original button state
   const originalButtonText = button ? button.textContent : '';
   const originalButtonDisabled = button ? button.disabled : false;
+  const meta = getSafeMeta(previewData);
+  const filename = buildCsvFilename(sectionName, meta);
   
   // Set loading state
   if (button) {
@@ -1632,10 +1814,19 @@ async function exportSectionCSV(sectionName, data, button = null) {
   }
   
   try {
+    if (!previewData) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> No preview data available.
+        <br><small>Run a preview first, then try exporting.</small>
+      `;
+      return;
+    }
+
     if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0)) {
       errorEl.style.display = 'block';
       errorEl.innerHTML = `
-        <strong>Export error:</strong> No data to export for ${sectionName} section.
+        <strong>Export error:</strong> No data to export for ${escapeHtml(sectionName)} section.
         <br><small>This section has no data to export.</small>
       `;
       return;
@@ -1769,7 +1960,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
     default:
       errorEl.style.display = 'block';
       errorEl.innerHTML = `
-        <strong>Export error:</strong> Unknown section: ${sectionName}
+        <strong>Export error:</strong> Unknown section: ${escapeHtml(sectionName)}
       `;
       return;
     }
@@ -1777,13 +1968,13 @@ async function exportSectionCSV(sectionName, data, button = null) {
     if (rows.length === 0) {
       errorEl.style.display = 'block';
       let errorMessage = `No data to export for ${sectionName} section.`;
-      if (sectionName === 'done-stories' && previewData?.meta?.discoveredFields?.epicLinkFieldId) {
+      if (sectionName === 'done-stories' && meta?.discoveredFields?.epicLinkFieldId) {
         errorMessage += ' Note: Epic Title and Summary columns will be empty if Epic Link field exists but Epic issues are unavailable or stories are not linked to Epics.';
-      } else if (sectionName === 'done-stories' && !previewData?.meta?.discoveredFields?.epicLinkFieldId) {
+      } else if (sectionName === 'done-stories' && !meta?.discoveredFields?.epicLinkFieldId) {
         errorMessage += ' Note: Epic data (Epic Key, Title, Summary) is only available when Epic Link field is discovered in your Jira instance.';
       }
       errorEl.innerHTML = `
-        <strong>Export error:</strong> ${errorMessage}
+        <strong>Export error:</strong> ${escapeHtml(errorMessage)}
       `;
       return;
     }
@@ -1796,8 +1987,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
     if (rows.length <= 5000 && estimatedSize < maxClientSize) {
       // Client-side generation for smaller datasets
       csv = generateCSVClient(columns, rows);
-      const dateStr = new Date().toISOString().split('T')[0];
-      downloadCSV(csv, `${sectionName}-${dateStr}.csv`);
+      downloadCSV(csv, filename);
     } else {
       // Server-side streaming for large datasets (>5000 rows or >10MB)
       try {
@@ -1831,8 +2021,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const dateStr = new Date().toISOString().split('T')[0];
-        a.download = `${sectionName}-${dateStr}.csv`;
+        a.download = filename;
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
@@ -1845,7 +2034,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
         const successMsg = document.createElement('div');
         successMsg.className = 'export-success';
         successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-        successMsg.textContent = `✓ CSV exported: ${sectionName}-${dateStr}.csv (${(blob.size / 1024).toFixed(0)}KB)`;
+        successMsg.textContent = `✓ CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
         document.body.appendChild(successMsg);
         setTimeout(() => {
           if (successMsg.parentNode) {
@@ -1889,9 +2078,6 @@ document.addEventListener('click', (e) => {
       case 'done-stories':
         data = visibleRows.length > 0 ? visibleRows : previewRows;
         break;
-      case 'project-epic-level':
-        data = previewData?.boards || [];
-        break;
     }
     
     exportSectionCSV(section, data, button);
@@ -1901,39 +2087,42 @@ document.addEventListener('click', (e) => {
 // Render Metrics tab
 function renderMetricsTab(metrics) {
   const content = document.getElementById('metrics-content');
+  const meta = getSafeMeta(previewData);
+  const safeMetrics = metrics || {};
   let html = '';
+  let hasMetrics = false;
+  const hintHtml = '<p class="metrics-hint"><small>Metrics sections depend on options in the filters panel (e.g. Story Points for Throughput, Bugs for Rework, Epic TTM for Epic Time-To-Market).</small></p>';
 
-  // Brief hint linking metrics to filter options
-  html += '<p class="metrics-hint"><small>Metrics sections depend on options in the filters panel (e.g. Story Points for Throughput, Bugs for Rework, Epic TTM for Epic Time-To-Market).</small></p>';
-
-  if (metrics.throughput) {
+  if (safeMetrics.throughput) {
+    hasMetrics = true;
     html += '<h3>Throughput</h3>';
     html += '<p class="metrics-hint"><small>Note: Per Sprint data is shown in the Sprints tab. Below are aggregated views.</small></p>';
     html += '<h4>Per Project</h4>';
     html += '<table class="data-table"><thead><tr><th>Project</th><th>Total SP</th><th>Sprint Count</th><th>Average SP/Sprint</th><th>Story Count</th></tr></thead><tbody>';
-    for (const projectKey in metrics.throughput.perProject) {
-      const data = metrics.throughput.perProject[projectKey];
-      html += `<tr><td>${data.projectKey}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
+    for (const projectKey in safeMetrics.throughput.perProject) {
+      const data = safeMetrics.throughput.perProject[projectKey];
+      html += `<tr><td>${escapeHtml(data.projectKey)}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
     }
     html += '</tbody></table>';
 
-    if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
+    if (safeMetrics.throughput.perIssueType && Object.keys(safeMetrics.throughput.perIssueType).length > 0) {
       html += '<h4>Per Issue Type</h4>';
       html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
-      for (const issueType in metrics.throughput.perIssueType) {
-        const data = metrics.throughput.perIssueType[issueType];
-        html += `<tr><td>${data.issueType || 'Unknown'}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
+      for (const issueType in safeMetrics.throughput.perIssueType) {
+        const data = safeMetrics.throughput.perIssueType[issueType];
+        html += `<tr><td>${escapeHtml(data.issueType || 'Unknown')}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
       }
       html += '</tbody></table>';
-    } else if (metrics.throughput && previewData?.meta?.discoveredFields?.storyPointsFieldId) {
+    } else if (safeMetrics.throughput && meta?.discoveredFields?.storyPointsFieldId) {
       html += '<h4>Per Issue Type</h4>';
       html += '<p><em>No issue type breakdown available. Enable "Include Bugs for Rework" to see Bug vs Story breakdown.</em></p>';
     }
   }
 
-  if (metrics.rework) {
+  if (safeMetrics.rework) {
+    hasMetrics = true;
     html += '<h3>Rework Ratio</h3>';
-    const r = metrics.rework;
+    const r = safeMetrics.rework;
     if (r.spAvailable) {
       html += `<p>Rework: ${r.reworkRatio.toFixed(2)}% (Bug SP: ${r.bugSP}, Story SP: ${r.storySP})</p>`;
     } else {
@@ -1941,15 +2130,16 @@ function renderMetricsTab(metrics) {
     }
   }
 
-  if (metrics.predictability) {
+  if (safeMetrics.predictability) {
+    hasMetrics = true;
     html += '<h3>Predictability</h3>';
-    html += `<p>Mode: ${metrics.predictability.mode}</p>`;
+    html += `<p>Mode: ${safeMetrics.predictability.mode}</p>`;
     html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Committed SP</th><th>Delivered Stories</th><th>Delivered SP</th><th>Predictability % (Stories)</th><th>Predictability % (SP)</th></tr></thead><tbody>';
-    const predictPerSprint = metrics.predictability.perSprint || {};
+    const predictPerSprint = safeMetrics.predictability.perSprint || {};
     for (const data of Object.values(predictPerSprint)) {
       if (!data) continue;
       html += `<tr>
-        <td>${data.sprintName}</td>
+        <td>${escapeHtml(data.sprintName)}</td>
         <td>${data.committedStories}</td>
         <td>${data.committedSP}</td>
         <td>${data.deliveredStories}</td>
@@ -1961,19 +2151,20 @@ function renderMetricsTab(metrics) {
     html += '</tbody></table>';
   }
 
-  if (metrics.epicTTM) {
+  if (safeMetrics.epicTTM) {
+    hasMetrics = true;
     html += '<h3>Epic Time-To-Market</h3>';
     html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
-    if (previewData?.meta?.epicTTMFallbackCount > 0) {
-      html += `<p class="data-quality-warning"><small>Note: ${previewData.meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
+    if (meta?.epicTTMFallbackCount > 0) {
+      html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
     }
     html += '<table class="data-table"><thead><tr><th>Epic Key</th><th>Story Count</th><th>Start Date</th><th>End Date</th><th>Calendar TTM (days)</th><th>Working TTM (days)</th></tr></thead><tbody>';
-    for (const epic of metrics.epicTTM) {
+    for (const epic of safeMetrics.epicTTM) {
       html += `<tr>
-        <td>${epic.epicKey}</td>
+        <td>${escapeHtml(epic.epicKey)}</td>
         <td>${epic.storyCount}</td>
-        <td>${epic.startDate}</td>
-        <td>${epic.endDate || ''}</td>
+        <td>${escapeHtml(epic.startDate)}</td>
+        <td>${escapeHtml(epic.endDate || '')}</td>
         <td>${epic.calendarTTMdays ?? ''}</td>
         <td>${epic.workingTTMdays ?? ''}</td>
       </tr>`;
@@ -1981,7 +2172,7 @@ function renderMetricsTab(metrics) {
     html += '</tbody></table>';
   }
 
-  if (!html) {
+  if (!hasMetrics) {
     renderEmptyState(
       content,
       'No metrics available',
@@ -1989,7 +2180,7 @@ function renderMetricsTab(metrics) {
       'Enable options like "Include Story Points", "Include Predictability", "Include Epic TTM", or "Include Bugs for Rework" to see metrics.'
     );
   } else {
-    content.innerHTML = html;
+    content.innerHTML = hintHtml + html;
   }
 }
 
@@ -2012,9 +2203,9 @@ function renderUnusableSprintsTab(unusable) {
   for (const sprint of unusable) {
     html += `
       <tr>
-        <td>${sprint.boardName || ''}</td>
-        <td>${sprint.name || ''}</td>
-        <td>${sprint.reason || ''}</td>
+        <td>${escapeHtml(sprint.boardName || '')}</td>
+        <td>${escapeHtml(sprint.name || '')}</td>
+        <td>${escapeHtml(sprint.reason || '')}</td>
       </tr>
     `;
   }
@@ -2022,3 +2213,6 @@ function renderUnusableSprintsTab(unusable) {
   html += '</tbody></table>';
   content.innerHTML = html;
 }
+
+
+

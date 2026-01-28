@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-04-01T00:00:00.000Z&end=2025-06-30T23:59:59.999Z';
+const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 
 // Helper: Wait for preview to complete
 async function waitForPreview(page) {
@@ -41,8 +41,8 @@ async function validateMetricsTabVisible(page) {
 async function runDefaultPreview(page, overrides = {}) {
   const {
     projects = ['MPSA', 'MAS'],
-    start = '2025-04-01T00:00',
-    end = '2025-06-30T23:59',
+    start = '2025-07-01T00:00',
+    end = '2025-09-30T23:59',
     // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
     // No need to pass these parameters - they're always included in reports
   } = overrides;
@@ -78,6 +78,27 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
     await expect(page.locator('h1')).toContainText('Jira Sprint Report');
+  });
+
+  test('refreshing preview keeps previous results visible while loading', async ({ page }) => {
+    test.setTimeout(120000);
+
+    await runDefaultPreview(page);
+    await expect(page.locator('#preview-content')).toBeVisible({ timeout: 10000 });
+
+    await page.route('**/preview.json*', async route => {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await route.continue();
+    });
+
+    await page.click('#preview-btn');
+
+    const statusBanner = page.locator('#preview-status .status-banner.info');
+    await expect(statusBanner).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#preview-content')).toBeVisible({ timeout: 5000 });
+
+    await page.unroute('**/preview.json*').catch(() => {});
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 120000 }).catch(() => {});
   });
 
   test('should display Unknown for empty issueType in Done Stories table', async ({ page, request }) => {
