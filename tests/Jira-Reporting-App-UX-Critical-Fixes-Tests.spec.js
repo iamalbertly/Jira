@@ -147,18 +147,35 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       console.log('[TEST] ✓ Total SP and Story Count columns found in Sprints tab');
     }
 
+    // Boards table should include time-normalized delivery columns
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    const boardsContent = page.locator('#project-epic-level-content');
+    const boardsText = await boardsContent.textContent();
+    if (boardsText) {
+      expect(boardsText).toContain('Total Sprint Days');
+      expect(boardsText).toContain('SP per Sprint Day');
+      expect(boardsText).toContain('Done by Sprint End %');
+      expect(boardsText).toContain('Total Non Epics');
+      console.log('[TEST] ✓ Boards table includes time-normalized delivery columns');
+    }
+
+    // Return to Sprints tab for remaining checks
+    await page.click('.tab-btn[data-tab="sprints"]');
+    await expect(page.locator('#tab-sprints')).toHaveClass(/active/);
+
     // If time tracking columns appear, ensure the full set is present
     if (contentText && contentText.includes('Est Hrs')) {
       expect(contentText).toContain('Spent Hrs');
       expect(contentText).toContain('Remaining Hrs');
       expect(contentText).toContain('Variance Hrs');
       console.log('[TEST] ✓ Time tracking columns found in Sprints tab');
+    }
+
     if (contentText && contentText.includes('Subtask Est Hrs')) {
       expect(contentText).toContain('Subtask Spent Hrs');
       expect(contentText).toContain('Subtask Remaining Hrs');
       expect(contentText).toContain('Subtask Variance Hrs');
       console.log('[TEST] ✓ Subtask time tracking columns found in Sprints tab');
-    }
     }
     
     // Check Metrics tab - Per Sprint section should NOT exist
@@ -663,6 +680,8 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         const { readFileSync } = await import('fs');
         const content1 = readFileSync(path1, 'utf-8');
         expect(content1).toContain('id,name,type');
+        expect(content1).toContain('totalSprintDays');
+        expect(content1).toContain('doneBySprintEndPercent');
         console.log('[TEST] ✓ Boards CSV export works');
       }
     }

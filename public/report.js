@@ -751,11 +751,25 @@ function calculateSprintDays(startDate, endDate) {
 
 function calculateVariance(values) {
   if (!Array.isArray(values) || values.length === 0) {
-    return 0;
+    return null;
   }
   const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
   const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
   return variance;
+}
+
+function formatNumber(value, decimals = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 'N/A';
+  }
+  return Number(value).toFixed(decimals);
+}
+
+function formatPercent(value, decimals = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 'N/A';
+  }
+  return `${Number(value).toFixed(decimals)}%`;
 }
 
 function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
@@ -909,26 +923,26 @@ function renderProjectEpicLevelTab(boards, metrics) {
       const totalSprintDays = summary.totalSprintDays || 0;
       const avgSprintLength = summary.validSprintDaysCount > 0
         ? totalSprintDays / summary.validSprintDaysCount
-        : 0;
+        : null;
       const storiesPerSprint = summary.sprintCount > 0
         ? summary.doneStories / summary.sprintCount
-        : 0;
+        : null;
       const spPerStory = summary.doneStories > 0
         ? summary.doneSP / summary.doneStories
-        : 0;
+        : null;
       const storiesPerSprintDay = totalSprintDays > 0
         ? summary.doneStories / totalSprintDays
-        : 0;
+        : null;
       const spPerSprintDay = totalSprintDays > 0
         ? summary.doneSP / totalSprintDays
-        : 0;
+        : null;
       const avgSpPerSprint = summary.sprintCount > 0
         ? summary.doneSP / summary.sprintCount
-        : 0;
+        : null;
       const spVariance = calculateVariance(summary.sprintSpValues);
       const doneBySprintEndPct = summary.doneStories > 0
         ? (summary.doneBySprintEnd / summary.doneStories) * 100
-        : 0;
+        : null;
       html += `
         <tr>
           <td>${escapeHtml(board.id)}</td>
@@ -937,16 +951,16 @@ function renderProjectEpicLevelTab(boards, metrics) {
           <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
           <td>${summary.sprintCount}</td>
           <td>${totalSprintDays}</td>
-          <td>${avgSprintLength.toFixed(2)}</td>
+          <td>${formatNumber(avgSprintLength)}</td>
           <td>${summary.doneStories}</td>
           <td>${summary.doneSP}</td>
-          <td>${storiesPerSprint.toFixed(2)}</td>
-          <td>${spPerStory.toFixed(2)}</td>
-          <td>${storiesPerSprintDay.toFixed(2)}</td>
-          <td>${spPerSprintDay.toFixed(2)}</td>
-          <td>${avgSpPerSprint.toFixed(2)}</td>
-          <td>${spVariance.toFixed(2)}</td>
-          <td>${doneBySprintEndPct.toFixed(2)}%</td>
+          <td>${formatNumber(storiesPerSprint)}</td>
+          <td>${formatNumber(spPerStory)}</td>
+          <td>${formatNumber(storiesPerSprintDay)}</td>
+          <td>${formatNumber(spPerSprintDay)}</td>
+          <td>${formatNumber(avgSpPerSprint)}</td>
+          <td>${formatNumber(spVariance)}</td>
+          <td>${formatPercent(doneBySprintEndPct)}</td>
           <td>${summary.epicStories}</td>
           <td>${summary.nonEpicStories}</td>
           <td>${escapeHtml(sprintWindow)}</td>
@@ -1970,26 +1984,26 @@ function prepareBoardsSheetData(boards, sprintsIncluded, rows, meta) {
     const totalSprintDays = summary.totalSprintDays || 0;
     const avgSprintLength = summary.validSprintDaysCount > 0
       ? totalSprintDays / summary.validSprintDaysCount
-      : 0;
+      : null;
     const storiesPerSprint = summary.sprintCount > 0
       ? summary.doneStories / summary.sprintCount
-      : 0;
+      : null;
     const spPerStory = summary.doneStories > 0
       ? summary.doneSP / summary.doneStories
-      : 0;
+      : null;
     const storiesPerSprintDay = totalSprintDays > 0
       ? summary.doneStories / totalSprintDays
-      : 0;
+      : null;
     const spPerSprintDay = totalSprintDays > 0
       ? summary.doneSP / totalSprintDays
-      : 0;
+      : null;
     const avgSpPerSprint = summary.sprintCount > 0
       ? summary.doneSP / summary.sprintCount
-      : 0;
+      : null;
     const spVariance = calculateVariance(summary.sprintSpValues);
     const doneBySprintEndPct = summary.doneStories > 0
       ? (summary.doneBySprintEnd / summary.doneStories) * 100
-      : 0;
+      : null;
 
     return {
       'Board ID': board.id,
@@ -1998,16 +2012,16 @@ function prepareBoardsSheetData(boards, sprintsIncluded, rows, meta) {
       'Projects': (board.projectKeys || []).join(', '),
       'Included Sprints': summary.sprintCount,
       'Total Sprint Days': totalSprintDays,
-      'Avg Sprint Length (Days)': avgSprintLength.toFixed(2),
+      'Avg Sprint Length (Days)': formatNumber(avgSprintLength),
       'Done Stories': summary.doneStories,
       'Done SP': summary.doneSP,
-      'Stories per Sprint': storiesPerSprint.toFixed(2),
-      'SP per Story': spPerStory.toFixed(2),
-      'Stories per Sprint Day': storiesPerSprintDay.toFixed(2),
-      'SP per Sprint Day': spPerSprintDay.toFixed(2),
-      'Avg SP per Sprint': avgSpPerSprint.toFixed(2),
-      'SP Variance per Sprint': spVariance.toFixed(2),
-      'Done by Sprint End %': doneBySprintEndPct.toFixed(2),
+      'Stories per Sprint': formatNumber(storiesPerSprint),
+      'SP per Story': formatNumber(spPerStory),
+      'Stories per Sprint Day': formatNumber(storiesPerSprintDay),
+      'SP per Sprint Day': formatNumber(spPerSprintDay),
+      'Avg SP per Sprint': formatNumber(avgSpPerSprint),
+      'SP Variance per Sprint': formatNumber(spVariance),
+      'Done by Sprint End %': formatNumber(doneBySprintEndPct),
       'Total Epics': summary.epicStories,
       'Total Non Epics': summary.nonEpicStories,
       'Sprint Window': sprintWindow,
@@ -2536,26 +2550,26 @@ async function exportSectionCSV(sectionName, data, button = null) {
         const totalSprintDays = summary.totalSprintDays || 0;
         const avgSprintLength = summary.validSprintDaysCount > 0
           ? totalSprintDays / summary.validSprintDaysCount
-          : 0;
+          : null;
         const storiesPerSprint = summary.sprintCount > 0
           ? summary.doneStories / summary.sprintCount
-          : 0;
+          : null;
         const spPerStory = summary.doneStories > 0
           ? summary.doneSP / summary.doneStories
-          : 0;
+          : null;
         const storiesPerSprintDay = totalSprintDays > 0
           ? summary.doneStories / totalSprintDays
-          : 0;
+          : null;
         const spPerSprintDay = totalSprintDays > 0
           ? summary.doneSP / totalSprintDays
-          : 0;
+          : null;
         const avgSpPerSprint = summary.sprintCount > 0
           ? summary.doneSP / summary.sprintCount
-          : 0;
+          : null;
         const spVariancePerSprint = calculateVariance(summary.sprintSpValues);
         const doneBySprintEndPercent = summary.doneStories > 0
           ? (summary.doneBySprintEnd / summary.doneStories) * 100
-          : 0;
+          : null;
         return {
           id: board.id,
           name: board.name,
@@ -2564,15 +2578,15 @@ async function exportSectionCSV(sectionName, data, button = null) {
           includedSprints: summary.sprintCount,
           doneStories: summary.doneStories,
           totalSprintDays,
-          avgSprintLengthDays: avgSprintLength.toFixed(2),
+          avgSprintLengthDays: formatNumber(avgSprintLength),
           doneSP: summary.doneSP,
-          storiesPerSprint: storiesPerSprint.toFixed(2),
-          spPerStory: spPerStory.toFixed(2),
-          storiesPerSprintDay: storiesPerSprintDay.toFixed(2),
-          spPerSprintDay: spPerSprintDay.toFixed(2),
-          avgSpPerSprint: avgSpPerSprint.toFixed(2),
-          spVariancePerSprint: spVariancePerSprint.toFixed(2),
-          doneBySprintEndPercent: doneBySprintEndPercent.toFixed(2),
+          storiesPerSprint: formatNumber(storiesPerSprint),
+          spPerStory: formatNumber(spPerStory),
+          storiesPerSprintDay: formatNumber(storiesPerSprintDay),
+          spPerSprintDay: formatNumber(spPerSprintDay),
+          avgSpPerSprint: formatNumber(avgSpPerSprint),
+          spVariancePerSprint: formatNumber(spVariancePerSprint),
+          doneBySprintEndPercent: formatNumber(doneBySprintEndPercent),
           totalEpics: summary.epicStories,
           totalNonEpics: summary.nonEpicStories,
           sprintWindow,
