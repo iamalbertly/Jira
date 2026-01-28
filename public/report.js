@@ -735,19 +735,109 @@ function updateDateDisplay() {
 document.getElementById('start-date').addEventListener('change', updateDateDisplay);
 document.getElementById('end-date').addEventListener('change', updateDateDisplay);
 
+function calculateSprintDays(startDate, endDate) {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  const diffMs = end.getTime() - start.getTime();
+  if (diffMs < 0) {
+    return null;
+  }
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function calculateVariance(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return 0;
+  }
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+  return variance;
+}
+
 function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
   const summaries = new Map();
   const boardIds = (boards || []).map(board => board.id);
   boardIds.forEach(id => {
-    summaries.set(id, { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null });
+    summaries.set(id, {
+      sprintCount: 0,
+      doneStories: 0,
+      doneSP: 0,
+      earliestStart: null,
+      latestEnd: null,
+      totalSprintDays: 0,
+      validSprintDaysCount: 0,
+      doneBySprintEnd: 0,
+      sprintSpValues: [],
+      epicStories: 0,
+      nonEpicStories: 0,
+    });
   });
+
+  const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
+  const sprintSpTotals = new Map();
+  for (const row of rows || []) {
+    if (!summaries.has(row.boardId)) {
+      summaries.set(row.boardId, {
+        sprintCount: 0,
+        doneStories: 0,
+        doneSP: 0,
+        earliestStart: null,
+        latestEnd: null,
+        totalSprintDays: 0,
+        validSprintDaysCount: 0,
+        doneBySprintEnd: 0,
+        sprintSpValues: [],
+        epicStories: 0,
+        nonEpicStories: 0,
+      });
+    }
+    const summary = summaries.get(row.boardId);
+    summary.doneStories += 1;
+    if (spEnabled) {
+      summary.doneSP += parseFloat(row.storyPoints) || 0;
+    }
+    if (row.epicKey) {
+      summary.epicStories += 1;
+    } else {
+      summary.nonEpicStories += 1;
+    }
+
+    if (row.sprintId) {
+      const sprintTotal = sprintSpTotals.get(row.sprintId) || 0;
+      sprintSpTotals.set(row.sprintId, sprintTotal + (parseFloat(row.storyPoints) || 0));
+    }
+  }
 
   for (const sprint of sprintsIncluded || []) {
     if (!summaries.has(sprint.boardId)) {
-      summaries.set(sprint.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null });
+      summaries.set(sprint.boardId, {
+        sprintCount: 0,
+        doneStories: 0,
+        doneSP: 0,
+        earliestStart: null,
+        latestEnd: null,
+        totalSprintDays: 0,
+        validSprintDaysCount: 0,
+        doneBySprintEnd: 0,
+        sprintSpValues: [],
+        epicStories: 0,
+        nonEpicStories: 0,
+      });
     }
     const summary = summaries.get(sprint.boardId);
     summary.sprintCount += 1;
+    summary.doneBySprintEnd += sprint.doneStoriesBySprintEnd || 0;
+
+    const sprintDays = calculateSprintDays(sprint.startDate, sprint.endDate);
+    if (sprintDays !== null) {
+      summary.totalSprintDays += sprintDays;
+      summary.validSprintDaysCount += 1;
+    }
+
     const sprintStart = sprint.startDate ? new Date(sprint.startDate) : null;
     const sprintEnd = sprint.endDate ? new Date(sprint.endDate) : null;
     if (sprintStart && !Number.isNaN(sprintStart.getTime())) {
@@ -760,17 +850,9 @@ function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
         summary.latestEnd = sprintEnd;
       }
     }
-  }
 
-  const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
-  for (const row of rows || []) {
-    if (!summaries.has(row.boardId)) {
-      summaries.set(row.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0 });
-    }
-    const summary = summaries.get(row.boardId);
-    summary.doneStories += 1;
-    if (spEnabled) {
-      summary.doneSP += parseFloat(row.storyPoints) || 0;
+    if (spEnabled && sprintSpTotals.has(sprint.id)) {
+      summary.sprintSpValues.push(sprintSpTotals.get(sprint.id));
     }
   }
 
@@ -812,18 +894,41 @@ function renderProjectEpicLevelTab(boards, metrics) {
   let html = '';
   const boardSummaries = buildBoardSummaries(boards, previewData?.sprintsIncluded || [], previewRows, meta);
 
-  // Section 1: Boards
+  // Section 1: Boards (merged with throughput fundamentals)
   html += '<h3>Boards</h3>';
   if (!boards || boards.length === 0) {
     html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
   } else {
-    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Sprint Window</th><th>Latest Sprint End</th><th>Done Stories</th><th>Done SP</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Total Sprint Days</th><th>Avg Sprint Length (Days)</th><th>Done Stories</th><th>Done SP</th><th>Stories per Sprint</th><th>SP per Story</th><th>Stories per Sprint Day</th><th>SP per Sprint Day</th><th>Avg SP per Sprint</th><th>SP Variance per Sprint</th><th>Done by Sprint End %</th><th>Total Epics</th><th>Total Non Epics</th><th>Sprint Window</th><th>Latest Sprint End</th></tr></thead><tbody>';
     for (const board of boards) {
-      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null };
+      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0 };
       const sprintWindow = summary.earliestStart && summary.latestEnd
         ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
         : '';
       const latestEnd = summary.latestEnd ? summary.latestEnd.toISOString() : '';
+      const totalSprintDays = summary.totalSprintDays || 0;
+      const avgSprintLength = summary.validSprintDaysCount > 0
+        ? totalSprintDays / summary.validSprintDaysCount
+        : 0;
+      const storiesPerSprint = summary.sprintCount > 0
+        ? summary.doneStories / summary.sprintCount
+        : 0;
+      const spPerStory = summary.doneStories > 0
+        ? summary.doneSP / summary.doneStories
+        : 0;
+      const storiesPerSprintDay = totalSprintDays > 0
+        ? summary.doneStories / totalSprintDays
+        : 0;
+      const spPerSprintDay = totalSprintDays > 0
+        ? summary.doneSP / totalSprintDays
+        : 0;
+      const avgSpPerSprint = summary.sprintCount > 0
+        ? summary.doneSP / summary.sprintCount
+        : 0;
+      const spVariance = calculateVariance(summary.sprintSpValues);
+      const doneBySprintEndPct = summary.doneStories > 0
+        ? (summary.doneBySprintEnd / summary.doneStories) * 100
+        : 0;
       html += `
         <tr>
           <td>${escapeHtml(board.id)}</td>
@@ -831,10 +936,21 @@ function renderProjectEpicLevelTab(boards, metrics) {
           <td>${escapeHtml(board.type || '')}</td>
           <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
           <td>${summary.sprintCount}</td>
-          <td>${escapeHtml(sprintWindow)}</td>
-          <td>${escapeHtml(latestEnd)}</td>
+          <td>${totalSprintDays}</td>
+          <td>${avgSprintLength.toFixed(2)}</td>
           <td>${summary.doneStories}</td>
           <td>${summary.doneSP}</td>
+          <td>${storiesPerSprint.toFixed(2)}</td>
+          <td>${spPerStory.toFixed(2)}</td>
+          <td>${storiesPerSprintDay.toFixed(2)}</td>
+          <td>${spPerSprintDay.toFixed(2)}</td>
+          <td>${avgSpPerSprint.toFixed(2)}</td>
+          <td>${spVariance.toFixed(2)}</td>
+          <td>${doneBySprintEndPct.toFixed(2)}%</td>
+          <td>${summary.epicStories}</td>
+          <td>${summary.nonEpicStories}</td>
+          <td>${escapeHtml(sprintWindow)}</td>
+          <td>${escapeHtml(latestEnd)}</td>
         </tr>
       `;
     }
@@ -848,16 +964,7 @@ function renderProjectEpicLevelTab(boards, metrics) {
     // Throughput Metrics
     if (metrics.throughput) {
       html += '<h3>Throughput</h3>';
-      html += '<p class="metrics-hint"><small>Note: Per Sprint data is shown in the Sprints tab. Below are aggregated views.</small></p>';
-      
-      html += '<h4>Per Project</h4>';
-      html += '<table class="data-table"><thead><tr><th>Project</th><th>Total SP</th><th>Sprint Count</th><th>Average SP/Sprint</th><th>Story Count</th></tr></thead><tbody>';
-      for (const projectKey in metrics.throughput.perProject) {
-        const data = metrics.throughput.perProject[projectKey];
-        html += `<tr><td>${escapeHtml(data.projectKey)}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
-      }
-      html += '</tbody></table>';
-
+      html += '<p class="metrics-hint"><small>Note: Per-board throughput is merged into the Boards table. Per Sprint data is shown in the Sprints tab. Below are aggregated views by issue type.</small></p>';
       if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
         html += '<h4>Per Issue Type</h4>';
         html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
@@ -1815,6 +1922,127 @@ function prepareStoriesSheetData(rows, metrics) {
   return { columns, rows: sheetRows };
 }
 
+// Prepare Boards sheet data
+function prepareBoardsSheetData(boards, sprintsIncluded, rows, meta) {
+  const boardSummaries = buildBoardSummaries(boards, sprintsIncluded, rows, meta);
+  const columns = [
+    'Board ID',
+    'Board Name',
+    'Type',
+    'Projects',
+    'Included Sprints',
+    'Total Sprint Days',
+    'Avg Sprint Length (Days)',
+    'Done Stories',
+    'Done SP',
+    'Stories per Sprint',
+    'SP per Story',
+    'Stories per Sprint Day',
+    'SP per Sprint Day',
+    'Avg SP per Sprint',
+    'SP Variance per Sprint',
+    'Done by Sprint End %',
+    'Total Epics',
+    'Total Non Epics',
+    'Sprint Window',
+    'Latest Sprint End',
+  ];
+
+  let rowsData = (boards || []).map(board => {
+    const summary = boardSummaries.get(board.id) || {
+      sprintCount: 0,
+      doneStories: 0,
+      doneSP: 0,
+      earliestStart: null,
+      latestEnd: null,
+      totalSprintDays: 0,
+      validSprintDaysCount: 0,
+      doneBySprintEnd: 0,
+      sprintSpValues: [],
+      epicStories: 0,
+      nonEpicStories: 0,
+    };
+
+    const sprintWindow = summary.earliestStart && summary.latestEnd
+      ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
+      : '';
+    const latestEnd = summary.latestEnd ? summary.latestEnd.toISOString() : '';
+    const totalSprintDays = summary.totalSprintDays || 0;
+    const avgSprintLength = summary.validSprintDaysCount > 0
+      ? totalSprintDays / summary.validSprintDaysCount
+      : 0;
+    const storiesPerSprint = summary.sprintCount > 0
+      ? summary.doneStories / summary.sprintCount
+      : 0;
+    const spPerStory = summary.doneStories > 0
+      ? summary.doneSP / summary.doneStories
+      : 0;
+    const storiesPerSprintDay = totalSprintDays > 0
+      ? summary.doneStories / totalSprintDays
+      : 0;
+    const spPerSprintDay = totalSprintDays > 0
+      ? summary.doneSP / totalSprintDays
+      : 0;
+    const avgSpPerSprint = summary.sprintCount > 0
+      ? summary.doneSP / summary.sprintCount
+      : 0;
+    const spVariance = calculateVariance(summary.sprintSpValues);
+    const doneBySprintEndPct = summary.doneStories > 0
+      ? (summary.doneBySprintEnd / summary.doneStories) * 100
+      : 0;
+
+    return {
+      'Board ID': board.id,
+      'Board Name': board.name,
+      'Type': board.type || '',
+      'Projects': (board.projectKeys || []).join(', '),
+      'Included Sprints': summary.sprintCount,
+      'Total Sprint Days': totalSprintDays,
+      'Avg Sprint Length (Days)': avgSprintLength.toFixed(2),
+      'Done Stories': summary.doneStories,
+      'Done SP': summary.doneSP,
+      'Stories per Sprint': storiesPerSprint.toFixed(2),
+      'SP per Story': spPerStory.toFixed(2),
+      'Stories per Sprint Day': storiesPerSprintDay.toFixed(2),
+      'SP per Sprint Day': spPerSprintDay.toFixed(2),
+      'Avg SP per Sprint': avgSpPerSprint.toFixed(2),
+      'SP Variance per Sprint': spVariance.toFixed(2),
+      'Done by Sprint End %': doneBySprintEndPct.toFixed(2),
+      'Total Epics': summary.epicStories,
+      'Total Non Epics': summary.nonEpicStories,
+      'Sprint Window': sprintWindow,
+      'Latest Sprint End': latestEnd,
+    };
+  });
+
+  if (rowsData.length === 0) {
+    rowsData = [{
+      'Board ID': 'No board data available',
+      'Board Name': 'Try adjusting date range or project selection',
+      'Type': '',
+      'Projects': '',
+      'Included Sprints': '',
+      'Total Sprint Days': '',
+      'Avg Sprint Length (Days)': '',
+      'Done Stories': '',
+      'Done SP': '',
+      'Stories per Sprint': '',
+      'SP per Story': '',
+      'Stories per Sprint Day': '',
+      'SP per Sprint Day': '',
+      'Avg SP per Sprint': '',
+      'SP Variance per Sprint': '',
+      'Done by Sprint End %': '',
+      'Total Epics': '',
+      'Total Non Epics': '',
+      'Sprint Window': '',
+      'Latest Sprint End': '',
+    }];
+  }
+
+  return { columns, rows: rowsData };
+}
+
 // Prepare Sprints sheet data
 function prepareSprintsSheetData(sprintsIncluded, rows) {
   const timeTotals = computeSprintTimeTotals(rows);
@@ -1981,6 +2209,7 @@ async function exportToExcel() {
 
     // Prepare all sheet data using extracted functions
     const storiesSheet = prepareStoriesSheetData(previewRows, previewData.metrics);
+    const boardsSheet = prepareBoardsSheetData(previewData.boards, previewData.sprintsIncluded, previewRows, meta);
     const sprintsSheet = prepareSprintsSheetData(previewData.sprintsIncluded, previewRows);
     const epicsSheet = prepareEpicsSheetData(previewData.metrics);
     const metadataSheet = prepareMetadataSheetData(meta, previewRows, previewData.sprintsIncluded);
@@ -1993,6 +2222,7 @@ async function exportToExcel() {
     const workbookData = {
       sheets: [
         { name: 'Summary', columns: summaryColumns, rows: summaryRows },
+        { name: 'Boards', columns: boardsSheet.columns, rows: boardsSheet.rows },
         { name: 'Stories', columns: storiesSheet.columns, rows: storiesSheet.rows },
         { name: 'Sprints', columns: sprintsSheet.columns, rows: sprintsSheet.rows },
         { name: 'Epics', columns: epicsSheet.columns, rows: epicsSheet.rows },
@@ -2275,23 +2505,78 @@ async function exportSectionCSV(sectionName, data, button = null) {
     case 'project-epic-level':
     case 'boards':
       // Combined boards summary export
-      columns = ['id', 'name', 'type', 'projectKeys', 'includedSprints', 'sprintWindow', 'latestSprintEnd', 'doneStories', 'doneSP'];
+      columns = [
+        'id',
+        'name',
+        'type',
+        'projectKeys',
+        'includedSprints',
+        'totalSprintDays',
+        'avgSprintLengthDays',
+        'doneStories',
+        'doneSP',
+        'storiesPerSprint',
+        'spPerStory',
+        'storiesPerSprintDay',
+        'spPerSprintDay',
+        'avgSpPerSprint',
+        'spVariancePerSprint',
+        'doneBySprintEndPercent',
+        'totalEpics',
+        'totalNonEpics',
+        'sprintWindow',
+        'latestSprintEnd',
+      ];
       const boardSummaries = buildBoardSummaries(previewData?.boards || [], previewData?.sprintsIncluded || [], previewRows, getSafeMeta(previewData));
       rows = (previewData?.boards || []).map(board => {
-        const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null };
+        const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0 };
         const sprintWindow = summary.earliestStart && summary.latestEnd
           ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
           : '';
+        const totalSprintDays = summary.totalSprintDays || 0;
+        const avgSprintLength = summary.validSprintDaysCount > 0
+          ? totalSprintDays / summary.validSprintDaysCount
+          : 0;
+        const storiesPerSprint = summary.sprintCount > 0
+          ? summary.doneStories / summary.sprintCount
+          : 0;
+        const spPerStory = summary.doneStories > 0
+          ? summary.doneSP / summary.doneStories
+          : 0;
+        const storiesPerSprintDay = totalSprintDays > 0
+          ? summary.doneStories / totalSprintDays
+          : 0;
+        const spPerSprintDay = totalSprintDays > 0
+          ? summary.doneSP / totalSprintDays
+          : 0;
+        const avgSpPerSprint = summary.sprintCount > 0
+          ? summary.doneSP / summary.sprintCount
+          : 0;
+        const spVariancePerSprint = calculateVariance(summary.sprintSpValues);
+        const doneBySprintEndPercent = summary.doneStories > 0
+          ? (summary.doneBySprintEnd / summary.doneStories) * 100
+          : 0;
         return {
           id: board.id,
           name: board.name,
           type: board.type || '',
           projectKeys: (board.projectKeys || []).join('; '),
           includedSprints: summary.sprintCount,
+          doneStories: summary.doneStories,
+          totalSprintDays,
+          avgSprintLengthDays: avgSprintLength.toFixed(2),
+          doneSP: summary.doneSP,
+          storiesPerSprint: storiesPerSprint.toFixed(2),
+          spPerStory: spPerStory.toFixed(2),
+          storiesPerSprintDay: storiesPerSprintDay.toFixed(2),
+          spPerSprintDay: spPerSprintDay.toFixed(2),
+          avgSpPerSprint: avgSpPerSprint.toFixed(2),
+          spVariancePerSprint: spVariancePerSprint.toFixed(2),
+          doneBySprintEndPercent: doneBySprintEndPercent.toFixed(2),
+          totalEpics: summary.epicStories,
+          totalNonEpics: summary.nonEpicStories,
           sprintWindow,
           latestSprintEnd: summary.latestEnd ? summary.latestEnd.toISOString() : '',
-          doneStories: summary.doneStories,
-          doneSP: summary.doneSP
         };
       });
       // Note: Metrics data is included in Excel export, not CSV per-section export

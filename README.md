@@ -84,16 +84,17 @@ http://localhost:3000/report
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards summary (included sprints, sprint window, latest sprint end, done stories, done SP), throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
+   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Throughput remains available by issue type, along with rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
    - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. When subtask tracking exists, adds Subtask Est/Spent/Remaining/Variance columns. Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
 6. **Export to Excel**:
-   - **Export to Excel - All Data**: Main export button generates a comprehensive Excel workbook (.xlsx) with 5 tabs:
+   - **Export to Excel - All Data**: Main export button generates a comprehensive Excel workbook (.xlsx) with 6 tabs:
      - **Summary**: Key metrics, KPIs, agile maturity assessment, data quality scores, and manual enrichment guide
+     - **Boards**: Board-level delivery and time-normalized metrics (sprint days, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts)
      - **Stories**: All done stories with business-friendly column names, Excel-compatible dates, calculated KPI columns (Work Days to Complete, Cycle Time, etc.), and manual enrichment columns (Epic ID/Name Manual, Is Rework/Bug Manual, Team Notes)
-     - **Sprints**: Sprint-level metrics with throughput, predictability, and rework data
+     - **Sprints**: Sprint-level metrics with throughput, predictability, rework data, and time tracking totals (when available)
      - **Epics**: Epic TTM data with calculated lead times
    - **Metadata**: Export timestamp, date range, projects, filters applied, and data freshness
    - **Field Inventory** (Metadata): Counts of available/custom Jira fields plus EBM-relevant field matches and missing candidates
