@@ -152,10 +152,16 @@ previewBtn.addEventListener('click', async () => {
 
   // Immediately prevent double-clicks and exporting while a preview is in flight
   previewBtn.disabled = true;
-    exportFilteredBtn.disabled = true;
-    exportExcelBtn.disabled = true;
+  exportFilteredBtn.disabled = true;
+  exportExcelBtn.disabled = true;
 
-  loadingEl.style.display = 'block';
+  // Ensure loading overlay becomes visible in the next paint, even for very fast responses.
+  // This avoids race conditions where tests (and users) never see a loading state.
+  if (loadingEl) {
+    requestAnimationFrame(() => {
+      loadingEl.style.display = 'block';
+    });
+  }
   errorEl.style.display = 'none';
   previewContent.style.display = 'none';
 
@@ -294,7 +300,7 @@ previewBtn.addEventListener('click', async () => {
     // Only enable exports if we have rows
     const hasRows = Array.isArray(previewRows) && previewRows.length > 0;
     exportFilteredBtn.disabled = !hasRows;
-    exportRawBtn.disabled = !hasRows;
+    exportExcelBtn.disabled = !hasRows;
   }
 });
 
@@ -355,12 +361,57 @@ function collectFilterParams() {
   return params;
 }
 
+// Normalize and validate preview meta used across the UI and exports.
+// Returns a "safe" meta object or null if meta is missing/invalid.
+function getSafeMeta(preview) {
+  if (!preview || !preview.meta) {
+    return null;
+  }
+
+  const raw = preview.meta;
+
+  const safe = {
+    windowStart: raw.windowStart || '',
+    windowEnd: raw.windowEnd || '',
+    selectedProjects: Array.isArray(raw.selectedProjects) ? raw.selectedProjects : [],
+    sprintCount: typeof raw.sprintCount === 'number'
+      ? raw.sprintCount
+      : Array.isArray(preview.sprintsIncluded)
+        ? preview.sprintsIncluded.length
+        : 0,
+    fromCache: raw.fromCache === true,
+    cacheAgeMinutes: raw.cacheAgeMinutes,
+    partial: raw.partial === true,
+    partialReason: raw.partialReason || '',
+    generatedAt: raw.generatedAt,
+    requestedAt: raw.requestedAt,
+    elapsedMs: typeof raw.elapsedMs === 'number' ? raw.elapsedMs : null,
+    discoveredFields: raw.discoveredFields || {},
+    requireResolvedBySprintEnd: !!raw.requireResolvedBySprintEnd,
+    epicTTMFallbackCount: raw.epicTTMFallbackCount || 0,
+  };
+
+  return safe;
+}
+
 // Render preview
 function renderPreview() {
   if (!previewData) return;
 
   // Render meta
-  const meta = previewData.meta;
+  const meta = getSafeMeta(previewData);
+  if (!meta) {
+    // If we have rows but no meta, treat this as a data contract issue and surface clearly.
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Error:</strong> Preview metadata is missing or invalid.
+      <br><small>Please refresh the page, run the preview again, or contact an administrator if the problem persists.</small>
+    `;
+    previewContent.style.display = 'none';
+    exportFilteredBtn.disabled = true;
+    exportExcelBtn.disabled = true;
+    return;
+  }
   const boardsCount = previewData.boards?.length || 0;
   const sprintsCount = previewData.sprintsIncluded?.length || 0;
   const rowsCount = (previewData.rows || []).length;
@@ -428,7 +479,7 @@ function renderPreview() {
   // Export buttons reflect data and partial state
   const hasRows = rowsCount > 0;
   exportFilteredBtn.disabled = !hasRows;
-  exportRawBtn.disabled = !hasRows;
+  exportExcelBtn.disabled = !hasRows;
 
   const exportHint = document.getElementById('export-hint');
   if (exportHint) {
@@ -1273,8 +1324,8 @@ function prepareMetadataSheetData(meta, rows, sprints) {
   const sheetRows = [
     { 'Field': 'Export Date', 'Value': new Date().toISOString() },
     { 'Field': 'Export Time', 'Value': new Date().toLocaleString() },
-    { 'Field': 'Date Range Start', 'Value': meta.windowStart },
-    { 'Field': 'Date Range End', 'Value': meta.windowEnd },
+    { 'Field': 'Date Range Start', 'Value': meta.windowStart || '' },
+    { 'Field': 'Date Range End', 'Value': meta.windowEnd || '' },
     { 'Field': 'Projects', 'Value': (meta.selectedProjects || []).join(', ') },
     { 'Field': 'Total Stories', 'Value': rows.length },
     { 'Field': 'Total Sprints', 'Value': (sprints || []).length },
@@ -1304,15 +1355,26 @@ async function exportToExcel() {
   exportExcelBtn.textContent = 'Generating Excel...';
 
   try {
+    // Normalize meta up front to avoid runtime errors and keep exports honest.
+    const meta = getSafeMeta(previewData);
+    if (!meta) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> Preview metadata is missing or invalid.
+        <br><small>Please generate a new preview and try exporting again. If this keeps happening, contact an administrator.</small>
+      `;
+      return;
+    }
+
     // Prepare all sheet data using extracted functions
     const storiesSheet = prepareStoriesSheetData(previewRows, previewData.metrics);
     const sprintsSheet = prepareSprintsSheetData(previewData.sprintsIncluded);
     const epicsSheet = prepareEpicsSheetData(previewData.metrics);
-    const metadataSheet = prepareMetadataSheetData(previewData.meta, previewRows, previewData.sprintsIncluded);
+    const metadataSheet = prepareMetadataSheetData(meta, previewRows, previewData.sprintsIncluded);
     
     // Prepare Summary sheet data
     const summaryColumns = ['Section', 'Metric', 'Value'];
-    const summaryRows = createSummarySheetRows(previewData.metrics, previewData.meta, previewRows);
+    const summaryRows = createSummarySheetRows(previewData.metrics, meta, previewRows);
 
     // Build workbook data from prepared sheets
     const workbookData = {
@@ -1354,7 +1416,7 @@ async function exportToExcel() {
     const response = await fetch('/export-excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workbookData, meta: previewData.meta })
+      body: JSON.stringify({ workbookData, meta })
     });
 
     if (!response.ok) {
@@ -1381,8 +1443,8 @@ async function exportToExcel() {
     a.href = url;
     
     // Generate filename
-    const projects = (previewData.meta.selectedProjects || []).join('-');
-    const dateRange = formatDateRangeForFilename(previewData.meta.windowStart, previewData.meta.windowEnd);
+    const projects = (meta.selectedProjects || []).join('-');
+    const dateRange = formatDateRangeForFilename(meta.windowStart, meta.windowEnd);
     const exportDate = new Date().toISOString().split('T')[0];
     a.download = `${projects}_${dateRange}_Sprint-Report_${exportDate}.xlsx`;
     

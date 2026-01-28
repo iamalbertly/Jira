@@ -419,11 +419,11 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       return;
     }
     
-    // Test raw preview export
-    const exportRawBtn = page.locator('#export-raw-btn');
-    if (await exportRawBtn.isEnabled()) {
+    // Test main Excel/CSV export using the primary export control
+    const exportExcelBtn = page.locator('#export-excel-btn');
+    if (await exportExcelBtn.isEnabled()) {
       const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
-      await exportRawBtn.click();
+      await exportExcelBtn.click();
       const download = await downloadPromise;
       
       if (download) {
@@ -675,8 +675,8 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       }
     }
     
-    // Test 6: Raw preview export
-    const rawExportBtn = page.locator('#export-raw-btn');
+    // Test 6: Main Excel/CSV export
+    const rawExportBtn = page.locator('#export-excel-btn');
     if (await rawExportBtn.isEnabled()) {
       const downloadPromise6 = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
       await rawExportBtn.click();
@@ -706,7 +706,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     }
     
     // Export and check that special characters are properly escaped
-    const exportRawBtn = page.locator('#export-raw-btn');
+    const exportRawBtn = page.locator('#export-excel-btn');
     if (await exportRawBtn.isEnabled()) {
       const downloadPromise = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
       await exportRawBtn.click();

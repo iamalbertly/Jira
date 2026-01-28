@@ -62,6 +62,11 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       expect(json).toHaveProperty('boards');
       expect(json).toHaveProperty('sprintsIncluded');
       expect(json).toHaveProperty('rows');
+
+      // Basic meta contract: windowStart/windowEnd and selectedProjects should be present.
+      expect(json.meta).toHaveProperty('windowStart');
+      expect(json.meta).toHaveProperty('windowEnd');
+      expect(Array.isArray(json.meta.selectedProjects)).toBeTruthy();
     } else {
       // Auth error is acceptable for this test
       const json = await response.json();

@@ -578,4 +578,76 @@ test.describe('Jira Reporting App - Excel Export Tests', () => {
       }
     }
   });
+
+  test('should block Excel export with clear error when preview meta is missing', async ({ page }) => {
+    test.setTimeout(180000);
+    console.log('[TEST] Testing export behavior when preview meta is missing');
+    
+    await runDefaultPreview(page);
+    
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      console.log('[TEST] Preview not visible, skipping missing meta export test');
+      return;
+    }
+
+    // Simulate a broken preview payload where meta is missing
+    await page.evaluate(() => {
+      // @ts-ignore
+      if (window.previewData) {
+        // @ts-ignore
+        window.previewData.meta = undefined;
+      }
+    });
+
+    const exportExcelBtn = page.locator('#export-excel-btn');
+    if (await exportExcelBtn.isEnabled()) {
+      await exportExcelBtn.click();
+      const errorLocator = page.locator('#error');
+      await errorLocator.waitFor({ state: 'visible', timeout: 10000 });
+      const errorText = (await errorLocator.innerText())?.toLowerCase() || '';
+
+      expect(errorText).toContain('export error');
+      expect(errorText).toContain('metadata');
+      console.log('[TEST] ✓ Export blocked with clear error when preview meta is missing');
+    }
+  });
+
+  test('should show specific error message when server returns 500 for Excel export', async ({ page }) => {
+    test.setTimeout(180000);
+    console.log('[TEST] Testing Excel export server error handling (500)');
+
+    await runDefaultPreview(page);
+
+    const previewVisible = await page.locator('#preview-content').isVisible();
+    if (!previewVisible) {
+      console.log('[TEST] Preview not visible, skipping server error export test');
+      return;
+    }
+
+    // Force /export-excel to return a 500 error
+    await page.route('/export-excel', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Simulated failure' }),
+      });
+    });
+
+    const exportExcelBtn = page.locator('#export-excel-btn');
+    if (await exportExcelBtn.isEnabled()) {
+      await exportExcelBtn.click();
+
+      const errorLocator = page.locator('#error');
+      await errorLocator.waitFor({ state: 'visible', timeout: 10000 });
+      const errorText = (await errorLocator.innerText())?.toLowerCase() || '';
+
+      expect(errorText).toContain('export error');
+      expect(errorText).toContain('server error during excel generation');
+      console.log('[TEST] ✓ Excel export shows specific error when server returns 500');
+    }
+
+    // Clean up route so other tests are not affected
+    await page.unroute('/export-excel');
+  });
 });

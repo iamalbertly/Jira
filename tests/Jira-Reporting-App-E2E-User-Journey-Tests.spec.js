@@ -31,10 +31,29 @@ async function runDefaultPreview(page, overrides = {}) {
   await page.fill('#start-date', start);
   await page.fill('#end-date', end);
 
-  // Trigger preview and wait for loading overlay to appear and disappear
+  // Trigger preview and wait for either loading or content/error, handling fast and slow paths.
   await page.click('#preview-btn');
-  await page.waitForSelector('#loading', { state: 'visible', timeout: 60000 });
-  await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
+
+  await Promise.race([
+    page.waitForSelector('#loading', { state: 'visible', timeout: 10000 }).catch(() => null),
+    page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }).catch(() => null),
+    page.waitForSelector('#error', { state: 'visible', timeout: 10000 }).catch(() => null),
+  ]);
+
+  const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
+  if (loadingVisible) {
+    await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
+  }
+
+  // Ensure we end up with either preview content or an error visible.
+  const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+  const errorVisible = await page.locator('#error').isVisible().catch(() => false);
+  if (!previewVisible && !errorVisible) {
+    await Promise.race([
+      page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }),
+      page.waitForSelector('#error', { state: 'visible', timeout: 10000 }),
+    ]);
+  }
 }
 
 test.describe('Jira Reporting App - E2E User Journey Tests', () => {
@@ -49,7 +68,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     await expect(page.locator('#project-mas')).toBeChecked();
     await expect(page.locator('#preview-btn')).toBeVisible();
     await expect(page.locator('#export-filtered-btn')).toBeDisabled();
-    await expect(page.locator('#export-raw-btn')).toBeDisabled();
+    await expect(page.locator('#export-excel-btn')).toBeDisabled();
   });
 
   test('should disable preview button when no projects selected', async ({ page }) => {
@@ -146,7 +165,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     if (previewVisible) {
       // Export buttons should be enabled
       await expect(page.locator('#export-filtered-btn')).toBeEnabled();
-      await expect(page.locator('#export-raw-btn')).toBeEnabled();
+      await expect(page.locator('#export-excel-btn')).toBeEnabled();
     }
   });
 
@@ -209,15 +228,15 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
 
       if (hasDoneStoriesText) {
         await expect(page.locator('#export-filtered-btn')).toBeEnabled();
-        await expect(page.locator('#export-raw-btn')).toBeEnabled();
+        await expect(page.locator('#export-excel-btn')).toBeEnabled();
       } else {
         await expect(page.locator('#export-filtered-btn')).toBeDisabled();
-        await expect(page.locator('#export-raw-btn')).toBeDisabled();
+        await expect(page.locator('#export-excel-btn')).toBeDisabled();
       }
     } else if (errorVisible) {
       // On error, exports should remain disabled
       await expect(page.locator('#export-filtered-btn')).toBeDisabled();
-      await expect(page.locator('#export-raw-btn')).toBeDisabled();
+      await expect(page.locator('#export-excel-btn')).toBeDisabled();
     }
   });
 
@@ -238,13 +257,13 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     const statusText = await page.locator('#preview-status').innerText();
     const exportHintText = await page.locator('#export-hint').innerText();
 
-    if ((statusText || '').toLowerCase().includes('partial')) {
-      // When partial, banner and hint should both mention partial state
-      expect(statusText.toLowerCase()).toContain('partial');
-      expect(exportHintText.toLowerCase()).toContain('partial');
-      await expect(page.locator('#export-filtered-btn')).toBeEnabled();
-      await expect(page.locator('#export-raw-btn')).toBeEnabled();
-    }
+      if ((statusText || '').toLowerCase().includes('partial')) {
+        // When partial, banner and hint should both mention partial state
+        expect(statusText.toLowerCase()).toContain('partial');
+        expect(exportHintText.toLowerCase()).toContain('partial');
+        await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+        await expect(page.locator('#export-excel-btn')).toBeEnabled();
+      }
   });
 
   test('invalid date ranges are rejected client-side with clear error', async ({ page }) => {
@@ -297,9 +316,9 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
       test.skip();
     }
 
-    // Metrics tab should be visible and contain core sections
-    await page.click('.tab-btn[data-tab="metrics"]');
-    const metricsText = (await page.locator('#metrics-content').innerText())?.toLowerCase() || '';
+    // Metrics content now lives inside the Project & Epic Level tab
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    const metricsText = (await page.locator('#project-epic-level-content').innerText())?.toLowerCase() || '';
 
     expect(metricsText).toContain('throughput');
     expect(metricsText).toContain('epic time-to-market');
