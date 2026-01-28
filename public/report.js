@@ -30,6 +30,22 @@ const CSV_COLUMNS = [
   'timeRemainingEstimateHours',
   'timeSpentHours',
   'timeVarianceHours',
+  'ebmTeam',
+  'ebmProductArea',
+  'ebmCustomerSegments',
+  'ebmValue',
+  'ebmImpact',
+  'ebmSatisfaction',
+  'ebmSentiment',
+  'ebmSeverity',
+  'ebmSource',
+  'ebmWorkCategory',
+  'ebmGoals',
+  'ebmTheme',
+  'ebmRoadmap',
+  'ebmFocusAreas',
+  'ebmDeliveryStatus',
+  'ebmDeliveryProgress',
   'storyPoints',
   'epicKey',
   'epicTitle',
@@ -1022,6 +1038,22 @@ function renderDoneStoriesTab(rows) {
     row.timeSpentHours !== '' ||
     row.timeVarianceHours !== ''
   );
+  const hasEbmTeam = rows.some(row => row.ebmTeam);
+  const hasEbmProductArea = rows.some(row => row.ebmProductArea);
+  const hasEbmCustomerSegments = rows.some(row => row.ebmCustomerSegments);
+  const hasEbmValue = rows.some(row => row.ebmValue);
+  const hasEbmImpact = rows.some(row => row.ebmImpact);
+  const hasEbmSatisfaction = rows.some(row => row.ebmSatisfaction);
+  const hasEbmSentiment = rows.some(row => row.ebmSentiment);
+  const hasEbmSeverity = rows.some(row => row.ebmSeverity);
+  const hasEbmSource = rows.some(row => row.ebmSource);
+  const hasEbmWorkCategory = rows.some(row => row.ebmWorkCategory);
+  const hasEbmGoals = rows.some(row => row.ebmGoals);
+  const hasEbmTheme = rows.some(row => row.ebmTheme);
+  const hasEbmRoadmap = rows.some(row => row.ebmRoadmap);
+  const hasEbmFocusAreas = rows.some(row => row.ebmFocusAreas);
+  const hasEbmDeliveryStatus = rows.some(row => row.ebmDeliveryStatus);
+  const hasEbmDeliveryProgress = rows.some(row => row.ebmDeliveryProgress);
 
   // Group by sprint
   const sprintGroups = new Map();
@@ -1075,6 +1107,22 @@ function renderDoneStoriesTab(rows) {
                 ${hasLabels ? '<th>Labels</th>' : ''}
                 ${hasComponents ? '<th>Components</th>' : ''}
                 ${hasFixVersions ? '<th>Fix Versions</th>' : ''}
+                ${hasEbmTeam ? '<th>EBM Team</th>' : ''}
+                ${hasEbmProductArea ? '<th>EBM Product Area</th>' : ''}
+                ${hasEbmCustomerSegments ? '<th>EBM Customer Segments</th>' : ''}
+                ${hasEbmValue ? '<th>EBM Value</th>' : ''}
+                ${hasEbmImpact ? '<th>EBM Impact</th>' : ''}
+                ${hasEbmSatisfaction ? '<th>EBM Satisfaction</th>' : ''}
+                ${hasEbmSentiment ? '<th>EBM Sentiment</th>' : ''}
+                ${hasEbmSeverity ? '<th>EBM Severity</th>' : ''}
+                ${hasEbmSource ? '<th>EBM Source</th>' : ''}
+                ${hasEbmWorkCategory ? '<th>EBM Work Category</th>' : ''}
+                ${hasEbmGoals ? '<th>EBM Goals</th>' : ''}
+                ${hasEbmTheme ? '<th>EBM Theme</th>' : ''}
+                ${hasEbmRoadmap ? '<th>EBM Roadmap</th>' : ''}
+                ${hasEbmFocusAreas ? '<th>EBM Focus Areas</th>' : ''}
+                ${hasEbmDeliveryStatus ? '<th>EBM Delivery Status</th>' : ''}
+                ${hasEbmDeliveryProgress ? '<th>EBM Delivery Progress</th>' : ''}
                 <th>Assignee</th>
                 <th>Created</th>
                 <th>Resolved</th>
@@ -1114,6 +1162,22 @@ function renderDoneStoriesTab(rows) {
           ${hasLabels ? `<td>${escapeHtml(row.issueLabels || '')}</td>` : ''}
           ${hasComponents ? `<td>${escapeHtml(row.issueComponents || '')}</td>` : ''}
           ${hasFixVersions ? `<td>${escapeHtml(row.issueFixVersions || '')}</td>` : ''}
+          ${hasEbmTeam ? `<td>${escapeHtml(row.ebmTeam || '')}</td>` : ''}
+          ${hasEbmProductArea ? `<td>${escapeHtml(row.ebmProductArea || '')}</td>` : ''}
+          ${hasEbmCustomerSegments ? `<td>${escapeHtml(row.ebmCustomerSegments || '')}</td>` : ''}
+          ${hasEbmValue ? `<td>${escapeHtml(row.ebmValue || '')}</td>` : ''}
+          ${hasEbmImpact ? `<td>${escapeHtml(row.ebmImpact || '')}</td>` : ''}
+          ${hasEbmSatisfaction ? `<td>${escapeHtml(row.ebmSatisfaction || '')}</td>` : ''}
+          ${hasEbmSentiment ? `<td>${escapeHtml(row.ebmSentiment || '')}</td>` : ''}
+          ${hasEbmSeverity ? `<td>${escapeHtml(row.ebmSeverity || '')}</td>` : ''}
+          ${hasEbmSource ? `<td>${escapeHtml(row.ebmSource || '')}</td>` : ''}
+          ${hasEbmWorkCategory ? `<td>${escapeHtml(row.ebmWorkCategory || '')}</td>` : ''}
+          ${hasEbmGoals ? `<td>${escapeHtml(row.ebmGoals || '')}</td>` : ''}
+          ${hasEbmTheme ? `<td>${escapeHtml(row.ebmTheme || '')}</td>` : ''}
+          ${hasEbmRoadmap ? `<td>${escapeHtml(row.ebmRoadmap || '')}</td>` : ''}
+          ${hasEbmFocusAreas ? `<td>${escapeHtml(row.ebmFocusAreas || '')}</td>` : ''}
+          ${hasEbmDeliveryStatus ? `<td>${escapeHtml(row.ebmDeliveryStatus || '')}</td>` : ''}
+          ${hasEbmDeliveryProgress ? `<td>${escapeHtml(row.ebmDeliveryProgress || '')}</td>` : ''}
           <td>${escapeHtml(row.assigneeDisplayName)}</td>
           <td>${escapeHtml(row.created)}</td>
           <td>${escapeHtml(row.resolutionDate || '')}</td>
@@ -1435,6 +1499,22 @@ const BUSINESS_COLUMN_NAMES = {
   'timeRemainingEstimateHours': 'Remaining Estimate (Hours)',
   'timeSpentHours': 'Time Spent (Hours)',
   'timeVarianceHours': 'Estimate Variance (Hours)',
+  'ebmTeam': 'EBM Team',
+  'ebmProductArea': 'EBM Product Area',
+  'ebmCustomerSegments': 'EBM Customer Segments',
+  'ebmValue': 'EBM Value',
+  'ebmImpact': 'EBM Impact',
+  'ebmSatisfaction': 'EBM Satisfaction',
+  'ebmSentiment': 'EBM Sentiment',
+  'ebmSeverity': 'EBM Severity',
+  'ebmSource': 'EBM Source',
+  'ebmWorkCategory': 'EBM Work Category',
+  'ebmGoals': 'EBM Goals',
+  'ebmTheme': 'EBM Theme',
+  'ebmRoadmap': 'EBM Roadmap',
+  'ebmFocusAreas': 'EBM Focus Areas',
+  'ebmDeliveryStatus': 'EBM Delivery Status',
+  'ebmDeliveryProgress': 'EBM Delivery Progress',
   'storyPoints': 'Story Points',
   'epicKey': 'Epic ID',
   'epicTitle': 'Epic Name',

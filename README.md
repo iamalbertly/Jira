@@ -112,7 +112,7 @@ http://localhost:3000/report
    - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
    - **File Naming**: `{Projects}_{DateRange}_{Section}_{ExportDate}.csv` (includes `_PARTIAL` when preview data is partial)
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
-   - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, original estimate hours, time spent hours, variance, priority, labels, components, fix versions, status category)
+   - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, original estimate hours, time spent hours, variance, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ### Preview Behaviour & Feedback
 

@@ -114,6 +114,22 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
         expect(sampleRow).toHaveProperty('timeRemainingEstimateHours');
         expect(sampleRow).toHaveProperty('timeSpentHours');
         expect(sampleRow).toHaveProperty('timeVarianceHours');
+        expect(sampleRow).toHaveProperty('ebmTeam');
+        expect(sampleRow).toHaveProperty('ebmProductArea');
+        expect(sampleRow).toHaveProperty('ebmCustomerSegments');
+        expect(sampleRow).toHaveProperty('ebmValue');
+        expect(sampleRow).toHaveProperty('ebmImpact');
+        expect(sampleRow).toHaveProperty('ebmSatisfaction');
+        expect(sampleRow).toHaveProperty('ebmSentiment');
+        expect(sampleRow).toHaveProperty('ebmSeverity');
+        expect(sampleRow).toHaveProperty('ebmSource');
+        expect(sampleRow).toHaveProperty('ebmWorkCategory');
+        expect(sampleRow).toHaveProperty('ebmGoals');
+        expect(sampleRow).toHaveProperty('ebmTheme');
+        expect(sampleRow).toHaveProperty('ebmRoadmap');
+        expect(sampleRow).toHaveProperty('ebmFocusAreas');
+        expect(sampleRow).toHaveProperty('ebmDeliveryStatus');
+        expect(sampleRow).toHaveProperty('ebmDeliveryProgress');
       }
     } else {
       // Auth error is acceptable for this test
