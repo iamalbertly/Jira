@@ -84,8 +84,8 @@ http://localhost:3000/report
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards table, throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
-   - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). Includes per-section CSV export button.
+   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards summary (included sprints, done stories, done SP), throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
+   - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
@@ -95,7 +95,8 @@ http://localhost:3000/report
      - **Stories**: All done stories with business-friendly column names, Excel-compatible dates, calculated KPI columns (Work Days to Complete, Cycle Time, etc.), and manual enrichment columns (Epic ID/Name Manual, Is Rework/Bug Manual, Team Notes)
      - **Sprints**: Sprint-level metrics with throughput, predictability, and rework data
      - **Epics**: Epic TTM data with calculated lead times
-     - **Metadata**: Export timestamp, date range, projects, filters applied, and data freshness
+   - **Metadata**: Export timestamp, date range, projects, filters applied, and data freshness
+   - **Field Inventory** (Metadata): Counts of available/custom Jira fields plus EBM-relevant field matches and missing candidates
    - **File Naming**: Excel files use descriptive names: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx` (e.g., `MPSA-MAS_Q2-2025_Sprint-Report_2025-01-27.xlsx`)
    - **Business-Friendly Columns**: All technical column names are mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`)
    - **Excel-Compatible Dates**: All dates are formatted for Excel recognition, enabling date filtering, pivot tables, and formulas
@@ -111,6 +112,7 @@ http://localhost:3000/report
    - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
    - **File Naming**: `{Projects}_{DateRange}_{Section}_{ExportDate}.csv` (includes `_PARTIAL` when preview data is partial)
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
+   - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, original estimate hours, time spent hours, variance, priority, labels, components, fix versions, status category)
 
 ### Preview Behaviour & Feedback
 

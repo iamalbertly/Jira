@@ -199,6 +199,67 @@ app.get('/preview.json', async (req, res) => {
         cacheAgeMs: cacheAge,
       });
 
+      let fieldInventory = cachedPreview?.meta?.fieldInventory || null;
+      if (!fieldInventory) {
+        try {
+          const version3Client = createVersion3Client();
+          const fieldDiscovery = await discoverFields(version3Client);
+          const ebmFieldCandidates = [
+            'Customer',
+            'Value',
+            'Impact',
+            'Satisfaction',
+            'Sentiment',
+            'Severity',
+            'Source',
+            'Product Area',
+            'Work category',
+            'Team',
+            'Goals',
+            'Theme',
+            'Roadmap',
+            'Focus Areas',
+            'Delivery status',
+            'Delivery progress',
+            'Time to resolution',
+            'Time to first response',
+            'Time in Status',
+          ];
+          const ebmFieldsFound = [];
+          const ebmFieldsMissing = [];
+          for (const candidate of ebmFieldCandidates) {
+            const normalized = candidate.toLowerCase();
+            const matches = (fieldDiscovery.availableFields || []).filter(field => (field.name || '').toLowerCase().includes(normalized));
+            if (matches.length > 0) {
+              ebmFieldsFound.push({
+                candidate,
+                matches: matches.map(field => ({ id: field.id, name: field.name, custom: field.custom })),
+              });
+            } else {
+              ebmFieldsMissing.push(candidate);
+            }
+          }
+          fieldInventory = {
+            availableFieldCount: (fieldDiscovery.availableFields || []).length,
+            customFieldCount: (fieldDiscovery.customFields || []).length,
+            availableFields: fieldDiscovery.availableFields || [],
+            customFields: fieldDiscovery.customFields || [],
+            ebmFieldsFound,
+            ebmFieldsMissing,
+          };
+        } catch (error) {
+          logger.warn('Failed to hydrate field inventory for cached preview', { error: error.message });
+          fieldInventory = {
+            availableFieldCount: 0,
+            customFieldCount: 0,
+            availableFields: [],
+            customFields: [],
+            ebmFieldsFound: [],
+            ebmFieldsMissing: [],
+          };
+        }
+      }
+
       // Augment meta with cache metadata without mutating cached snapshot
       const cachedResponse = {
         ...cachedPreview,
@@ -209,6 +270,7 @@ app.get('/preview.json', async (req, res) => {
           cacheAgeMinutes: cacheAge ? Math.floor(cacheAge / 60000) : undefined,
           requestedAt,
           cacheKey,
+          fieldInventory,
         },
       };
 
@@ -255,6 +317,52 @@ app.get('/preview.json', async (req, res) => {
       hasStoryPointsField: !!fields.storyPointsFieldId,
       hasEpicLinkField: !!fields.epicLinkFieldId,
     });
+
+    const ebmFieldCandidates = [
+      'Customer',
+      'Value',
+      'Impact',
+      'Satisfaction',
+      'Sentiment',
+      'Severity',
+      'Source',
+      'Product Area',
+      'Work category',
+      'Team',
+      'Goals',
+      'Theme',
+      'Roadmap',
+      'Focus Areas',
+      'Delivery status',
+      'Delivery progress',
+      'Time to resolution',
+      'Time to first response',
+      'Time in Status',
+    ];
+
+    const ebmFieldsFound = [];
+    const ebmFieldsMissing = [];
+    for (const candidate of ebmFieldCandidates) {
+      const normalized = candidate.toLowerCase();
+      const matches = (fields.availableFields || []).filter(field => (field.name || '').toLowerCase().includes(normalized));
+      if (matches.length > 0) {
+        ebmFieldsFound.push({
+          candidate,
+          matches: matches.map(field => ({ id: field.id, name: field.name, custom: field.custom })),
+        });
+      } else {
+        ebmFieldsMissing.push(candidate);
+      }
+    }
+
+    const fieldInventory = {
+      availableFieldCount: (fields.availableFields || []).length,
+      customFieldCount: (fields.customFields || []).length,
+      availableFields: fields.availableFields || [],
+      customFields: fields.customFields || [],
+      ebmFieldsFound,
+      ebmFieldsMissing,
+    };
 
     // Fetch sprints for all boards
     logger.info('Fetching sprints for boards', { boardCount: boards.length });
@@ -342,7 +450,8 @@ app.get('/preview.json', async (req, res) => {
                 selectedProjects,
                 requireResolvedBySprintEnd,
                 sprint.endDate,
-                allowedTypes
+                allowedTypes,
+                fields
               ),
             3,
             `fetchSprintIssues:${sprintId}`
@@ -472,6 +581,7 @@ app.get('/preview.json', async (req, res) => {
       windowStart,
       windowEnd,
       discoveredFields: fields,
+      fieldInventory,
       fromCache: false,
       requestedAt,
       generatedAt: null,
@@ -501,7 +611,7 @@ app.get('/preview.json', async (req, res) => {
 
       if (includeBugsForRework) {
         const bugIssues = await retryOnRateLimit(
-          () => fetchBugsForSprints(sprintIds, agileClient, selectedProjects, 3),
+          () => fetchBugsForSprints(sprintIds, agileClient, selectedProjects, 3, fields),
           3,
           'fetchBugsForSprints'
         );

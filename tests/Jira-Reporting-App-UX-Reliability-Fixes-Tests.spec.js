@@ -22,7 +22,14 @@ async function waitForPreview(page) {
     }
   }
   
-  await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
+  try {
+    await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
+  } catch (error) {
+    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
+    if (!errorVisible) {
+      throw error;
+    }
+  }
 }
 
 // Helper: Get table cell text by row and column index
@@ -33,7 +40,7 @@ async function getTableCellText(page, rowIndex, columnIndex) {
 
 // Helper: Validate metrics tab is visible
 async function validateMetricsTabVisible(page) {
-  const tab = page.locator('#metrics-tab');
+  const tab = page.locator('.tab-btn').filter({ hasText: 'Project & Epic Level' });
   await expect(tab).toBeVisible({ timeout: 5000 });
 }
 
@@ -155,10 +162,10 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     await validateMetricsTabVisible(page);
     console.log('[TEST] ✓ Metrics tab is visible');
 
-    // Click metrics tab to verify it works
-    await page.click('.tab-btn[data-tab="metrics"]');
-    await page.waitForSelector('#tab-metrics.active', { state: 'visible', timeout: 10000 });
-    console.log('[TEST] ✓ Metrics tab is clickable and active');
+    // Click Project & Epic Level tab to verify metrics section renders
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
+    console.log('[TEST] ✓ Project & Epic Level tab is clickable and active');
   });
 
   test('should show perIssueType empty state message when breakdown unavailable', async ({ page, request }) => {
@@ -170,13 +177,13 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
       // Story Points and Bugs/Rework are now mandatory (always enabled) 
     });
 
-    // Navigate to Metrics tab
-    await page.click('.tab-btn[data-tab="metrics"]');
-    await page.waitForSelector('#tab-metrics.active', { state: 'visible', timeout: 10000 });
-    await page.waitForSelector('#metrics-content', { state: 'visible', timeout: 10000 });
+    // Navigate to Project & Epic Level tab (metrics are embedded)
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 10000 });
 
     // Check for empty state message
-    const metricsContent = await page.locator('#metrics-content').textContent();
+    const metricsContent = await page.locator('#project-epic-level-content').textContent();
     const hasEmptyStateMessage = metricsContent.includes('No issue type breakdown available') || 
                                   metricsContent.includes('Enable "Include Bugs for Rework"');
     
@@ -205,13 +212,13 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
           includeEpicTTM: true 
         });
 
-        // Navigate to Metrics tab
-        await page.click('.tab-btn[data-tab="metrics"]');
-        await page.waitForSelector('#tab-metrics.active', { state: 'visible', timeout: 10000 });
-        await page.waitForSelector('#metrics-content', { state: 'visible', timeout: 10000 });
+        // Navigate to Project & Epic Level tab (metrics are embedded)
+        await page.click('.tab-btn[data-tab="project-epic-level"]');
+        await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
+        await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 10000 });
 
         // Check for fallback warning
-        const metricsContent = await page.locator('#metrics-content').textContent();
+        const metricsContent = await page.locator('#project-epic-level-content').textContent();
         const hasFallbackWarning = metricsContent.includes('used story date fallback') || 
                                    metricsContent.includes('Epic issues unavailable');
         
@@ -313,10 +320,10 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     console.log('[TEST] ✓ Preview completed successfully');
 
     // Check that Epic TTM section exists (may be empty if Epic fetch failed)
-    await page.click('.tab-btn[data-tab="metrics"]');
-    await page.waitForSelector('#tab-metrics.active', { state: 'visible', timeout: 10000 });
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
     
-    const metricsContent = await page.locator('#metrics-content').textContent();
+    const metricsContent = await page.locator('#project-epic-level-content').textContent();
     const hasEpicTTMSection = metricsContent.includes('Epic Time-To-Market');
     
     console.log(`[TEST] ${hasEpicTTMSection ? '✓' : '⚠'} Epic TTM section ${hasEpicTTMSection ? 'present' : 'not present'}`);

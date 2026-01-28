@@ -93,6 +93,28 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       expect(json.meta).toHaveProperty('windowStart');
       expect(json.meta).toHaveProperty('windowEnd');
       expect(Array.isArray(json.meta.selectedProjects)).toBeTruthy();
+
+      // Field inventory contract for API field discovery mapping
+      expect(json.meta).toHaveProperty('fieldInventory');
+      expect(json.meta.fieldInventory).toHaveProperty('availableFieldCount');
+      expect(json.meta.fieldInventory).toHaveProperty('customFieldCount');
+      expect(Array.isArray(json.meta.fieldInventory.availableFields)).toBeTruthy();
+      expect(Array.isArray(json.meta.fieldInventory.customFields)).toBeTruthy();
+
+      // Drill-down rows should include time tracking and EBM-related fields
+      if (json.rows.length > 0) {
+        const sampleRow = json.rows[0];
+        expect(sampleRow).toHaveProperty('issueStatusCategory');
+        expect(sampleRow).toHaveProperty('issuePriority');
+        expect(sampleRow).toHaveProperty('issueLabels');
+        expect(sampleRow).toHaveProperty('issueComponents');
+        expect(sampleRow).toHaveProperty('issueFixVersions');
+        expect(sampleRow).toHaveProperty('subtaskCount');
+        expect(sampleRow).toHaveProperty('timeOriginalEstimateHours');
+        expect(sampleRow).toHaveProperty('timeRemainingEstimateHours');
+        expect(sampleRow).toHaveProperty('timeSpentHours');
+        expect(sampleRow).toHaveProperty('timeVarianceHours');
+      }
     } else {
       // Auth error is acceptable for this test
       const json = await response.json();

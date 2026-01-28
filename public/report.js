@@ -16,10 +16,20 @@ const CSV_COLUMNS = [
   'issueSummary',
   'issueStatus',
   'issueType',
+  'issueStatusCategory',
+  'issuePriority',
+  'issueLabels',
+  'issueComponents',
+  'issueFixVersions',
   'assigneeDisplayName',
   'created',
   'updated',
   'resolutionDate',
+  'subtaskCount',
+  'timeOriginalEstimateHours',
+  'timeRemainingEstimateHours',
+  'timeSpentHours',
+  'timeVarianceHours',
   'storyPoints',
   'epicKey',
   'epicTitle',
@@ -226,6 +236,7 @@ function renderEmptyState(targetElement, title, message, hint) {
 previewBtn.addEventListener('click', async () => {
   let timeoutId;
   let progressInterval;
+  let isLoading = true;
 
   // Capture existing export state so we can restore it on early validation errors
   const prevExportFilteredDisabled = exportFilteredBtn.disabled;
@@ -240,7 +251,9 @@ previewBtn.addEventListener('click', async () => {
   // This avoids race conditions where tests (and users) never see a loading state.
   if (loadingEl) {
     requestAnimationFrame(() => {
-      loadingEl.style.display = 'block';
+      if (isLoading) {
+        loadingEl.style.display = 'block';
+      }
     });
   }
   errorEl.style.display = 'none';
@@ -400,6 +413,10 @@ previewBtn.addEventListener('click', async () => {
       }
     }
   } finally {
+    isLoading = false;
+    if (loadingEl && loadingEl.style.display !== 'none') {
+      loadingEl.style.display = 'none';
+    }
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -508,6 +525,7 @@ function getSafeMeta(preview) {
     requestedAt: raw.requestedAt,
     elapsedMs: typeof raw.elapsedMs === 'number' ? raw.elapsedMs : null,
     discoveredFields: raw.discoveredFields || {},
+    fieldInventory: raw.fieldInventory || null,
     requireResolvedBySprintEnd: !!raw.requireResolvedBySprintEnd,
     epicTTMFallbackCount: raw.epicTTMFallbackCount || 0,
   };
@@ -692,25 +710,79 @@ function updateDateDisplay() {
 document.getElementById('start-date').addEventListener('change', updateDateDisplay);
 document.getElementById('end-date').addEventListener('change', updateDateDisplay);
 
+function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
+  const summaries = new Map();
+  const boardIds = (boards || []).map(board => board.id);
+  boardIds.forEach(id => {
+    summaries.set(id, { sprintCount: 0, doneStories: 0, doneSP: 0 });
+  });
+
+  for (const sprint of sprintsIncluded || []) {
+    if (!summaries.has(sprint.boardId)) {
+      summaries.set(sprint.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0 });
+    }
+    summaries.get(sprint.boardId).sprintCount += 1;
+  }
+
+  const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
+  for (const row of rows || []) {
+    if (!summaries.has(row.boardId)) {
+      summaries.set(row.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0 });
+    }
+    const summary = summaries.get(row.boardId);
+    summary.doneStories += 1;
+    if (spEnabled) {
+      summary.doneSP += parseFloat(row.storyPoints) || 0;
+    }
+  }
+
+  return summaries;
+}
+
+function computeSprintTimeTotals(rows) {
+  const totals = new Map();
+  for (const row of rows || []) {
+    if (!totals.has(row.sprintId)) {
+      totals.set(row.sprintId, {
+        estimateHours: 0,
+        spentHours: 0,
+        remainingHours: 0,
+        varianceHours: 0,
+      });
+    }
+    const totalsEntry = totals.get(row.sprintId);
+    totalsEntry.estimateHours += Number(row.timeOriginalEstimateHours) || 0;
+    totalsEntry.spentHours += Number(row.timeSpentHours) || 0;
+    totalsEntry.remainingHours += Number(row.timeRemainingEstimateHours) || 0;
+    totalsEntry.varianceHours += Number(row.timeVarianceHours) || 0;
+  }
+  return totals;
+}
+
 // Render Project & Epic Level tab (merged Boards + Metrics)
 function renderProjectEpicLevelTab(boards, metrics) {
   const content = document.getElementById('project-epic-level-content');
   const meta = getSafeMeta(previewData);
   let html = '';
+  const boardSummaries = buildBoardSummaries(boards, previewData?.sprintsIncluded || [], previewRows, meta);
 
   // Section 1: Boards
   html += '<h3>Boards</h3>';
   if (!boards || boards.length === 0) {
     html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
   } else {
-    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Done Stories</th><th>Done SP</th></tr></thead><tbody>';
     for (const board of boards) {
+      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0 };
       html += `
         <tr>
           <td>${escapeHtml(board.id)}</td>
           <td>${escapeHtml(board.name)}</td>
           <td>${escapeHtml(board.type || '')}</td>
           <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
+          <td>${summary.sprintCount}</td>
+          <td>${summary.doneStories}</td>
+          <td>${summary.doneSP}</td>
         </tr>
       `;
     }
@@ -831,6 +903,11 @@ function renderSprintsTab(sprints, metrics) {
     }
   }
 
+  const timeTotals = computeSprintTimeTotals(previewRows);
+  const hasTimeTracking = Array.from(timeTotals.values()).some(total =>
+    total.estimateHours || total.spentHours || total.remainingHours || total.varianceHours
+  );
+
   let html = '<table class="data-table"><thead><tr><th>Project</th><th>Board</th><th>Sprint</th><th>Start</th><th>End</th><th>State</th><th title="Stories currently marked Done vs stories resolved by the sprint end date">Stories Completed (Total)</th>';
   
   if (metrics?.doneComparison) {
@@ -840,11 +917,21 @@ function renderSprintsTab(sprints, metrics) {
   if (metrics?.throughput) {
     html += '<th>Done SP</th><th>Total SP</th><th>Story Count</th>';
   }
+
+  if (hasTimeTracking) {
+    html += '<th>Est Hrs</th><th>Spent Hrs</th><th>Remaining Hrs</th><th>Variance Hrs</th>';
+  }
   
   html += '</tr></thead><tbody>';
   
   for (const sprint of sprints) {
     const throughputData = throughputMap.get(sprint.id);
+    const timeData = timeTotals.get(sprint.id) || {
+      estimateHours: 0,
+      spentHours: 0,
+      remainingHours: 0,
+      varianceHours: 0,
+    };
     
     html += `
       <tr>
@@ -870,6 +957,13 @@ function renderSprintsTab(sprints, metrics) {
         html += '<td>N/A</td>';
         html += '<td>N/A</td>';
       }
+    }
+
+    if (hasTimeTracking) {
+      html += `<td>${timeData.estimateHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.spentHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.remainingHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.varianceHours.toFixed(2)}</td>`;
     }
     
     html += '</tr>';
@@ -915,6 +1009,19 @@ function renderDoneStoriesTab(rows) {
     exportFilteredBtn.disabled = true;
     return;
   }
+
+  const hasStatusCategory = rows.some(row => row.issueStatusCategory);
+  const hasPriority = rows.some(row => row.issuePriority);
+  const hasLabels = rows.some(row => row.issueLabels);
+  const hasComponents = rows.some(row => row.issueComponents);
+  const hasFixVersions = rows.some(row => row.issueFixVersions);
+  const hasSubtasks = rows.some(row => Number(row.subtaskCount) > 0);
+  const hasTimeTracking = rows.some(row =>
+    row.timeOriginalEstimateHours !== '' ||
+    row.timeRemainingEstimateHours !== '' ||
+    row.timeSpentHours !== '' ||
+    row.timeVarianceHours !== ''
+  );
 
   // Group by sprint
   const sprintGroups = new Map();
@@ -963,9 +1070,16 @@ function renderDoneStoriesTab(rows) {
                 <th>Summary</th>
                 <th>Status</th>
                 <th>Type</th>
+                ${hasStatusCategory ? '<th>Status Category</th>' : ''}
+                ${hasPriority ? '<th>Priority</th>' : ''}
+                ${hasLabels ? '<th>Labels</th>' : ''}
+                ${hasComponents ? '<th>Components</th>' : ''}
+                ${hasFixVersions ? '<th>Fix Versions</th>' : ''}
                 <th>Assignee</th>
                 <th>Created</th>
                 <th>Resolved</th>
+                ${hasSubtasks ? '<th>Subtasks</th>' : ''}
+                ${hasTimeTracking ? '<th>Est (Hrs)</th><th>Spent (Hrs)</th><th>Remaining (Hrs)</th><th>Variance (Hrs)</th>' : ''}
                 ${meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
                 ${meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
               </tr>
@@ -995,9 +1109,21 @@ function renderDoneStoriesTab(rows) {
           <td>${escapeHtml(row.issueSummary)}</td>
           <td>${escapeHtml(row.issueStatus)}</td>
           <td>${row.issueType ? escapeHtml(row.issueType) : '<em>Unknown</em>'}</td>
+          ${hasStatusCategory ? `<td>${escapeHtml(row.issueStatusCategory || '')}</td>` : ''}
+          ${hasPriority ? `<td>${escapeHtml(row.issuePriority || '')}</td>` : ''}
+          ${hasLabels ? `<td>${escapeHtml(row.issueLabels || '')}</td>` : ''}
+          ${hasComponents ? `<td>${escapeHtml(row.issueComponents || '')}</td>` : ''}
+          ${hasFixVersions ? `<td>${escapeHtml(row.issueFixVersions || '')}</td>` : ''}
           <td>${escapeHtml(row.assigneeDisplayName)}</td>
           <td>${escapeHtml(row.created)}</td>
           <td>${escapeHtml(row.resolutionDate || '')}</td>
+          ${hasSubtasks ? `<td>${row.subtaskCount || 0}</td>` : ''}
+          ${hasTimeTracking ? `
+            <td>${row.timeOriginalEstimateHours ?? ''}</td>
+            <td>${row.timeSpentHours ?? ''}</td>
+            <td>${row.timeRemainingEstimateHours ?? ''}</td>
+            <td>${row.timeVarianceHours ?? ''}</td>
+          ` : ''}
           ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${escapeHtml(row.storyPoints || '')}</td>` : ''}
           ${meta?.discoveredFields?.epicLinkFieldId ? `
             <td>${escapeHtml(row.epicKey || '')}</td>
@@ -1025,12 +1151,22 @@ function renderDoneStoriesTab(rows) {
   if (meta?.discoveredFields?.storyPointsFieldId) {
     totalSP = rows.reduce((sum, r) => sum + (parseFloat(r.storyPoints) || 0), 0);
   }
+  const totalEstimateHours = hasTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.timeOriginalEstimateHours) || 0), 0)
+    : 0;
+  const totalSpentHours = hasTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.timeSpentHours) || 0), 0)
+    : 0;
+  const totalVarianceHours = hasTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.timeVarianceHours) || 0), 0)
+    : 0;
 
   totalsBar.innerHTML = `
     <div class="totals">
       <strong>Total Rows:</strong> ${rows.length} | 
       <strong>Unique Sprints:</strong> ${uniqueSprints}
       ${meta?.discoveredFields?.storyPointsFieldId ? ` | <strong>Total SP:</strong> ${totalSP}` : ''}
+      ${hasTimeTracking ? ` | <strong>Est Hrs:</strong> ${totalEstimateHours.toFixed(2)} | <strong>Spent Hrs:</strong> ${totalSpentHours.toFixed(2)} | <strong>Variance Hrs:</strong> ${totalVarianceHours.toFixed(2)}` : ''}
     </div>
   `;
 
@@ -1285,10 +1421,20 @@ const BUSINESS_COLUMN_NAMES = {
   'issueSummary': 'Ticket Summary',
   'issueStatus': 'Status',
   'issueType': 'Issue Type',
+  'issueStatusCategory': 'Status Category',
+  'issuePriority': 'Priority',
+  'issueLabels': 'Labels',
+  'issueComponents': 'Components',
+  'issueFixVersions': 'Fix Versions',
   'assigneeDisplayName': 'Assignee',
   'created': 'Created Date',
   'updated': 'Updated Date',
   'resolutionDate': 'Completed Date',
+  'subtaskCount': 'Subtasks Count',
+  'timeOriginalEstimateHours': 'Original Estimate (Hours)',
+  'timeRemainingEstimateHours': 'Remaining Estimate (Hours)',
+  'timeSpentHours': 'Time Spent (Hours)',
+  'timeVarianceHours': 'Estimate Variance (Hours)',
   'storyPoints': 'Story Points',
   'epicKey': 'Epic ID',
   'epicTitle': 'Epic Name',
@@ -1434,25 +1580,61 @@ function prepareStoriesSheetData(rows, metrics) {
 }
 
 // Prepare Sprints sheet data
-function prepareSprintsSheetData(sprintsIncluded) {
-  const columns = ['Sprint ID', 'Sprint Name', 'Board Name', 'Sprint Start Date', 'Sprint End Date', 'State', 'Projects', 'Stories Completed (Total)', 'Completed Within Sprint End Date', 'Total SP'];
+function prepareSprintsSheetData(sprintsIncluded, rows) {
+  const timeTotals = computeSprintTimeTotals(rows);
+  const hasTimeTracking = Array.from(timeTotals.values()).some(total =>
+    total.estimateHours || total.spentHours || total.remainingHours || total.varianceHours
+  );
+  const columns = [
+    'Sprint ID',
+    'Sprint Name',
+    'Board Name',
+    'Sprint Start Date',
+    'Sprint End Date',
+    'State',
+    'Projects',
+    'Stories Completed (Total)',
+    'Completed Within Sprint End Date',
+    'Total SP'
+  ];
+
+  if (hasTimeTracking) {
+    columns.push('Est Hrs', 'Spent Hrs', 'Remaining Hrs', 'Variance Hrs');
+  }
   
-  let rows = (sprintsIncluded || []).map(sprint => ({
-    'Sprint ID': sprint.id,
-    'Sprint Name': sprint.name,
-    'Board Name': sprint.boardName || '',
-    'Sprint Start Date': sprint.startDate || '',
-    'Sprint End Date': sprint.endDate || '',
-    'State': sprint.state || '',
-    'Projects': (sprint.projectKeys || []).join(', '),
-    'Stories Completed (Total)': sprint.doneStoriesNow || 0,
-    'Completed Within Sprint End Date': sprint.doneStoriesBySprintEnd || 0,
-    'Total SP': sprint.doneSP || 0
-  }));
+  let rowsData = (sprintsIncluded || []).map(sprint => {
+    const timeData = timeTotals.get(sprint.id) || {
+      estimateHours: 0,
+      spentHours: 0,
+      remainingHours: 0,
+      varianceHours: 0,
+    };
+    const row = {
+      'Sprint ID': sprint.id,
+      'Sprint Name': sprint.name,
+      'Board Name': sprint.boardName || '',
+      'Sprint Start Date': sprint.startDate || '',
+      'Sprint End Date': sprint.endDate || '',
+      'State': sprint.state || '',
+      'Projects': (sprint.projectKeys || []).join(', '),
+      'Stories Completed (Total)': sprint.doneStoriesNow || 0,
+      'Completed Within Sprint End Date': sprint.doneStoriesBySprintEnd || 0,
+      'Total SP': sprint.doneSP || 0
+    };
+
+    if (hasTimeTracking) {
+      row['Est Hrs'] = timeData.estimateHours.toFixed(2);
+      row['Spent Hrs'] = timeData.spentHours.toFixed(2);
+      row['Remaining Hrs'] = timeData.remainingHours.toFixed(2);
+      row['Variance Hrs'] = timeData.varianceHours.toFixed(2);
+    }
+
+    return row;
+  });
   
   // Add placeholder row if Sprints sheet is empty
-  if (rows.length === 0) {
-    rows = [{
+  if (rowsData.length === 0) {
+    const placeholder = {
       'Sprint ID': 'No sprint data available',
       'Sprint Name': 'Try adjusting date range or project selection',
       'Board Name': '',
@@ -1463,10 +1645,17 @@ function prepareSprintsSheetData(sprintsIncluded) {
       'Stories Completed (Total)': '',
       'Completed Within Sprint End Date': '',
       'Total SP': ''
-    }];
+    };
+    if (hasTimeTracking) {
+      placeholder['Est Hrs'] = '';
+      placeholder['Spent Hrs'] = '';
+      placeholder['Remaining Hrs'] = '';
+      placeholder['Variance Hrs'] = '';
+    }
+    rowsData = [placeholder];
   }
 
-  return { columns, rows };
+  return { columns, rows: rowsData };
 }
 
 // Prepare Epics sheet data (from Epic TTM metrics)
@@ -1511,6 +1700,15 @@ function prepareMetadataSheetData(meta, rows, sprints) {
     { 'Field': 'Data Freshness', 'Value': meta.fromCache ? `Cached (${meta.cacheAgeMinutes} minutes old)` : 'Fresh' }
   ];
 
+  if (meta.fieldInventory) {
+    sheetRows.push(
+      { 'Field': 'Available Field Count', 'Value': meta.fieldInventory.availableFieldCount || 0 },
+      { 'Field': 'Custom Field Count', 'Value': meta.fieldInventory.customFieldCount || 0 },
+      { 'Field': 'EBM Fields Found', 'Value': (meta.fieldInventory.ebmFieldsFound || []).map(e => e.candidate).join(', ') },
+      { 'Field': 'EBM Fields Missing', 'Value': (meta.fieldInventory.ebmFieldsMissing || []).join(', ') }
+    );
+  }
+
   return { columns, rows: sheetRows };
 }
 
@@ -1547,7 +1745,7 @@ async function exportToExcel() {
 
     // Prepare all sheet data using extracted functions
     const storiesSheet = prepareStoriesSheetData(previewRows, previewData.metrics);
-    const sprintsSheet = prepareSprintsSheetData(previewData.sprintsIncluded);
+    const sprintsSheet = prepareSprintsSheetData(previewData.sprintsIncluded, previewRows);
     const epicsSheet = prepareEpicsSheetData(previewData.metrics);
     const metadataSheet = prepareMetadataSheetData(meta, previewRows, previewData.sprintsIncluded);
     
@@ -1840,30 +2038,59 @@ async function exportSectionCSV(sectionName, data, button = null) {
   switch (sectionName) {
     case 'project-epic-level':
     case 'boards':
-      // Combined boards and metrics export
-      columns = ['id', 'name', 'type', 'projectKeys'];
-      rows = (previewData?.boards || []).map(board => ({
-        id: board.id,
-        name: board.name,
-        type: board.type || '',
-        projectKeys: (board.projectKeys || []).join('; ')
-      }));
+      // Combined boards summary export
+      columns = ['id', 'name', 'type', 'projectKeys', 'includedSprints', 'doneStories', 'doneSP'];
+      const boardSummaries = buildBoardSummaries(previewData?.boards || [], previewData?.sprintsIncluded || [], previewRows, getSafeMeta(previewData));
+      rows = (previewData?.boards || []).map(board => {
+        const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0 };
+        return {
+          id: board.id,
+          name: board.name,
+          type: board.type || '',
+          projectKeys: (board.projectKeys || []).join('; '),
+          includedSprints: summary.sprintCount,
+          doneStories: summary.doneStories,
+          doneSP: summary.doneSP
+        };
+      });
       // Note: Metrics data is included in Excel export, not CSV per-section export
       break;
     case 'sprints':
+      const sprintTimeTotals = computeSprintTimeTotals(previewRows);
+      const hasSprintTimeTracking = Array.from(sprintTimeTotals.values()).some(total =>
+        total.estimateHours || total.spentHours || total.remainingHours || total.varianceHours
+      );
       columns = ['id', 'name', 'boardName', 'startDate', 'endDate', 'state', 'projectKeys', 'doneStoriesNow', 'doneStoriesBySprintEnd', 'doneSP'];
-      rows = (previewData?.sprintsIncluded || []).map(sprint => ({
-        id: sprint.id,
-        name: sprint.name,
-        boardName: sprint.boardName || '',
-        startDate: sprint.startDate || '',
-        endDate: sprint.endDate || '',
-        state: sprint.state || '',
-        projectKeys: (sprint.projectKeys || []).join('; '),
-        doneStoriesNow: sprint.doneStoriesNow || 0,
-        doneStoriesBySprintEnd: sprint.doneStoriesBySprintEnd || 0,
-        doneSP: sprint.doneSP || 0
-      }));
+      if (hasSprintTimeTracking) {
+        columns.push('estimateHours', 'spentHours', 'remainingHours', 'varianceHours');
+      }
+      rows = (previewData?.sprintsIncluded || []).map(sprint => {
+        const timeData = sprintTimeTotals.get(sprint.id) || {
+          estimateHours: 0,
+          spentHours: 0,
+          remainingHours: 0,
+          varianceHours: 0,
+        };
+        const row = {
+          id: sprint.id,
+          name: sprint.name,
+          boardName: sprint.boardName || '',
+          startDate: sprint.startDate || '',
+          endDate: sprint.endDate || '',
+          state: sprint.state || '',
+          projectKeys: (sprint.projectKeys || []).join('; '),
+          doneStoriesNow: sprint.doneStoriesNow || 0,
+          doneStoriesBySprintEnd: sprint.doneStoriesBySprintEnd || 0,
+          doneSP: sprint.doneSP || 0
+        };
+        if (hasSprintTimeTracking) {
+          row.estimateHours = timeData.estimateHours.toFixed(2);
+          row.spentHours = timeData.spentHours.toFixed(2);
+          row.remainingHours = timeData.remainingHours.toFixed(2);
+          row.varianceHours = timeData.varianceHours.toFixed(2);
+        }
+        return row;
+      });
       break;
     case 'done-stories':
       columns = CSV_COLUMNS;

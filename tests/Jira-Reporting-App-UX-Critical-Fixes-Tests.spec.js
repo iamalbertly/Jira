@@ -106,6 +106,15 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     } else {
       console.log('[TEST] No Epic data found (epicLinkFieldId may not exist in this Jira instance)');
     }
+
+    // Time tracking columns should appear together if present
+    const headerTexts = await page.locator('#done-stories-content table thead th').allTextContents();
+    if (headerTexts.some(text => text.includes('Est (Hrs)'))) {
+      expect(headerTexts.some(text => text.includes('Spent (Hrs)'))).toBeTruthy();
+      expect(headerTexts.some(text => text.includes('Remaining (Hrs)'))).toBeTruthy();
+      expect(headerTexts.some(text => text.includes('Variance (Hrs)'))).toBeTruthy();
+      console.log('[TEST] ✓ Time tracking columns found in Done Stories tab');
+    }
   });
 
   test('should merge Sprint Throughput data into Sprints tab and remove duplicate Per Sprint section', async ({ page }) => {
@@ -126,10 +135,18 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     
     const sprintsContent = page.locator('#sprints-content');
     const contentText = await sprintsContent.textContent();
-    
+
     if (contentText && contentText.includes('Total SP')) {
       expect(contentText).toContain('Story Count');
       console.log('[TEST] ✓ Total SP and Story Count columns found in Sprints tab');
+    }
+
+    // If time tracking columns appear, ensure the full set is present
+    if (contentText && contentText.includes('Est Hrs')) {
+      expect(contentText).toContain('Spent Hrs');
+      expect(contentText).toContain('Remaining Hrs');
+      expect(contentText).toContain('Variance Hrs');
+      console.log('[TEST] ✓ Time tracking columns found in Sprints tab');
     }
     
     // Check Metrics tab - Per Sprint section should NOT exist
@@ -248,7 +265,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       
       if (download) {
         const filename = download.suggestedFilename();
-        expect(filename).toMatch(/^boards-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(filename).toMatch(/^[A-Z0-9-]+_.*_boards(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
         console.log('[TEST] ✓ Boards CSV download triggered with correct filename format:', filename);
       }
     }
@@ -267,7 +284,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       
       if (download) {
         const filename = download.suggestedFilename();
-        expect(filename).toMatch(/^sprints-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(filename).toMatch(/^[A-Z0-9-]+_.*_sprints(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
         console.log('[TEST] ✓ Sprints CSV download triggered with correct filename format:', filename);
       }
     }
@@ -286,7 +303,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       
       if (download) {
         const filename = download.suggestedFilename();
-        expect(filename).toMatch(/^done-stories-\d{4}-\d{2}-\d{2}\.csv$/);
+        expect(filename).toMatch(/^[A-Z0-9-]+_.*_done-stories(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
         console.log('[TEST] ✓ Done Stories CSV download triggered with correct filename format:', filename);
       }
     }
@@ -307,7 +324,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         
         if (download) {
           const filename = download.suggestedFilename();
-          expect(filename).toMatch(/^metrics-\d{4}-\d{2}-\d{2}\.csv$/);
+          expect(filename).toMatch(/^[A-Z0-9-]+_.*_metrics(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
           console.log('[TEST] ✓ Metrics CSV download triggered with correct filename format:', filename);
         }
       }
