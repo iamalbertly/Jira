@@ -114,6 +114,10 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
         expect(sampleRow).toHaveProperty('timeRemainingEstimateHours');
         expect(sampleRow).toHaveProperty('timeSpentHours');
         expect(sampleRow).toHaveProperty('timeVarianceHours');
+        expect(sampleRow).toHaveProperty('subtaskTimeOriginalEstimateHours');
+        expect(sampleRow).toHaveProperty('subtaskTimeRemainingEstimateHours');
+        expect(sampleRow).toHaveProperty('subtaskTimeSpentHours');
+        expect(sampleRow).toHaveProperty('subtaskTimeVarianceHours');
         expect(sampleRow).toHaveProperty('ebmTeam');
         expect(sampleRow).toHaveProperty('ebmProductArea');
         expect(sampleRow).toHaveProperty('ebmCustomerSegments');

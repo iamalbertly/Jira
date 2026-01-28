@@ -84,9 +84,9 @@ http://localhost:3000/report
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards summary (included sprints, done stories, done SP), throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
-   - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. Includes per-section CSV export button.
-   - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. Includes per-section CSV export button.
+   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards summary (included sprints, sprint window, latest sprint end, done stories, done SP), throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
+   - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. When subtask tracking exists, adds Subtask Est/Spent/Remaining/Variance columns. Includes per-section CSV export button.
+   - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
 6. **Export to Excel**:
@@ -112,7 +112,7 @@ http://localhost:3000/report
    - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
    - **File Naming**: `{Projects}_{DateRange}_{Section}_{ExportDate}.csv` (includes `_PARTIAL` when preview data is partial)
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
-   - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, original estimate hours, time spent hours, variance, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
+   - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ### Preview Behaviour & Feedback
 

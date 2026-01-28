@@ -115,6 +115,12 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       expect(headerTexts.some(text => text.includes('Variance (Hrs)'))).toBeTruthy();
       console.log('[TEST] ✓ Time tracking columns found in Done Stories tab');
     }
+    if (headerTexts.some(text => text.includes('Subtask Est (Hrs)'))) {
+      expect(headerTexts.some(text => text.includes('Subtask Spent (Hrs)'))).toBeTruthy();
+      expect(headerTexts.some(text => text.includes('Subtask Remaining (Hrs)'))).toBeTruthy();
+      expect(headerTexts.some(text => text.includes('Subtask Variance (Hrs)'))).toBeTruthy();
+      console.log('[TEST] ✓ Subtask time tracking columns found in Done Stories tab');
+    }
   });
 
   test('should merge Sprint Throughput data into Sprints tab and remove duplicate Per Sprint section', async ({ page }) => {
@@ -147,6 +153,12 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       expect(contentText).toContain('Remaining Hrs');
       expect(contentText).toContain('Variance Hrs');
       console.log('[TEST] ✓ Time tracking columns found in Sprints tab');
+    if (contentText && contentText.includes('Subtask Est Hrs')) {
+      expect(contentText).toContain('Subtask Spent Hrs');
+      expect(contentText).toContain('Subtask Remaining Hrs');
+      expect(contentText).toContain('Subtask Variance Hrs');
+      console.log('[TEST] ✓ Subtask time tracking columns found in Sprints tab');
+    }
     }
     
     // Check Metrics tab - Per Sprint section should NOT exist

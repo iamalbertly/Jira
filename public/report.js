@@ -30,6 +30,10 @@ const CSV_COLUMNS = [
   'timeRemainingEstimateHours',
   'timeSpentHours',
   'timeVarianceHours',
+  'subtaskTimeOriginalEstimateHours',
+  'subtaskTimeRemainingEstimateHours',
+  'subtaskTimeSpentHours',
+  'subtaskTimeVarianceHours',
   'ebmTeam',
   'ebmProductArea',
   'ebmCustomerSegments',
@@ -608,6 +612,11 @@ function renderPreview() {
   } else {
     detailsLines.push('Source: Jira (live request)');
   }
+  if (meta.fieldInventory) {
+    const foundCount = Array.isArray(meta.fieldInventory.ebmFieldsFound) ? meta.fieldInventory.ebmFieldsFound.length : 0;
+    const missingCount = Array.isArray(meta.fieldInventory.ebmFieldsMissing) ? meta.fieldInventory.ebmFieldsMissing.length : 0;
+    detailsLines.push(`EBM fields found: ${foundCount}, missing: ${missingCount}`);
+  }
 
   const partialNotice = partial
     ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em> because: ${partialReason || 'time budget exceeded or limits reached.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
@@ -730,14 +739,27 @@ function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
   const summaries = new Map();
   const boardIds = (boards || []).map(board => board.id);
   boardIds.forEach(id => {
-    summaries.set(id, { sprintCount: 0, doneStories: 0, doneSP: 0 });
+    summaries.set(id, { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null });
   });
 
   for (const sprint of sprintsIncluded || []) {
     if (!summaries.has(sprint.boardId)) {
-      summaries.set(sprint.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0 });
+      summaries.set(sprint.boardId, { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null });
     }
-    summaries.get(sprint.boardId).sprintCount += 1;
+    const summary = summaries.get(sprint.boardId);
+    summary.sprintCount += 1;
+    const sprintStart = sprint.startDate ? new Date(sprint.startDate) : null;
+    const sprintEnd = sprint.endDate ? new Date(sprint.endDate) : null;
+    if (sprintStart && !Number.isNaN(sprintStart.getTime())) {
+      if (!summary.earliestStart || sprintStart < summary.earliestStart) {
+        summary.earliestStart = sprintStart;
+      }
+    }
+    if (sprintEnd && !Number.isNaN(sprintEnd.getTime())) {
+      if (!summary.latestEnd || sprintEnd > summary.latestEnd) {
+        summary.latestEnd = sprintEnd;
+      }
+    }
   }
 
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
@@ -764,6 +786,10 @@ function computeSprintTimeTotals(rows) {
         spentHours: 0,
         remainingHours: 0,
         varianceHours: 0,
+        subtaskEstimateHours: 0,
+        subtaskSpentHours: 0,
+        subtaskRemainingHours: 0,
+        subtaskVarianceHours: 0,
       });
     }
     const totalsEntry = totals.get(row.sprintId);
@@ -771,6 +797,10 @@ function computeSprintTimeTotals(rows) {
     totalsEntry.spentHours += Number(row.timeSpentHours) || 0;
     totalsEntry.remainingHours += Number(row.timeRemainingEstimateHours) || 0;
     totalsEntry.varianceHours += Number(row.timeVarianceHours) || 0;
+    totalsEntry.subtaskEstimateHours += Number(row.subtaskTimeOriginalEstimateHours) || 0;
+    totalsEntry.subtaskSpentHours += Number(row.subtaskTimeSpentHours) || 0;
+    totalsEntry.subtaskRemainingHours += Number(row.subtaskTimeRemainingEstimateHours) || 0;
+    totalsEntry.subtaskVarianceHours += Number(row.subtaskTimeVarianceHours) || 0;
   }
   return totals;
 }
@@ -787,9 +817,13 @@ function renderProjectEpicLevelTab(boards, metrics) {
   if (!boards || boards.length === 0) {
     html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
   } else {
-    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Done Stories</th><th>Done SP</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Sprint Window</th><th>Latest Sprint End</th><th>Done Stories</th><th>Done SP</th></tr></thead><tbody>';
     for (const board of boards) {
-      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0 };
+      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null };
+      const sprintWindow = summary.earliestStart && summary.latestEnd
+        ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
+        : '';
+      const latestEnd = summary.latestEnd ? summary.latestEnd.toISOString() : '';
       html += `
         <tr>
           <td>${escapeHtml(board.id)}</td>
@@ -797,6 +831,8 @@ function renderProjectEpicLevelTab(boards, metrics) {
           <td>${escapeHtml(board.type || '')}</td>
           <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
           <td>${summary.sprintCount}</td>
+          <td>${escapeHtml(sprintWindow)}</td>
+          <td>${escapeHtml(latestEnd)}</td>
           <td>${summary.doneStories}</td>
           <td>${summary.doneSP}</td>
         </tr>
@@ -923,6 +959,9 @@ function renderSprintsTab(sprints, metrics) {
   const hasTimeTracking = Array.from(timeTotals.values()).some(total =>
     total.estimateHours || total.spentHours || total.remainingHours || total.varianceHours
   );
+  const hasSubtaskTimeTracking = Array.from(timeTotals.values()).some(total =>
+    total.subtaskEstimateHours || total.subtaskSpentHours || total.subtaskRemainingHours || total.subtaskVarianceHours
+  );
 
   let html = '<table class="data-table"><thead><tr><th>Project</th><th>Board</th><th>Sprint</th><th>Start</th><th>End</th><th>State</th><th title="Stories currently marked Done vs stories resolved by the sprint end date">Stories Completed (Total)</th>';
   
@@ -937,6 +976,10 @@ function renderSprintsTab(sprints, metrics) {
   if (hasTimeTracking) {
     html += '<th>Est Hrs</th><th>Spent Hrs</th><th>Remaining Hrs</th><th>Variance Hrs</th>';
   }
+
+  if (hasSubtaskTimeTracking) {
+    html += '<th>Subtask Est Hrs</th><th>Subtask Spent Hrs</th><th>Subtask Remaining Hrs</th><th>Subtask Variance Hrs</th>';
+  }
   
   html += '</tr></thead><tbody>';
   
@@ -947,6 +990,10 @@ function renderSprintsTab(sprints, metrics) {
       spentHours: 0,
       remainingHours: 0,
       varianceHours: 0,
+      subtaskEstimateHours: 0,
+      subtaskSpentHours: 0,
+      subtaskRemainingHours: 0,
+      subtaskVarianceHours: 0,
     };
     
     html += `
@@ -981,9 +1028,70 @@ function renderSprintsTab(sprints, metrics) {
       html += `<td>${timeData.remainingHours.toFixed(2)}</td>`;
       html += `<td>${timeData.varianceHours.toFixed(2)}</td>`;
     }
+
+    if (hasSubtaskTimeTracking) {
+      html += `<td>${timeData.subtaskEstimateHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.subtaskSpentHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.subtaskRemainingHours.toFixed(2)}</td>`;
+      html += `<td>${timeData.subtaskVarianceHours.toFixed(2)}</td>`;
+    }
     
     html += '</tr>';
   }
+  
+  // Totals row
+  const totalDoneStoriesNow = sprints.reduce((sum, sprint) => sum + (sprint.doneStoriesNow || 0), 0);
+  const totalDoneByEnd = sprints.reduce((sum, sprint) => sum + (sprint.doneStoriesBySprintEnd || 0), 0);
+  const totalDoneSP = sprints.reduce((sum, sprint) => sum + (sprint.doneSP || 0), 0);
+  const totalThroughputSP = metrics?.throughput?.perSprint
+    ? Object.values(metrics.throughput.perSprint).reduce((sum, data) => sum + (data.totalSP || 0), 0)
+    : 0;
+  const totalThroughputCount = metrics?.throughput?.perSprint
+    ? Object.values(metrics.throughput.perSprint).reduce((sum, data) => sum + (data.storyCount || 0), 0)
+    : 0;
+  const totalTime = Array.from(timeTotals.values()).reduce(
+    (acc, val) => ({
+      estimateHours: acc.estimateHours + val.estimateHours,
+      spentHours: acc.spentHours + val.spentHours,
+      remainingHours: acc.remainingHours + val.remainingHours,
+      varianceHours: acc.varianceHours + val.varianceHours,
+    }),
+    { estimateHours: 0, spentHours: 0, remainingHours: 0, varianceHours: 0 }
+  );
+  const totalSubtaskTime = Array.from(timeTotals.values()).reduce(
+    (acc, val) => ({
+      estimateHours: acc.estimateHours + val.subtaskEstimateHours,
+      spentHours: acc.spentHours + val.subtaskSpentHours,
+      remainingHours: acc.remainingHours + val.subtaskRemainingHours,
+      varianceHours: acc.varianceHours + val.subtaskVarianceHours,
+    }),
+    { estimateHours: 0, spentHours: 0, remainingHours: 0, varianceHours: 0 }
+  );
+
+  html += '<tr class="totals-row">';
+  html += '<td colspan="6"><strong>Totals</strong></td>';
+  html += `<td><strong>${totalDoneStoriesNow}</strong></td>`;
+  if (metrics?.doneComparison) {
+    html += `<td><strong>${totalDoneByEnd}</strong></td>`;
+  }
+  if (metrics?.throughput) {
+    html += `<td><strong>${totalDoneSP}</strong></td>`;
+    html += `<td><strong>${totalThroughputSP}</strong></td>`;
+    html += `<td><strong>${totalThroughputCount}</strong></td>`;
+  }
+  if (hasTimeTracking) {
+    html += `<td><strong>${totalTime.estimateHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalTime.spentHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalTime.remainingHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalTime.varianceHours.toFixed(2)}</strong></td>`;
+  }
+  if (hasSubtaskTimeTracking) {
+    html += `<td><strong>${totalSubtaskTime.estimateHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalSubtaskTime.spentHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalSubtaskTime.remainingHours.toFixed(2)}</strong></td>`;
+    html += `<td><strong>${totalSubtaskTime.varianceHours.toFixed(2)}</strong></td>`;
+  }
+  html += '</tr>';
   
   html += '</tbody></table>';
   content.innerHTML = html;
@@ -1037,6 +1145,12 @@ function renderDoneStoriesTab(rows) {
     row.timeRemainingEstimateHours !== '' ||
     row.timeSpentHours !== '' ||
     row.timeVarianceHours !== ''
+  );
+  const hasSubtaskTimeTracking = rows.some(row =>
+    row.subtaskTimeOriginalEstimateHours !== '' ||
+    row.subtaskTimeRemainingEstimateHours !== '' ||
+    row.subtaskTimeSpentHours !== '' ||
+    row.subtaskTimeVarianceHours !== ''
   );
   const hasEbmTeam = rows.some(row => row.ebmTeam);
   const hasEbmProductArea = rows.some(row => row.ebmProductArea);
@@ -1128,6 +1242,7 @@ function renderDoneStoriesTab(rows) {
                 <th>Resolved</th>
                 ${hasSubtasks ? '<th>Subtasks</th>' : ''}
                 ${hasTimeTracking ? '<th>Est (Hrs)</th><th>Spent (Hrs)</th><th>Remaining (Hrs)</th><th>Variance (Hrs)</th>' : ''}
+                ${hasSubtaskTimeTracking ? '<th>Subtask Est (Hrs)</th><th>Subtask Spent (Hrs)</th><th>Subtask Remaining (Hrs)</th><th>Subtask Variance (Hrs)</th>' : ''}
                 ${meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
                 ${meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
               </tr>
@@ -1188,6 +1303,12 @@ function renderDoneStoriesTab(rows) {
             <td>${row.timeRemainingEstimateHours ?? ''}</td>
             <td>${row.timeVarianceHours ?? ''}</td>
           ` : ''}
+          ${hasSubtaskTimeTracking ? `
+            <td>${row.subtaskTimeOriginalEstimateHours ?? ''}</td>
+            <td>${row.subtaskTimeSpentHours ?? ''}</td>
+            <td>${row.subtaskTimeRemainingEstimateHours ?? ''}</td>
+            <td>${row.subtaskTimeVarianceHours ?? ''}</td>
+          ` : ''}
           ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${escapeHtml(row.storyPoints || '')}</td>` : ''}
           ${meta?.discoveredFields?.epicLinkFieldId ? `
             <td>${escapeHtml(row.epicKey || '')}</td>
@@ -1224,6 +1345,35 @@ function renderDoneStoriesTab(rows) {
   const totalVarianceHours = hasTimeTracking
     ? rows.reduce((sum, r) => sum + (Number(r.timeVarianceHours) || 0), 0)
     : 0;
+  const totalSubtaskEstimateHours = hasSubtaskTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.subtaskTimeOriginalEstimateHours) || 0), 0)
+    : 0;
+  const totalSubtaskSpentHours = hasSubtaskTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.subtaskTimeSpentHours) || 0), 0)
+    : 0;
+  const totalSubtaskVarianceHours = hasSubtaskTimeTracking
+    ? rows.reduce((sum, r) => sum + (Number(r.subtaskTimeVarianceHours) || 0), 0)
+    : 0;
+  const ebmFilledCount = rows.reduce((count, row) => {
+    const hasEbm =
+      row.ebmTeam ||
+      row.ebmProductArea ||
+      row.ebmCustomerSegments ||
+      row.ebmValue ||
+      row.ebmImpact ||
+      row.ebmSatisfaction ||
+      row.ebmSentiment ||
+      row.ebmSeverity ||
+      row.ebmSource ||
+      row.ebmWorkCategory ||
+      row.ebmGoals ||
+      row.ebmTheme ||
+      row.ebmRoadmap ||
+      row.ebmFocusAreas ||
+      row.ebmDeliveryStatus ||
+      row.ebmDeliveryProgress;
+    return count + (hasEbm ? 1 : 0);
+  }, 0);
 
   totalsBar.innerHTML = `
     <div class="totals">
@@ -1231,6 +1381,8 @@ function renderDoneStoriesTab(rows) {
       <strong>Unique Sprints:</strong> ${uniqueSprints}
       ${meta?.discoveredFields?.storyPointsFieldId ? ` | <strong>Total SP:</strong> ${totalSP}` : ''}
       ${hasTimeTracking ? ` | <strong>Est Hrs:</strong> ${totalEstimateHours.toFixed(2)} | <strong>Spent Hrs:</strong> ${totalSpentHours.toFixed(2)} | <strong>Variance Hrs:</strong> ${totalVarianceHours.toFixed(2)}` : ''}
+      ${hasSubtaskTimeTracking ? ` | <strong>Subtask Est Hrs:</strong> ${totalSubtaskEstimateHours.toFixed(2)} | <strong>Subtask Spent Hrs:</strong> ${totalSubtaskSpentHours.toFixed(2)} | <strong>Subtask Variance Hrs:</strong> ${totalSubtaskVarianceHours.toFixed(2)}` : ''}
+      ${ebmFilledCount > 0 ? ` | <strong>EBM Rows:</strong> ${ebmFilledCount}` : ''}
     </div>
   `;
 
@@ -1499,6 +1651,10 @@ const BUSINESS_COLUMN_NAMES = {
   'timeRemainingEstimateHours': 'Remaining Estimate (Hours)',
   'timeSpentHours': 'Time Spent (Hours)',
   'timeVarianceHours': 'Estimate Variance (Hours)',
+  'subtaskTimeOriginalEstimateHours': 'Subtask Original Estimate (Hours)',
+  'subtaskTimeRemainingEstimateHours': 'Subtask Remaining Estimate (Hours)',
+  'subtaskTimeSpentHours': 'Subtask Time Spent (Hours)',
+  'subtaskTimeVarianceHours': 'Subtask Estimate Variance (Hours)',
   'ebmTeam': 'EBM Team',
   'ebmProductArea': 'EBM Product Area',
   'ebmCustomerSegments': 'EBM Customer Segments',
@@ -2119,16 +2275,21 @@ async function exportSectionCSV(sectionName, data, button = null) {
     case 'project-epic-level':
     case 'boards':
       // Combined boards summary export
-      columns = ['id', 'name', 'type', 'projectKeys', 'includedSprints', 'doneStories', 'doneSP'];
+      columns = ['id', 'name', 'type', 'projectKeys', 'includedSprints', 'sprintWindow', 'latestSprintEnd', 'doneStories', 'doneSP'];
       const boardSummaries = buildBoardSummaries(previewData?.boards || [], previewData?.sprintsIncluded || [], previewRows, getSafeMeta(previewData));
       rows = (previewData?.boards || []).map(board => {
-        const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0 };
+        const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null };
+        const sprintWindow = summary.earliestStart && summary.latestEnd
+          ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
+          : '';
         return {
           id: board.id,
           name: board.name,
           type: board.type || '',
           projectKeys: (board.projectKeys || []).join('; '),
           includedSprints: summary.sprintCount,
+          sprintWindow,
+          latestSprintEnd: summary.latestEnd ? summary.latestEnd.toISOString() : '',
           doneStories: summary.doneStories,
           doneSP: summary.doneSP
         };
@@ -2140,9 +2301,15 @@ async function exportSectionCSV(sectionName, data, button = null) {
       const hasSprintTimeTracking = Array.from(sprintTimeTotals.values()).some(total =>
         total.estimateHours || total.spentHours || total.remainingHours || total.varianceHours
       );
+      const hasSprintSubtaskTracking = Array.from(sprintTimeTotals.values()).some(total =>
+        total.subtaskEstimateHours || total.subtaskSpentHours || total.subtaskRemainingHours || total.subtaskVarianceHours
+      );
       columns = ['id', 'name', 'boardName', 'startDate', 'endDate', 'state', 'projectKeys', 'doneStoriesNow', 'doneStoriesBySprintEnd', 'doneSP'];
       if (hasSprintTimeTracking) {
         columns.push('estimateHours', 'spentHours', 'remainingHours', 'varianceHours');
+      }
+      if (hasSprintSubtaskTracking) {
+        columns.push('subtaskEstimateHours', 'subtaskSpentHours', 'subtaskRemainingHours', 'subtaskVarianceHours');
       }
       rows = (previewData?.sprintsIncluded || []).map(sprint => {
         const timeData = sprintTimeTotals.get(sprint.id) || {
@@ -2150,6 +2317,10 @@ async function exportSectionCSV(sectionName, data, button = null) {
           spentHours: 0,
           remainingHours: 0,
           varianceHours: 0,
+          subtaskEstimateHours: 0,
+          subtaskSpentHours: 0,
+          subtaskRemainingHours: 0,
+          subtaskVarianceHours: 0,
         };
         const row = {
           id: sprint.id,
@@ -2168,6 +2339,12 @@ async function exportSectionCSV(sectionName, data, button = null) {
           row.spentHours = timeData.spentHours.toFixed(2);
           row.remainingHours = timeData.remainingHours.toFixed(2);
           row.varianceHours = timeData.varianceHours.toFixed(2);
+        }
+        if (hasSprintSubtaskTracking) {
+          row.subtaskEstimateHours = timeData.subtaskEstimateHours.toFixed(2);
+          row.subtaskSpentHours = timeData.subtaskSpentHours.toFixed(2);
+          row.subtaskRemainingHours = timeData.subtaskRemainingHours.toFixed(2);
+          row.subtaskVarianceHours = timeData.subtaskVarianceHours.toFixed(2);
         }
         return row;
       });

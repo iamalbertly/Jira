@@ -364,18 +364,28 @@ app.get('/preview.json', async (req, res) => {
       ebmFieldsMissing,
     };
 
-    // Fetch sprints for all boards
+    // Fetch sprints for all boards (chunked to limit concurrency)
     logger.info('Fetching sprints for boards', { boardCount: boards.length });
     const allSprints = [];
-    for (const board of boards) {
-      logger.debug(`Fetching sprints for board ${board.id} (${board.name})`);
-      const sprints = await retryOnRateLimit(
-        () => fetchSprintsForBoard(board.id, agileClient),
-        3,
-        `fetchSprintsForBoard:${board.id}`
-      );
-      logger.debug(`Found ${sprints.length} sprints for board ${board.id}`);
-      allSprints.push(...sprints.map(s => ({ ...s, boardId: board.id, boardName: board.name })));
+    const boardChunks = [];
+    const boardChunkSize = 3;
+    for (let i = 0; i < boards.length; i += boardChunkSize) {
+      boardChunks.push(boards.slice(i, i + boardChunkSize));
+    }
+
+    for (const chunk of boardChunks) {
+      const chunkPromises = chunk.map(async (board) => {
+        logger.debug(`Fetching sprints for board ${board.id} (${board.name})`);
+        const sprints = await retryOnRateLimit(
+          () => fetchSprintsForBoard(board.id, agileClient),
+          3,
+          `fetchSprintsForBoard:${board.id}`
+        );
+        logger.debug(`Found ${sprints.length} sprints for board ${board.id}`);
+        return sprints.map(s => ({ ...s, boardId: board.id, boardName: board.name }));
+      });
+      const chunkResults = await Promise.all(chunkPromises);
+      allSprints.push(...chunkResults.flat());
     }
     logger.info('Sprint fetching completed', { totalSprints: allSprints.length });
     addPhase('fetchSprints', { totalSprints: allSprints.length });
@@ -407,6 +417,7 @@ app.get('/preview.json', async (req, res) => {
     logger.info('Fetching issues for sprints', { sprintCount: sprintsIncluded.length });
     const allRows = [];
     const sprintIds = sprintsIncluded.map(s => s.id);
+    const boardMap = new Map(boards.map(board => [board.id, board]));
     const totalChunks = Math.ceil(sprintIds.length / 3);
     
     for (let i = 0; i < sprintIds.length; i += 3) {
@@ -432,7 +443,7 @@ app.get('/preview.json', async (req, res) => {
       
       const chunkPromises = chunk.map(async (sprintId) => {
         const sprint = sprintMap.get(sprintId);
-        const board = boards.find(b => b.id === sprint.boardId);
+        const board = boardMap.get(sprint.boardId) || { id: sprint.boardId || '', name: sprint.boardName || '', projectKeys: [] };
         
         try {
           // Determine allowed issue types based on options
@@ -451,7 +462,8 @@ app.get('/preview.json', async (req, res) => {
                 requireResolvedBySprintEnd,
                 sprint.endDate,
                 allowedTypes,
-                fields
+                fields,
+                version3Client
               ),
             3,
             `fetchSprintIssues:${sprintId}`
