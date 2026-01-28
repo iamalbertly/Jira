@@ -14,6 +14,9 @@ import { fetchSprintsForBoard, filterSprintsByOverlap } from './lib/sprints.js';
 import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues } from './lib/issues.js';
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
+import { generateExcelWorkbook, generateExcelFilename, createSummarySheetData } from './lib/excel.js';
+import { mapColumnsToBusinessNames } from './lib/columnMapping.js';
+import { addKPIColumns } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
 
@@ -682,6 +685,37 @@ app.post('/export', (req, res) => {
     logger.error('Error exporting CSV', error);
     res.status(500).json({ 
       error: 'Failed to export CSV',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * POST /export-excel - Generate Excel workbook with multiple sheets
+ */
+app.post('/export-excel', async (req, res) => {
+  try {
+    const { workbookData, meta } = req.body;
+
+    if (!workbookData || !Array.isArray(workbookData.sheets)) {
+      return res.status(400).json({ error: 'Invalid request body. Expected workbookData with sheets array.' });
+    }
+
+    // Generate Excel workbook
+    const buffer = await generateExcelWorkbook(workbookData);
+
+    // Set response headers
+    const filename = meta ? generateExcelFilename(meta) : 'jira-report.xlsx';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+
+    // Send buffer
+    res.send(buffer);
+  } catch (error) {
+    logger.error('Error exporting Excel', error);
+    res.status(500).json({ 
+      error: 'Failed to export Excel',
       message: error.message 
     });
   }

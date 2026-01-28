@@ -82,21 +82,27 @@ http://localhost:3000/report
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-   - **Boards**: Shows discovered boards for selected projects. Includes per-section CSV export button.
-   - **Sprints**: Lists sprints overlapping the date window with completion counts. When "Include Story Points" is enabled, shows "Total SP" and "Story Count" columns merged from throughput metrics. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). Includes per-section CSV export button.
+   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Includes boards table, throughput metrics (per project and per issue type), rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
+   - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. Includes per-section CSV export button.
-   - **Metrics**: Shows calculated metrics (Story Points, Epic TTM, and Bugs/Rework are always included)
-     - **Throughput**: Per project and per issue type breakdown (Per Sprint data is shown in Sprints tab to avoid duplication)
-     - **Per Issue Type**: Shows breakdown by issue type (Story, Bug, etc.)
-     - **Rework Ratio**: Shows bug vs story ratio (always included)
-     - **Epic TTM**: Shows Epic Time-To-Market with definition: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)." Includes fallback warning if Epic issues unavailable. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
-6. **Export CSV**:
-   - **Per-Section Exports**: Each tab (Boards, Sprints, Done Stories, Metrics) has its own "Export CSV" button with descriptive filenames (e.g., `sprints-2025-01-27.csv`, `done-stories-2025-01-27.csv`). Buttons show loading state ("Exporting...") during export and are disabled to prevent duplicate exports.
-   - **General Exports** (bottom of filters panel):
-     - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
-     - **Export CSV (Raw Preview)**: Exports all preview data
+6. **Export to Excel**:
+   - **Export to Excel - All Data**: Main export button generates a comprehensive Excel workbook (.xlsx) with 5 tabs:
+     - **Summary**: Key metrics, KPIs, agile maturity assessment, data quality scores, and manual enrichment guide
+     - **Stories**: All done stories with business-friendly column names, Excel-compatible dates, calculated KPI columns (Work Days to Complete, Cycle Time, etc.), and manual enrichment columns (Epic ID/Name Manual, Is Rework/Bug Manual, Team Notes)
+     - **Sprints**: Sprint-level metrics with throughput, predictability, and rework data
+     - **Epics**: Epic TTM data with calculated lead times
+     - **Metadata**: Export timestamp, date range, projects, filters applied, and data freshness
+   - **File Naming**: Excel files use descriptive names: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx` (e.g., `MPSA-MAS_Q2-2025_Sprint-Report_2025-01-27.xlsx`)
+   - **Business-Friendly Columns**: All technical column names are mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`)
+   - **Excel-Compatible Dates**: All dates are formatted for Excel recognition, enabling date filtering, pivot tables, and formulas
+   - **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time, Sprint Duration, and Agile Maturity Level
+   - **Manual Enrichment**: Blank columns provided for teams to fill in missing Epic IDs/Names, Rework/Bug flags, and notes
+   
+7. **Export CSV** (Secondary Option):
+   - **Per-Section Exports**: Each tab has its own "Export CSV" button for quick single-section exports
+   - **Export CSV (Filtered View)**: Exports only currently visible rows (after search/filter)
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
 
 ### Preview Behaviour & Feedback
@@ -138,6 +144,36 @@ Generates preview data from Jira.
 - `predictabilityMode` (optional): `approx` or `strict` (default: `approx`)
 - `includeEpicTTM` (mandatory): Always `true` - Epic TTM is always included in reports
 - `includeActiveOrMissingEndDateSprints` (optional): `true` or `false`
+
+### POST /export-excel
+Generates Excel workbook (.xlsx) with multiple sheets.
+
+**Request Body:**
+```json
+{
+  "workbookData": {
+    "sheets": [
+      {
+        "name": "Summary",
+        "columns": ["Section", "Metric", "Value"],
+        "rows": [...]
+      },
+      {
+        "name": "Stories",
+        "columns": ["Ticket ID", "Ticket Summary", ...],
+        "rows": [...]
+      }
+    ]
+  },
+  "meta": {
+    "selectedProjects": ["MPSA", "MAS"],
+    "windowStart": "2025-04-01T00:00:00.000Z",
+    "windowEnd": "2025-06-30T23:59:59.999Z"
+  }
+}
+```
+
+**Response:** Excel file download (.xlsx) with filename: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx`
 
 **Response:**
 ```json
@@ -206,6 +242,7 @@ npm run test:api
 - **API Tests**: Endpoint validation, error handling, CSV generation
 - **UX Reliability Tests**: Data quality indicators (Unknown issueType display, Epic TTM fallback warnings), cache age display, error recovery
 - **UX Critical Fixes Tests**: Epic Title/Summary display, merged Sprint Throughput data, renamed column labels with tooltips, per-section CSV export buttons and filenames, TTM definition header, export button loading states, button visibility after async renders, Epic Summary truncation edge cases
+- **Excel Export Tests**: Excel file generation, multi-tab structure, business-friendly column names, Excel-compatible dates, KPI calculations, manual enrichment columns, Summary and Metadata tabs
 
 **Note**: Some tests may require valid Jira credentials. Tests that require Jira access will gracefully handle authentication failures.
 
@@ -216,8 +253,12 @@ npm run test:api
 - **Epic TTM Accuracy**: Epic TTM uses Epic issue dates when available. Falls back to story dates if Epic issues unavailable, with warning displayed in Metrics tab. Definition clearly explained: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)."
 - **Cache Transparency**: Preview meta shows cache age when data is served from cache, enabling users to assess data freshness.
 - **Error Recovery**: Epic fetch failures don't break preview generation - system gracefully degrades to story-based calculation.
+- **Excel Export**: Main export generates comprehensive Excel workbook with 5 tabs (Summary, Stories, Sprints, Epics, Metadata). Files use descriptive naming: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx`. All dates are Excel-compatible format, enabling filtering and formulas.
+- **Business-Friendly Columns**: Technical column names mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`) for easier analysis by leaders and analysts.
+- **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time (Days), Sprint Duration (Work Days), Days Since Created, and Agile Maturity Level (1-5 scale).
+- **Manual Enrichment**: Excel exports include blank columns for teams to fill in: Epic ID (Manual), Epic Name (Manual), Is Rework (Manual), Is Bug (Manual), and Team Notes.
 - **CSV Validation**: Client-side validation ensures required columns (issueKey, issueType, issueStatus) are present before export. CSV exports include Epic Key, Epic Title, and Epic Summary when available.
-- **Export UX**: Per-section export buttons show loading state ("Exporting...") and are disabled during export to prevent duplicate exports. Buttons are visible after async rendering completes.
+- **Export UX**: Export buttons show loading state ("Exporting..." or "Generating Excel...") and are disabled during export to prevent duplicate exports. Buttons are visible after async rendering completes.
 
 ### Test Orchestration & Playwright
 
@@ -257,6 +298,9 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 │   ├── issues.js             # Issue extraction and filtering
 │   ├── metrics.js            # Metrics calculations
 │   ├── csv.js               # CSV generation utilities
+│   ├── excel.js              # Excel generation utilities
+│   ├── columnMapping.js     # Business-friendly column name mapping
+│   ├── kpiCalculations.js    # KPI calculation functions
 │   └── Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
 ├── public/
 │   ├── report.html           # Main UI
@@ -267,6 +311,7 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 │   ├── Jira-Reporting-App-API-Integration-Tests.spec.js
 │   ├── Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
 │   ├── Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
+│   ├── Jira-Reporting-App-Excel-Export-Tests.spec.js
 │   └── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
 └── scripts/
     └── Jira-Reporting-App-Test-Orchestration-Runner.js

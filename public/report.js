@@ -65,8 +65,8 @@ let previewHasRows = false;
 
 // DOM Elements
 const previewBtn = document.getElementById('preview-btn');
+const exportExcelBtn = document.getElementById('export-excel-btn');
 const exportFilteredBtn = document.getElementById('export-filtered-btn');
-const exportRawBtn = document.getElementById('export-raw-btn');
 const loadingEl = document.getElementById('loading');
 const errorEl = document.getElementById('error');
 const previewContent = document.getElementById('preview-content');
@@ -148,12 +148,12 @@ previewBtn.addEventListener('click', async () => {
 
   // Capture existing export state so we can restore it on early validation errors
   const prevExportFilteredDisabled = exportFilteredBtn.disabled;
-  const prevExportRawDisabled = exportRawBtn.disabled;
+  const prevExportExcelDisabled = exportExcelBtn.disabled;
 
   // Immediately prevent double-clicks and exporting while a preview is in flight
   previewBtn.disabled = true;
-  exportFilteredBtn.disabled = true;
-  exportRawBtn.disabled = true;
+    exportFilteredBtn.disabled = true;
+    exportExcelBtn.disabled = true;
 
   loadingEl.style.display = 'block';
   errorEl.style.display = 'none';
@@ -179,7 +179,7 @@ previewBtn.addEventListener('click', async () => {
     // Re-enable preview and restore export buttons to their previous state
     previewBtn.disabled = false;
     exportFilteredBtn.disabled = prevExportFilteredDisabled;
-    exportRawBtn.disabled = prevExportRawDisabled;
+    exportExcelBtn.disabled = prevExportExcelDisabled;
     return;
   }
 
@@ -259,7 +259,7 @@ previewBtn.addEventListener('click', async () => {
     loadingEl.style.display = 'none';
     previewContent.style.display = 'block';
     exportFilteredBtn.disabled = !previewHasRows;
-    exportRawBtn.disabled = !previewHasRows;
+    exportExcelBtn.disabled = !previewHasRows;
   } catch (error) {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -449,23 +449,19 @@ function renderPreview() {
   updateDateDisplay();
 
   // Render tabs
-  renderBoardsTab(previewData.boards);
+  renderProjectEpicLevelTab(previewData.boards, previewData.metrics);
   renderSprintsTab(previewData.sprintsIncluded, previewData.metrics);
   renderDoneStoriesTab(visibleRows);
-  
-  if (previewData.metrics) {
-    document.getElementById('metrics-tab').style.display = 'inline-block';
-    renderMetricsTab(previewData.metrics);
-  }
-  
   renderUnusableSprintsTab(previewData.sprintsUnusable);
   
   // Show/hide per-section export buttons based on data availability
   // Use requestAnimationFrame to ensure DOM updates complete before checking button visibility
   requestAnimationFrame(() => {
-    const boardsBtn = document.querySelector('.export-section-btn[data-section="boards"]');
-    if (boardsBtn && boardsBtn.parentElement) {
-      boardsBtn.style.display = (previewData.boards && previewData.boards.length > 0) ? 'inline-block' : 'none';
+    const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');
+    if (projectEpicLevelBtn && projectEpicLevelBtn.parentElement) {
+      const hasBoards = previewData.boards && previewData.boards.length > 0;
+      const hasMetrics = previewData.metrics && Object.keys(previewData.metrics).length > 0;
+      projectEpicLevelBtn.style.display = (hasBoards || hasMetrics) ? 'inline-block' : 'none';
     }
     
     const sprintsBtn = document.querySelector('.export-section-btn[data-section="sprints"]');
@@ -478,10 +474,6 @@ function renderPreview() {
       doneStoriesBtn.style.display = (visibleRows.length > 0 || previewRows.length > 0) ? 'inline-block' : 'none';
     }
     
-    const metricsBtn = document.querySelector('.export-section-btn[data-section="metrics"]');
-    if (metricsBtn && metricsBtn.parentElement) {
-      metricsBtn.style.display = (previewData.metrics && Object.keys(previewData.metrics).length > 0) ? 'inline-block' : 'none';
-    }
   });
 }
 
@@ -508,32 +500,115 @@ function updateDateDisplay() {
 document.getElementById('start-date').addEventListener('change', updateDateDisplay);
 document.getElementById('end-date').addEventListener('change', updateDateDisplay);
 
-// Render Boards tab
-function renderBoardsTab(boards) {
-  const content = document.getElementById('boards-content');
-  
+// Render Project & Epic Level tab (merged Boards + Metrics)
+function renderProjectEpicLevelTab(boards, metrics) {
+  const content = document.getElementById('project-epic-level-content');
+  let html = '';
+
+  // Section 1: Boards
+  html += '<h3>Boards</h3>';
   if (!boards || boards.length === 0) {
-    const title = 'No boards found';
-    const message = `No boards were discovered for the selected projects (${previewData?.meta?.selectedProjects?.join(', ') || 'N/A'}) in the date window.`;
-    const hint = 'Try adjusting your project selection or date range, or verify that the projects have boards configured in Jira.';
-    renderEmptyState(content, title, message, hint);
-    return;
+    html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
+  } else {
+    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th></tr></thead><tbody>';
+    for (const board of boards) {
+      html += `
+        <tr>
+          <td>${board.id}</td>
+          <td>${board.name}</td>
+          <td>${board.type || ''}</td>
+          <td>${board.projectKeys?.join(', ') || ''}</td>
+        </tr>
+      `;
+    }
+    html += '</tbody></table>';
   }
 
-  let html = '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th></tr></thead><tbody>';
-  
-  for (const board of boards) {
-    html += `
-      <tr>
-        <td>${board.id}</td>
-        <td>${board.name}</td>
-        <td>${board.type || ''}</td>
-        <td>${board.projectKeys?.join(', ') || ''}</td>
-      </tr>
-    `;
+  // Section 2: Metrics (if available)
+  if (metrics) {
+    html += '<hr style="margin: 30px 0;">';
+    
+    // Throughput Metrics
+    if (metrics.throughput) {
+      html += '<h3>Throughput</h3>';
+      html += '<p class="metrics-hint"><small>Note: Per Sprint data is shown in the Sprints tab. Below are aggregated views.</small></p>';
+      
+      html += '<h4>Per Project</h4>';
+      html += '<table class="data-table"><thead><tr><th>Project</th><th>Total SP</th><th>Sprint Count</th><th>Average SP/Sprint</th><th>Story Count</th></tr></thead><tbody>';
+      for (const projectKey in metrics.throughput.perProject) {
+        const data = metrics.throughput.perProject[projectKey];
+        html += `<tr><td>${data.projectKey}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${data.averageSPPerSprint.toFixed(2)}</td><td>${data.storyCount}</td></tr>`;
+      }
+      html += '</tbody></table>';
+
+      if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
+        html += '<h4>Per Issue Type</h4>';
+        html += '<table class="data-table"><thead><tr><th>Issue Type</th><th>Total SP</th><th>Issue Count</th></tr></thead><tbody>';
+        for (const issueType in metrics.throughput.perIssueType) {
+          const data = metrics.throughput.perIssueType[issueType];
+          html += `<tr><td>${data.issueType || 'Unknown'}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
+        }
+        html += '</tbody></table>';
+      }
+    }
+
+    // Rework Ratio
+    if (metrics.rework) {
+      html += '<h3>Rework Ratio</h3>';
+      const r = metrics.rework;
+      if (r.spAvailable) {
+        html += `<p>Rework: ${r.reworkRatio.toFixed(2)}% (Bug SP: ${r.bugSP}, Story SP: ${r.storySP})</p>`;
+      } else {
+        html += `<p>Rework: SP unavailable (Bug Count: ${r.bugCount}, Story Count: ${r.storyCount})</p>`;
+      }
+    }
+
+    // Predictability
+    if (metrics.predictability) {
+      html += '<h3>Predictability</h3>';
+      html += `<p>Mode: ${metrics.predictability.mode}</p>`;
+      html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Committed SP</th><th>Delivered Stories</th><th>Delivered SP</th><th>Predictability % (Stories)</th><th>Predictability % (SP)</th></tr></thead><tbody>';
+      const predictPerSprint = metrics.predictability.perSprint || {};
+      for (const data of Object.values(predictPerSprint)) {
+        if (!data) continue;
+        html += `<tr>
+          <td>${data.sprintName}</td>
+          <td>${data.committedStories}</td>
+          <td>${data.committedSP}</td>
+          <td>${data.deliveredStories}</td>
+          <td>${data.deliveredSP}</td>
+          <td>${data.predictabilityStories.toFixed(2)}%</td>
+          <td>${data.predictabilitySP.toFixed(2)}%</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    // Epic TTM
+    if (metrics.epicTTM) {
+      html += '<h3>Epic Time-To-Market</h3>';
+      html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
+      if (previewData?.meta?.epicTTMFallbackCount > 0) {
+        html += `<p class="data-quality-warning"><small>Note: ${previewData.meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
+      }
+      html += '<table class="data-table"><thead><tr><th>Epic Key</th><th>Story Count</th><th>Start Date</th><th>End Date</th><th>Calendar TTM (days)</th><th>Working TTM (days)</th></tr></thead><tbody>';
+      for (const epic of metrics.epicTTM) {
+        html += `<tr>
+          <td>${epic.epicKey}</td>
+          <td>${epic.storyCount}</td>
+          <td>${epic.startDate}</td>
+          <td>${epic.endDate || ''}</td>
+          <td>${epic.calendarTTMdays ?? ''}</td>
+          <td>${epic.workingTTMdays ?? ''}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+    }
+  } else {
+    html += '<hr style="margin: 30px 0;">';
+    html += '<p><em>No metrics available. Metrics are calculated when the corresponding options are enabled.</em></p>';
   }
-  
-  html += '</tbody></table>';
+
   content.innerHTML = html;
 }
 
@@ -818,8 +893,8 @@ function applyFilters() {
 }
 
 // Export functions
+exportExcelBtn.addEventListener('click', () => exportToExcel());
 exportFilteredBtn.addEventListener('click', () => exportCSV(visibleRows, 'filtered'));
-exportRawBtn.addEventListener('click', () => exportCSV(previewRows, 'raw'));
 
 // Validate CSV columns before export
 function validateCSVColumns(columns, rows) {
@@ -974,6 +1049,339 @@ function downloadCSV(csv, filename) {
   }
 }
 
+// Business-friendly column name mapping (must match lib/columnMapping.js)
+const BUSINESS_COLUMN_NAMES = {
+  'projectKey': 'Project',
+  'boardId': 'Board ID',
+  'boardName': 'Board Name',
+  'sprintId': 'Sprint ID',
+  'sprintName': 'Sprint Name',
+  'sprintState': 'Sprint State',
+  'sprintStartDate': 'Sprint Start Date',
+  'sprintEndDate': 'Sprint End Date',
+  'issueKey': 'Ticket ID',
+  'issueSummary': 'Ticket Summary',
+  'issueStatus': 'Status',
+  'issueType': 'Issue Type',
+  'assigneeDisplayName': 'Assignee',
+  'created': 'Created Date',
+  'updated': 'Updated Date',
+  'resolutionDate': 'Completed Date',
+  'storyPoints': 'Story Points',
+  'epicKey': 'Epic ID',
+  'epicTitle': 'Epic Name',
+  'epicSummary': 'Epic Summary',
+};
+
+// Excel export function
+async function exportToExcel() {
+  if (!previewData || !previewRows || previewRows.length === 0) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> No data to export.
+      <br><small>Please generate a preview first.</small>
+    `;
+    return;
+  }
+
+  // Store original button state
+  const originalButtonText = exportExcelBtn.textContent;
+  const originalButtonDisabled = exportExcelBtn.disabled;
+
+  // Set loading state
+  exportExcelBtn.disabled = true;
+  exportExcelBtn.textContent = 'Generating Excel...';
+
+  try {
+    // Prepare Stories sheet data with business-friendly columns and KPI columns
+    const storiesColumns = [
+      ...CSV_COLUMNS.map(col => BUSINESS_COLUMN_NAMES[col] || col),
+      'Work Days to Complete',
+      'Sprint Duration (Work Days)',
+      'Cycle Time (Days)',
+      'Days Since Created',
+      'Epic ID (Manual)',
+      'Epic Name (Manual)',
+      'Is Rework (Manual)',
+      'Is Bug (Manual)',
+      'Team Notes'
+    ];
+
+    const storiesRows = previewRows.map(row => {
+      const businessRow = {};
+      
+      // Map technical columns to business names
+      CSV_COLUMNS.forEach(techCol => {
+        const businessCol = BUSINESS_COLUMN_NAMES[techCol] || techCol;
+        businessRow[businessCol] = row[techCol] || '';
+      });
+
+      // Calculate KPI columns
+      const created = row.created ? new Date(row.created) : null;
+      const resolved = row.resolutionDate ? new Date(row.resolutionDate) : null;
+      const sprintStart = row.sprintStartDate ? new Date(row.sprintStartDate) : null;
+      const sprintEnd = row.sprintEndDate ? new Date(row.sprintEndDate) : null;
+      const today = new Date();
+
+      // Work Days to Complete
+      if (created && resolved) {
+        businessRow['Work Days to Complete'] = calculateWorkDaysBetween(created, resolved);
+      } else {
+        businessRow['Work Days to Complete'] = '';
+      }
+
+      // Sprint Duration (Work Days)
+      if (sprintStart && sprintEnd) {
+        businessRow['Sprint Duration (Work Days)'] = calculateWorkDaysBetween(sprintStart, sprintEnd);
+      } else {
+        businessRow['Sprint Duration (Work Days)'] = '';
+      }
+
+      // Cycle Time (Days)
+      businessRow['Cycle Time (Days)'] = businessRow['Work Days to Complete'];
+
+      // Days Since Created
+      if (created) {
+        businessRow['Days Since Created'] = calculateWorkDaysBetween(created, today);
+      } else {
+        businessRow['Days Since Created'] = '';
+      }
+
+      // Manual enrichment columns (empty, ready for team input)
+      businessRow['Epic ID (Manual)'] = '';
+      businessRow['Epic Name (Manual)'] = '';
+      businessRow['Is Rework (Manual)'] = '';
+      businessRow['Is Bug (Manual)'] = '';
+      businessRow['Team Notes'] = '';
+
+      return businessRow;
+    });
+
+    // Prepare Sprints sheet data
+    const sprintsColumns = ['Sprint ID', 'Sprint Name', 'Board Name', 'Sprint Start Date', 'Sprint End Date', 'State', 'Projects', 'Stories Completed (Total)', 'Completed Within Sprint End Date', 'Total SP'];
+    const sprintsRows = (previewData.sprintsIncluded || []).map(sprint => ({
+      'Sprint ID': sprint.id,
+      'Sprint Name': sprint.name,
+      'Board Name': sprint.boardName || '',
+      'Sprint Start Date': sprint.startDate || '',
+      'Sprint End Date': sprint.endDate || '',
+      'State': sprint.state || '',
+      'Projects': (sprint.projectKeys || []).join(', '),
+      'Stories Completed (Total)': sprint.doneStoriesNow || 0,
+      'Completed Within Sprint End Date': sprint.doneStoriesBySprintEnd || 0,
+      'Total SP': sprint.doneSP || 0
+    }));
+
+    // Prepare Epics sheet data (from Epic TTM metrics)
+    const epicsColumns = ['Epic ID', 'Story Count', 'Start Date', 'End Date', 'Calendar TTM (days)', 'Working TTM (days)'];
+    const epicsRows = (previewData.metrics?.epicTTM || []).map(epic => ({
+      'Epic ID': epic.epicKey,
+      'Story Count': epic.storyCount || 0,
+      'Start Date': epic.startDate || '',
+      'End Date': epic.endDate || '',
+      'Calendar TTM (days)': epic.calendarTTMdays || '',
+      'Working TTM (days)': epic.workingTTMdays || ''
+    }));
+
+    // Prepare Summary sheet data
+    const summaryColumns = ['Section', 'Metric', 'Value'];
+    const summaryRows = createSummarySheetRows(previewData.metrics, previewData.meta, previewRows);
+
+    // Prepare Metadata sheet data
+    const metadataColumns = ['Field', 'Value'];
+    const metadataRows = [
+      { 'Field': 'Export Date', 'Value': new Date().toISOString() },
+      { 'Field': 'Export Time', 'Value': new Date().toLocaleString() },
+      { 'Field': 'Date Range Start', 'Value': previewData.meta.windowStart },
+      { 'Field': 'Date Range End', 'Value': previewData.meta.windowEnd },
+      { 'Field': 'Projects', 'Value': (previewData.meta.selectedProjects || []).join(', ') },
+      { 'Field': 'Total Stories', 'Value': previewRows.length },
+      { 'Field': 'Total Sprints', 'Value': (previewData.sprintsIncluded || []).length },
+      { 'Field': 'Data Freshness', 'Value': previewData.meta.fromCache ? `Cached (${previewData.meta.cacheAgeMinutes} minutes old)` : 'Fresh' }
+    ];
+
+    // Build workbook data
+    const workbookData = {
+      sheets: [
+        { name: 'Summary', columns: summaryColumns, rows: summaryRows },
+        { name: 'Stories', columns: storiesColumns, rows: storiesRows },
+        { name: 'Sprints', columns: sprintsColumns, rows: sprintsRows },
+        { name: 'Epics', columns: epicsColumns, rows: epicsRows },
+        { name: 'Metadata', columns: metadataColumns, rows: metadataRows }
+      ]
+    };
+
+    // Send to server for Excel generation
+    const response = await fetch('/export-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workbookData, meta: previewData.meta })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Excel export failed: ${errorText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Generate filename
+    const projects = (previewData.meta.selectedProjects || []).join('-');
+    const dateRange = formatDateRangeForFilename(previewData.meta.windowStart, previewData.meta.windowEnd);
+    const exportDate = new Date().toISOString().split('T')[0];
+    a.download = `${projects}_${dateRange}_Sprint-Report_${exportDate}.xlsx`;
+    
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    // Show success feedback
+    const successMsg = document.createElement('div');
+    successMsg.className = 'export-success';
+    successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+    successMsg.textContent = `✓ Excel exported: ${a.download} (${(blob.size / 1024).toFixed(0)}KB)`;
+    document.body.appendChild(successMsg);
+    setTimeout(() => {
+      if (successMsg.parentNode) {
+        successMsg.parentNode.removeChild(successMsg);
+      }
+    }, 3000);
+
+  } catch (error) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> ${error.message}
+      <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+    `;
+    console.error('Excel export error:', error);
+  } finally {
+    // Restore button state
+    exportExcelBtn.disabled = originalButtonDisabled;
+    exportExcelBtn.textContent = originalButtonText;
+  }
+}
+
+// Helper function to calculate work days between two dates
+function calculateWorkDaysBetween(startDate, endDate) {
+  if (!startDate || !endDate) return '';
+  
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return '';
+    }
+    
+    if (end < start) {
+      return 0;
+    }
+    
+    let count = 0;
+    const current = new Date(start);
+    
+    while (current <= end) {
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return count;
+  } catch (error) {
+    return '';
+  }
+}
+
+// Helper function to format date range for filename
+function formatDateRangeForFilename(startDate, endDate) {
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const startMonth = start.getMonth() + 1;
+    const startYear = start.getFullYear();
+    const endMonth = end.getMonth() + 1;
+    const endYear = end.getFullYear();
+    
+    if (startYear === endYear) {
+      if (startMonth >= 1 && startMonth <= 3 && endMonth >= 1 && endMonth <= 3) {
+        return `Q1-${startYear}`;
+      } else if (startMonth >= 4 && startMonth <= 6 && endMonth >= 4 && endMonth <= 6) {
+        return `Q2-${startYear}`;
+      } else if (startMonth >= 7 && startMonth <= 9 && endMonth >= 7 && endMonth <= 9) {
+        return `Q3-${startYear}`;
+      } else if (startMonth >= 10 && startMonth <= 12 && endMonth >= 10 && endMonth <= 12) {
+        return `Q4-${startYear}`;
+      }
+    }
+    
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+    return `${startStr}_to_${endStr}`;
+  } catch (error) {
+    return `${startDate}_to_${endDate}`;
+  }
+}
+
+// Helper function to create Summary sheet rows
+function createSummarySheetRows(metrics, meta, allRows) {
+  const rows = [];
+  
+  // Overview
+  rows.push({ 'Section': 'Overview', 'Metric': 'Total Stories', 'Value': allRows.length || 0 });
+  rows.push({ 'Section': 'Overview', 'Metric': 'Total Sprints', 'Value': meta.sprintCount || 0 });
+  rows.push({ 'Section': 'Overview', 'Metric': 'Date Range', 'Value': `${meta.windowStart} to ${meta.windowEnd}` });
+  rows.push({ 'Section': 'Overview', 'Metric': 'Projects', 'Value': (meta.selectedProjects || []).join(', ') });
+  rows.push({ 'Section': '', 'Metric': '', 'Value': '' });
+  
+  // Key Metrics
+  if (metrics && metrics.throughput) {
+    const totalSP = Object.values(metrics.throughput.perProject || {}).reduce((sum, p) => sum + (p.totalSP || 0), 0);
+    rows.push({ 'Section': 'Key Metrics', 'Metric': 'Total Story Points', 'Value': totalSP });
+    rows.push({ 'Section': 'Key Metrics', 'Metric': 'Average SP per Sprint', 'Value': (totalSP / (meta.sprintCount || 1)).toFixed(2) });
+  }
+  
+  if (metrics && metrics.rework) {
+    rows.push({ 'Section': 'Key Metrics', 'Metric': 'Rework Ratio', 'Value': `${metrics.rework.reworkRatio.toFixed(2)}%` });
+  }
+  
+  if (metrics && metrics.predictability) {
+    const perSprint = metrics.predictability.perSprint || {};
+    const avgPredictability = Object.values(perSprint).reduce((sum, s) => sum + (s.predictabilitySP || 0), 0) / Object.keys(perSprint).length || 0;
+    rows.push({ 'Section': 'Key Metrics', 'Metric': 'Average Predictability', 'Value': `${avgPredictability.toFixed(2)}%` });
+  }
+  
+  rows.push({ 'Section': '', 'Metric': '', 'Value': '' });
+  
+  // Data Quality
+  const missingEpicCount = allRows.filter(r => !r.epicKey).length;
+  const missingSPCount = allRows.filter(r => !r.storyPoints || r.storyPoints === 0).length;
+  const qualityScore = 100 - ((missingEpicCount / allRows.length) * 50) - ((missingSPCount / allRows.length) * 50);
+  
+  rows.push({ 'Section': 'Data Quality', 'Metric': 'Missing Epic Count', 'Value': missingEpicCount });
+  rows.push({ 'Section': 'Data Quality', 'Metric': 'Missing Story Points Count', 'Value': missingSPCount });
+  rows.push({ 'Section': 'Data Quality', 'Metric': 'Data Quality Score', 'Value': `${Math.max(0, qualityScore).toFixed(1)}%` });
+  rows.push({ 'Section': '', 'Metric': '', 'Value': '' });
+  
+  // Manual Enrichment Guide
+  rows.push({ 'Section': 'Manual Enrichment', 'Metric': 'Epic ID (Manual)', 'Value': 'Fill in missing Epic IDs' });
+  rows.push({ 'Section': 'Manual Enrichment', 'Metric': 'Epic Name (Manual)', 'Value': 'Fill in missing Epic Names' });
+  rows.push({ 'Section': 'Manual Enrichment', 'Metric': 'Is Rework (Manual)', 'Value': 'Enter Y or N' });
+  rows.push({ 'Section': 'Manual Enrichment', 'Metric': 'Is Bug (Manual)', 'Value': 'Enter Y or N' });
+  rows.push({ 'Section': 'Manual Enrichment', 'Metric': 'Team Notes', 'Value': 'Add context or notes' });
+  
+  return rows;
+}
+
 // Per-section CSV export
 async function exportSectionCSV(sectionName, data, button = null) {
   // Store original button state
@@ -1002,7 +1410,9 @@ async function exportSectionCSV(sectionName, data, button = null) {
 
   // Prepare data based on section
   switch (sectionName) {
+    case 'project-epic-level':
     case 'boards':
+      // Combined boards and metrics export
       columns = ['id', 'name', 'type', 'projectKeys'];
       rows = (previewData?.boards || []).map(board => ({
         id: board.id,
@@ -1010,6 +1420,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
         type: board.type || '',
         projectKeys: (board.projectKeys || []).join('; ')
       }));
+      // Note: Metrics data is included in Excel export, not CSV per-section export
       break;
     case 'sprints':
       columns = ['id', 'name', 'boardName', 'startDate', 'endDate', 'state', 'projectKeys', 'doneStoriesNow', 'doneStoriesBySprintEnd', 'doneSP'];
@@ -1231,6 +1642,7 @@ document.addEventListener('click', (e) => {
     let data = null;
     
     switch (section) {
+      case 'project-epic-level':
       case 'boards':
         data = previewData?.boards || [];
         break;
@@ -1240,8 +1652,8 @@ document.addEventListener('click', (e) => {
       case 'done-stories':
         data = visibleRows.length > 0 ? visibleRows : previewRows;
         break;
-      case 'metrics':
-        data = previewData?.metrics || {};
+      case 'project-epic-level':
+        data = previewData?.boards || [];
         break;
     }
     

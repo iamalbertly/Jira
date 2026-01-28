@@ -44,6 +44,12 @@ const steps = [
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js', '--reporter=list', '--headed'],
     cwd: projectRoot,
   },
+  {
+    name: 'Run Excel Export Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Excel-Export-Tests.spec.js', '--reporter=list', '--headed'],
+    cwd: projectRoot,
+  },
 ];
 
 function runStep(step, stepIndex) {
