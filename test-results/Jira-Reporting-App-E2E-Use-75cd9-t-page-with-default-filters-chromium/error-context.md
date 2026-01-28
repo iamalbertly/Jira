@@ -24,31 +24,24 @@
         - generic [ref=e19]:
           - text: End Date/Time (UTC)
           - textbox "End Date/Time (UTC)" [ref=e20]: 2025-06-30T23:59
-        - generic [ref=e22]:
-          - text: "UTC: 2025-03-31T21:00:00.000Z to 2025-06-30T20:59:59.999Z"
-          - text: "Local: 4/1/2025, 12:00:00 AM to 6/30/2025, 11:59:59 PM"
-      - generic [ref=e23]:
-        - heading "Options" [level=3] [ref=e24]
-        - paragraph [ref=e25]:
-          - generic [ref=e26]:
-            - strong [ref=e27]: "Note:"
+      - generic [ref=e22]:
+        - heading "Options" [level=3] [ref=e23]
+        - paragraph [ref=e24]:
+          - generic [ref=e25]:
+            - strong [ref=e26]: "Note:"
             - text: Story Points, Epic TTM, and Bugs/Rework are always included in reports.
-        - generic [ref=e28] [cursor=pointer]:
-          - checkbox "Require Resolved by Sprint End" [ref=e29]
+        - generic [ref=e27] [cursor=pointer]:
+          - checkbox "Require Resolved by Sprint End" [ref=e28]
           - text: Require Resolved by Sprint End
-        - generic [ref=e30] [cursor=pointer]:
-          - checkbox "Include Predictability" [ref=e31]
+        - generic [ref=e29] [cursor=pointer]:
+          - checkbox "Include Predictability" [ref=e30]
           - text: Include Predictability
-        - generic [ref=e32] [cursor=pointer]:
-          - checkbox "Include Active/Missing End Date Sprints" [ref=e33]
+        - generic [ref=e31] [cursor=pointer]:
+          - checkbox "Include Active/Missing End Date Sprints" [ref=e32]
           - text: Include Active/Missing End Date Sprints
-      - generic [ref=e34]:
-        - button "Preview" [ref=e35] [cursor=pointer]
-        - button "Export to Excel - All Data" [disabled] [ref=e36]
-        - button "Export CSV (Filtered View)" [ref=e37] [cursor=pointer]
-    - main [ref=e38]:
-      - generic [ref=e39]:
-        - strong [ref=e40]: "Error:"
-        - text: exportRawBtn is not defined
-        - text: If this problem persists, please check your Jira connection and try again.
+      - generic [ref=e33]:
+        - button "Preview" [ref=e34] [cursor=pointer]
+        - button "Export to Excel - All Data" [disabled] [ref=e35]
+        - button "Export CSV (Filtered View)" [disabled] [ref=e36]
+    - main [ref=e37]
 ```

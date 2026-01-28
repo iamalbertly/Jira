@@ -43,9 +43,8 @@ async function runDefaultPreview(page, overrides = {}) {
     projects = ['MPSA', 'MAS'],
     start = '2025-04-01T00:00',
     end = '2025-06-30T23:59',
-    includeStoryPoints = true,
-    includeBugsForRework = false,
-    includeEpicTTM = false,
+    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+    // No need to pass these parameters - they're always included in reports
   } = overrides;
 
   await page.goto('/report');
@@ -86,7 +85,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     test.setTimeout(300000);
 
     // Test via API first to get data
-    const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&bypassCache=true`, {
+    const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
       timeout: 120000
     });
 
@@ -128,8 +127,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
 
     // Generate preview with metrics
     await runDefaultPreview(page, { 
-      includeStoryPoints: true,
-      includeEpicTTM: true 
+      // Story Points and Epic TTM are now mandatory (always enabled) 
     });
 
     // Verify metrics tab is visible (should be visible even if metrics are empty)
@@ -148,8 +146,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
 
     // Generate preview with throughput but without bugs (perIssueType will be empty)
     await runDefaultPreview(page, { 
-      includeStoryPoints: true,
-      includeBugsForRework: false 
+      // Story Points and Bugs/Rework are now mandatory (always enabled) 
     });
 
     // Navigate to Metrics tab
@@ -171,7 +168,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     test.setTimeout(300000);
 
     // Test via API to check for fallback count
-    const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&includeEpicTTM=true&bypassCache=true`, {
+    const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
       timeout: 120000
     });
 
@@ -238,7 +235,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     test.setTimeout(300000);
 
     // First request to populate cache
-    const firstResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true`, {
+      const firstResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}`, {
       timeout: 120000
     });
 
@@ -247,7 +244,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
       await page.waitForTimeout(1000);
       
       // Second request should be from cache
-      const secondResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true`, {
+      const secondResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}`, {
         timeout: 120000
       });
 
@@ -263,7 +260,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
             console.log(`[TEST] ✓ Cache age in meta: ${data.meta.cacheAgeMinutes} minutes`);
             
             // Load preview in browser to verify UI display
-            await runDefaultPreview(page, { includeStoryPoints: true });
+            await runDefaultPreview(page);
             
             // Check preview meta for cache age
             const previewMeta = await page.locator('#preview-meta').textContent();
@@ -286,8 +283,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
 
     // Generate preview with Epic TTM enabled
     await runDefaultPreview(page, { 
-      includeStoryPoints: true,
-      includeEpicTTM: true 
+      // Story Points and Epic TTM are now mandatory (always enabled) 
     });
 
     // Verify preview completed successfully (even if Epic fetch failed)

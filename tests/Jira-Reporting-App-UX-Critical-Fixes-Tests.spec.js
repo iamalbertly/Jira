@@ -31,9 +31,8 @@ async function runDefaultPreview(page, overrides = {}) {
     projects = ['MPSA', 'MAS'],
     start = '2025-04-01T00:00',
     end = '2025-06-30T23:59',
-    includeStoryPoints = true,
-    includeBugsForRework = false,
-    includeEpicTTM = false,
+    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+    // No need to pass these parameters - they're always included in reports
   } = overrides;
 
   await page.goto('/report');
@@ -73,7 +72,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing Epic Title/Summary display in Stories done report');
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -113,7 +112,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing merged Sprint Throughput data');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -156,7 +155,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing renamed column labels');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -200,7 +199,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing per-section CSV export buttons');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -293,7 +292,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing TTM definition header');
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -331,7 +330,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     // This test validates that the system continues working even if Epic fetch fails
     // In a real scenario, this would require mocking, but we'll validate the UI handles missing Epic data
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -354,7 +353,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing throughput data mismatch handling');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -381,7 +380,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing Epic Summary truncation');
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -412,7 +411,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing CSV columns include Epic Title/Summary');
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -453,7 +452,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing Epic Summary null/undefined/empty handling');
     
-    await runDefaultPreview(page, { includeEpicTTM: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -483,7 +482,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing export button loading state');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {
@@ -527,7 +526,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     test.setTimeout(120000);
     console.log('[TEST] Testing export button visibility after async renders');
     
-    await runDefaultPreview(page, { includeStoryPoints: true });
+    await runDefaultPreview(page);
     
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (!previewVisible) {

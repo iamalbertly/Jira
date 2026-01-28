@@ -906,13 +906,7 @@ function validateCSVColumns(columns, rows) {
     }
   }
   
-  // Warn if column count doesn't match expected
-  if (columns.length !== CSV_COLUMNS.length) {
-    console.warn('CSV column count mismatch', {
-      client: columns.length,
-      server: CSV_COLUMNS.length
-    });
-  }
+  // Column count validation (mismatch is acceptable, just ensure required columns exist)
 }
 
 async function exportCSV(rows, type) {
@@ -1000,7 +994,6 @@ async function exportCSV(rows, type) {
         <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
         <br><small>For very large datasets, try filtering the data or using a smaller date range.</small>
       `;
-      console.error('CSV export error:', error);
     }
   }
 }
@@ -1045,7 +1038,6 @@ function downloadCSV(csv, filename) {
       <br><small>Your browser may be blocking downloads. Please check your browser settings or try clicking the export button again.</small>
       <br><small>Error: ${error.message}</small>
     `;
-    console.error('CSV download error:', error);
   }
 }
 
@@ -1073,6 +1065,225 @@ const BUSINESS_COLUMN_NAMES = {
   'epicSummary': 'Epic Summary',
 };
 
+// Validate Excel workbook data structure before sending to server
+function validateExcelWorkbookData(workbookData) {
+  if (!workbookData || typeof workbookData !== 'object') {
+    return { valid: false, error: 'Workbook data is missing or invalid' };
+  }
+
+  if (!Array.isArray(workbookData.sheets)) {
+    return { valid: false, error: 'Workbook data must contain a sheets array' };
+  }
+
+  if (workbookData.sheets.length === 0) {
+    return { valid: false, error: 'Workbook must contain at least one sheet' };
+  }
+
+  for (let i = 0; i < workbookData.sheets.length; i++) {
+    const sheet = workbookData.sheets[i];
+    
+    if (!sheet || typeof sheet !== 'object') {
+      return { valid: false, error: `Sheet ${i + 1} is missing or invalid` };
+    }
+
+    if (!sheet.name || typeof sheet.name !== 'string') {
+      return { valid: false, error: `Sheet ${i + 1} is missing a valid name` };
+    }
+
+    // Validate sheet name length (Excel limit: 31 characters)
+    if (sheet.name.length > 31) {
+      return { valid: false, error: `Sheet "${sheet.name}" name exceeds 31 characters (Excel limit)` };
+    }
+
+    // Validate sheet name doesn't contain invalid characters
+    const invalidChars = /[\[\]:?*\/\\]/;
+    if (invalidChars.test(sheet.name)) {
+      return { valid: false, error: `Sheet "${sheet.name}" contains invalid characters: [ ] : ? * / \\` };
+    }
+
+    if (!Array.isArray(sheet.columns)) {
+      return { valid: false, error: `Sheet "${sheet.name}" must have a columns array` };
+    }
+
+    if (sheet.columns.length === 0) {
+      return { valid: false, error: `Sheet "${sheet.name}" must have at least one column` };
+    }
+
+    if (!Array.isArray(sheet.rows)) {
+      return { valid: false, error: `Sheet "${sheet.name}" must have a rows array` };
+    }
+
+    // Validate row structure matches columns (if rows exist)
+    if (sheet.rows.length > 0) {
+      for (let j = 0; j < sheet.rows.length; j++) {
+        const row = sheet.rows[j];
+        if (!row || typeof row !== 'object') {
+          return { valid: false, error: `Sheet "${sheet.name}", row ${j + 1} is invalid` };
+        }
+
+        // Check that row has all required column keys
+        for (const col of sheet.columns) {
+          if (!(col in row)) {
+            // Missing key is acceptable (will be empty), but log for debugging
+            // Don't fail validation for missing keys, Excel will handle as empty
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: true, error: null };
+}
+
+// Prepare Stories sheet data with business-friendly columns and KPI columns
+function prepareStoriesSheetData(rows, metrics) {
+  const columns = [
+    ...CSV_COLUMNS.map(col => BUSINESS_COLUMN_NAMES[col] || col),
+    'Work Days to Complete',
+    'Sprint Duration (Work Days)',
+    'Cycle Time (Days)',
+    'Days Since Created',
+    'Epic ID (Manual)',
+    'Epic Name (Manual)',
+    'Is Rework (Manual)',
+    'Is Bug (Manual)',
+    'Team Notes'
+  ];
+
+  const sheetRows = rows.map(row => {
+    const businessRow = {};
+    
+    // Map technical columns to business names
+    CSV_COLUMNS.forEach(techCol => {
+      const businessCol = BUSINESS_COLUMN_NAMES[techCol] || techCol;
+      businessRow[businessCol] = row[techCol] || '';
+    });
+
+    // Calculate KPI columns
+    const created = row.created ? new Date(row.created) : null;
+    const resolved = row.resolutionDate ? new Date(row.resolutionDate) : null;
+    const sprintStart = row.sprintStartDate ? new Date(row.sprintStartDate) : null;
+    const sprintEnd = row.sprintEndDate ? new Date(row.sprintEndDate) : null;
+    const today = new Date();
+
+    // Work Days to Complete
+    if (created && resolved) {
+      businessRow['Work Days to Complete'] = calculateWorkDaysBetween(created, resolved);
+    } else {
+      businessRow['Work Days to Complete'] = '';
+    }
+
+    // Sprint Duration (Work Days)
+    if (sprintStart && sprintEnd) {
+      businessRow['Sprint Duration (Work Days)'] = calculateWorkDaysBetween(sprintStart, sprintEnd);
+    } else {
+      businessRow['Sprint Duration (Work Days)'] = '';
+    }
+
+    // Cycle Time (Days)
+    businessRow['Cycle Time (Days)'] = businessRow['Work Days to Complete'];
+
+    // Days Since Created
+    if (created) {
+      businessRow['Days Since Created'] = calculateWorkDaysBetween(created, today);
+    } else {
+      businessRow['Days Since Created'] = '';
+    }
+
+    // Manual enrichment columns (empty, ready for team input)
+    businessRow['Epic ID (Manual)'] = '';
+    businessRow['Epic Name (Manual)'] = '';
+    businessRow['Is Rework (Manual)'] = '';
+    businessRow['Is Bug (Manual)'] = '';
+    businessRow['Team Notes'] = '';
+
+    return businessRow;
+  });
+
+  return { columns, rows: sheetRows };
+}
+
+// Prepare Sprints sheet data
+function prepareSprintsSheetData(sprintsIncluded) {
+  const columns = ['Sprint ID', 'Sprint Name', 'Board Name', 'Sprint Start Date', 'Sprint End Date', 'State', 'Projects', 'Stories Completed (Total)', 'Completed Within Sprint End Date', 'Total SP'];
+  
+  let rows = (sprintsIncluded || []).map(sprint => ({
+    'Sprint ID': sprint.id,
+    'Sprint Name': sprint.name,
+    'Board Name': sprint.boardName || '',
+    'Sprint Start Date': sprint.startDate || '',
+    'Sprint End Date': sprint.endDate || '',
+    'State': sprint.state || '',
+    'Projects': (sprint.projectKeys || []).join(', '),
+    'Stories Completed (Total)': sprint.doneStoriesNow || 0,
+    'Completed Within Sprint End Date': sprint.doneStoriesBySprintEnd || 0,
+    'Total SP': sprint.doneSP || 0
+  }));
+  
+  // Add placeholder row if Sprints sheet is empty
+  if (rows.length === 0) {
+    rows = [{
+      'Sprint ID': 'No sprint data available',
+      'Sprint Name': 'Try adjusting date range or project selection',
+      'Board Name': '',
+      'Sprint Start Date': '',
+      'Sprint End Date': '',
+      'State': '',
+      'Projects': '',
+      'Stories Completed (Total)': '',
+      'Completed Within Sprint End Date': '',
+      'Total SP': ''
+    }];
+  }
+
+  return { columns, rows };
+}
+
+// Prepare Epics sheet data (from Epic TTM metrics)
+function prepareEpicsSheetData(metrics) {
+  const columns = ['Epic ID', 'Story Count', 'Start Date', 'End Date', 'Calendar TTM (days)', 'Working TTM (days)'];
+  
+  let rows = (metrics?.epicTTM || []).map(epic => ({
+    'Epic ID': epic.epicKey,
+    'Story Count': epic.storyCount || 0,
+    'Start Date': epic.startDate || '',
+    'End Date': epic.endDate || '',
+    'Calendar TTM (days)': epic.calendarTTMdays || '',
+    'Working TTM (days)': epic.workingTTMdays || ''
+  }));
+  
+  // Add placeholder row if Epics sheet is empty
+  if (rows.length === 0) {
+    rows = [{
+      'Epic ID': 'No Epic TTM data available',
+      'Story Count': '',
+      'Start Date': 'Epic TTM is always enabled. No Epic data found for selected date range.',
+      'End Date': '',
+      'Calendar TTM (days)': '',
+      'Working TTM (days)': ''
+    }];
+  }
+
+  return { columns, rows };
+}
+
+// Prepare Metadata sheet data
+function prepareMetadataSheetData(meta, rows, sprints) {
+  const columns = ['Field', 'Value'];
+  const sheetRows = [
+    { 'Field': 'Export Date', 'Value': new Date().toISOString() },
+    { 'Field': 'Export Time', 'Value': new Date().toLocaleString() },
+    { 'Field': 'Date Range Start', 'Value': meta.windowStart },
+    { 'Field': 'Date Range End', 'Value': meta.windowEnd },
+    { 'Field': 'Projects', 'Value': (meta.selectedProjects || []).join(', ') },
+    { 'Field': 'Total Stories', 'Value': rows.length },
+    { 'Field': 'Total Sprints', 'Value': (sprints || []).length },
+    { 'Field': 'Data Freshness', 'Value': meta.fromCache ? `Cached (${meta.cacheAgeMinutes} minutes old)` : 'Fresh' }
+  ];
+
+  return { columns, rows: sheetRows };
+}
+
 // Excel export function
 async function exportToExcel() {
   if (!previewData || !previewRows || previewRows.length === 0) {
@@ -1093,123 +1304,51 @@ async function exportToExcel() {
   exportExcelBtn.textContent = 'Generating Excel...';
 
   try {
-    // Prepare Stories sheet data with business-friendly columns and KPI columns
-    const storiesColumns = [
-      ...CSV_COLUMNS.map(col => BUSINESS_COLUMN_NAMES[col] || col),
-      'Work Days to Complete',
-      'Sprint Duration (Work Days)',
-      'Cycle Time (Days)',
-      'Days Since Created',
-      'Epic ID (Manual)',
-      'Epic Name (Manual)',
-      'Is Rework (Manual)',
-      'Is Bug (Manual)',
-      'Team Notes'
-    ];
-
-    const storiesRows = previewRows.map(row => {
-      const businessRow = {};
-      
-      // Map technical columns to business names
-      CSV_COLUMNS.forEach(techCol => {
-        const businessCol = BUSINESS_COLUMN_NAMES[techCol] || techCol;
-        businessRow[businessCol] = row[techCol] || '';
-      });
-
-      // Calculate KPI columns
-      const created = row.created ? new Date(row.created) : null;
-      const resolved = row.resolutionDate ? new Date(row.resolutionDate) : null;
-      const sprintStart = row.sprintStartDate ? new Date(row.sprintStartDate) : null;
-      const sprintEnd = row.sprintEndDate ? new Date(row.sprintEndDate) : null;
-      const today = new Date();
-
-      // Work Days to Complete
-      if (created && resolved) {
-        businessRow['Work Days to Complete'] = calculateWorkDaysBetween(created, resolved);
-      } else {
-        businessRow['Work Days to Complete'] = '';
-      }
-
-      // Sprint Duration (Work Days)
-      if (sprintStart && sprintEnd) {
-        businessRow['Sprint Duration (Work Days)'] = calculateWorkDaysBetween(sprintStart, sprintEnd);
-      } else {
-        businessRow['Sprint Duration (Work Days)'] = '';
-      }
-
-      // Cycle Time (Days)
-      businessRow['Cycle Time (Days)'] = businessRow['Work Days to Complete'];
-
-      // Days Since Created
-      if (created) {
-        businessRow['Days Since Created'] = calculateWorkDaysBetween(created, today);
-      } else {
-        businessRow['Days Since Created'] = '';
-      }
-
-      // Manual enrichment columns (empty, ready for team input)
-      businessRow['Epic ID (Manual)'] = '';
-      businessRow['Epic Name (Manual)'] = '';
-      businessRow['Is Rework (Manual)'] = '';
-      businessRow['Is Bug (Manual)'] = '';
-      businessRow['Team Notes'] = '';
-
-      return businessRow;
-    });
-
-    // Prepare Sprints sheet data
-    const sprintsColumns = ['Sprint ID', 'Sprint Name', 'Board Name', 'Sprint Start Date', 'Sprint End Date', 'State', 'Projects', 'Stories Completed (Total)', 'Completed Within Sprint End Date', 'Total SP'];
-    const sprintsRows = (previewData.sprintsIncluded || []).map(sprint => ({
-      'Sprint ID': sprint.id,
-      'Sprint Name': sprint.name,
-      'Board Name': sprint.boardName || '',
-      'Sprint Start Date': sprint.startDate || '',
-      'Sprint End Date': sprint.endDate || '',
-      'State': sprint.state || '',
-      'Projects': (sprint.projectKeys || []).join(', '),
-      'Stories Completed (Total)': sprint.doneStoriesNow || 0,
-      'Completed Within Sprint End Date': sprint.doneStoriesBySprintEnd || 0,
-      'Total SP': sprint.doneSP || 0
-    }));
-
-    // Prepare Epics sheet data (from Epic TTM metrics)
-    const epicsColumns = ['Epic ID', 'Story Count', 'Start Date', 'End Date', 'Calendar TTM (days)', 'Working TTM (days)'];
-    const epicsRows = (previewData.metrics?.epicTTM || []).map(epic => ({
-      'Epic ID': epic.epicKey,
-      'Story Count': epic.storyCount || 0,
-      'Start Date': epic.startDate || '',
-      'End Date': epic.endDate || '',
-      'Calendar TTM (days)': epic.calendarTTMdays || '',
-      'Working TTM (days)': epic.workingTTMdays || ''
-    }));
-
+    // Prepare all sheet data using extracted functions
+    const storiesSheet = prepareStoriesSheetData(previewRows, previewData.metrics);
+    const sprintsSheet = prepareSprintsSheetData(previewData.sprintsIncluded);
+    const epicsSheet = prepareEpicsSheetData(previewData.metrics);
+    const metadataSheet = prepareMetadataSheetData(previewData.meta, previewRows, previewData.sprintsIncluded);
+    
     // Prepare Summary sheet data
     const summaryColumns = ['Section', 'Metric', 'Value'];
     const summaryRows = createSummarySheetRows(previewData.metrics, previewData.meta, previewRows);
 
-    // Prepare Metadata sheet data
-    const metadataColumns = ['Field', 'Value'];
-    const metadataRows = [
-      { 'Field': 'Export Date', 'Value': new Date().toISOString() },
-      { 'Field': 'Export Time', 'Value': new Date().toLocaleString() },
-      { 'Field': 'Date Range Start', 'Value': previewData.meta.windowStart },
-      { 'Field': 'Date Range End', 'Value': previewData.meta.windowEnd },
-      { 'Field': 'Projects', 'Value': (previewData.meta.selectedProjects || []).join(', ') },
-      { 'Field': 'Total Stories', 'Value': previewRows.length },
-      { 'Field': 'Total Sprints', 'Value': (previewData.sprintsIncluded || []).length },
-      { 'Field': 'Data Freshness', 'Value': previewData.meta.fromCache ? `Cached (${previewData.meta.cacheAgeMinutes} minutes old)` : 'Fresh' }
-    ];
-
-    // Build workbook data
+    // Build workbook data from prepared sheets
     const workbookData = {
       sheets: [
         { name: 'Summary', columns: summaryColumns, rows: summaryRows },
-        { name: 'Stories', columns: storiesColumns, rows: storiesRows },
-        { name: 'Sprints', columns: sprintsColumns, rows: sprintsRows },
-        { name: 'Epics', columns: epicsColumns, rows: epicsRows },
-        { name: 'Metadata', columns: metadataColumns, rows: metadataRows }
+        { name: 'Stories', columns: storiesSheet.columns, rows: storiesSheet.rows },
+        { name: 'Sprints', columns: sprintsSheet.columns, rows: sprintsSheet.rows },
+        { name: 'Epics', columns: epicsSheet.columns, rows: epicsSheet.rows },
+        { name: 'Metadata', columns: metadataSheet.columns, rows: metadataSheet.rows }
       ]
     };
+
+    // Validate workbook data before sending to server
+    const validation = validateExcelWorkbookData(workbookData);
+    if (!validation.valid) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Export error:</strong> ${validation.error}
+        <br><small>Please refresh the page and try again.</small>
+      `;
+      return;
+    }
+
+    // Estimate file size and warn if large
+    const estimatedSize = JSON.stringify(workbookData).length * 1.5;
+    const maxFileSize = 50 * 1024 * 1024; // 50MB
+    if (estimatedSize > maxFileSize) {
+      const sizeMB = (estimatedSize / 1024 / 1024).toFixed(1);
+      const proceed = confirm(
+        `Excel file will be large (~${sizeMB} MB). Your browser or Excel may have difficulty opening it. ` +
+        `Consider filtering the data or using a smaller date range. Continue anyway?`
+      );
+      if (!proceed) {
+        return; // User cancelled, restore button state in finally block
+      }
+    }
 
     // Send to server for Excel generation
     const response = await fetch('/export-excel', {
@@ -1220,7 +1359,20 @@ async function exportToExcel() {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
-      throw new Error(`Excel export failed: ${errorText}`);
+      
+      // Provide specific error messages based on status code
+      let errorMessage = 'Excel export failed.';
+      if (response.status === 400) {
+        errorMessage = 'Invalid data structure. Please refresh the page and try exporting again.';
+      } else if (response.status === 500) {
+        errorMessage = 'Server error during Excel generation. Check server logs or try again later.';
+      } else if (response.status === 0 || errorText.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to server. Verify server is running and try again.';
+      } else {
+        errorMessage = `Excel export failed: ${errorText}`;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const blob = await response.blob();
@@ -1256,11 +1408,31 @@ async function exportToExcel() {
 
   } catch (error) {
     errorEl.style.display = 'block';
+    
+    // Enhanced error messages based on error type
+    let errorMessage = error.message;
+    let helpfulHint = '';
+    
+    if (error.message.includes('Unable to connect') || error.message.includes('Failed to fetch')) {
+      errorMessage = 'Unable to connect to server.';
+      helpfulHint = 'Verify server is running and try again.';
+    } else if (error.message.includes('Invalid data structure')) {
+      errorMessage = 'Invalid data structure.';
+      helpfulHint = 'Please refresh the page and try exporting again.';
+    } else if (error.message.includes('Server error')) {
+      errorMessage = 'Server error during Excel generation.';
+      helpfulHint = 'Check server logs or try again later.';
+    } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+      errorMessage = 'Export timed out.';
+      helpfulHint = 'Try filtering data or using a smaller date range.';
+    } else {
+      helpfulHint = 'Please try again or contact support if the problem persists.';
+    }
+    
     errorEl.innerHTML = `
-      <strong>Export error:</strong> ${error.message}
-      <br><small>If this problem persists, verify the server is running and reachable, then try again.</small>
+      <strong>Export error:</strong> ${errorMessage}
+      <br><small>${helpfulHint}</small>
     `;
-    console.error('Excel export error:', error);
   } finally {
     // Restore button state
     exportExcelBtn.disabled = originalButtonDisabled;
@@ -1269,6 +1441,8 @@ async function exportToExcel() {
 }
 
 // Helper function to calculate work days between two dates
+// NOTE: This function must match calculateWorkDays in lib/kpiCalculations.js exactly
+// Browser code cannot import server modules, so both must be kept in sync manually
 function calculateWorkDaysBetween(startDate, endDate) {
   if (!startDate || !endDate) return '';
   
@@ -1289,6 +1463,7 @@ function calculateWorkDaysBetween(startDate, endDate) {
     
     while (current <= end) {
       const dayOfWeek = current.getDay();
+      // Count only weekdays (Monday=1 to Friday=5)
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         count++;
       }

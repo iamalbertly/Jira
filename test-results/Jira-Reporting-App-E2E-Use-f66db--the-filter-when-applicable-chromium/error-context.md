@@ -44,45 +44,11 @@
           - text: Include Active/Missing End Date Sprints
       - generic [ref=e34]:
         - button "Preview" [ref=e35] [cursor=pointer]
-        - button "Export CSV (Filtered View)" [ref=e36] [cursor=pointer]
-        - button "Export CSV (Raw Preview)" [ref=e37] [cursor=pointer]
+        - button "Export to Excel - All Data" [disabled] [ref=e36]
+        - button "Export CSV (Filtered View)" [ref=e37] [cursor=pointer]
     - main [ref=e38]:
       - generic [ref=e39]:
-        - generic [ref=e42]:
-          - strong [ref=e43]: "Projects:"
-          - text: MPSA, MAS
-          - strong [ref=e44]: "Date Window (UTC):"
-          - text: 2025-04-01T00:00:00.000Z to 2025-06-30T23:59:59.999Z
-          - strong [ref=e45]: "Date Window (Local):"
-          - text: 4/1/2025, 3:00:00 AM to 7/1/2025, 2:59:59 AM
-          - strong [ref=e46]: "Summary:"
-          - text: "Boards: 2 • Included sprints: 15 • Done stories: 117 • Unusable sprints: 7"
-          - strong [ref=e47]: "Details:"
-          - text: "Generated in ~14s • Generated At: 1/28/2026, 3:07:37 AM • Request Time: 1/28/2026, 3:07:44 AM • Source: Cache"
-        - generic [ref=e48]:
-          - button "Boards" [ref=e49] [cursor=pointer]
-          - button "Sprints" [ref=e50] [cursor=pointer]
-          - button "Done Stories" [ref=e51] [cursor=pointer]
-          - button "Metrics" [ref=e52] [cursor=pointer]
-          - button "Unusable Sprints" [ref=e53] [cursor=pointer]
-        - generic [ref=e55]:
-          - table [ref=e57]:
-            - rowgroup [ref=e58]:
-              - row "Board ID Board Name Type Projects" [ref=e59]:
-                - columnheader "Board ID" [ref=e60]
-                - columnheader "Board Name" [ref=e61]
-                - columnheader "Type" [ref=e62]
-                - columnheader "Projects" [ref=e63]
-            - rowgroup [ref=e64]:
-              - row "9 MPSA board scrum MPSA" [ref=e65]:
-                - cell "9" [ref=e66]
-                - cell "MPSA board" [ref=e67]
-                - cell "scrum" [ref=e68]
-                - cell "MPSA" [ref=e69]
-              - row "15 MAS board scrum MAS" [ref=e70]:
-                - cell "15" [ref=e71]
-                - cell "MAS board" [ref=e72]
-                - cell "scrum" [ref=e73]
-                - cell "MAS" [ref=e74]
-          - button "Export CSV" [ref=e76] [cursor=pointer]
+        - strong [ref=e40]: "Error:"
+        - text: exportRawBtn is not defined
+        - text: If this problem persists, please check your Jira connection and try again.
 ```

@@ -99,6 +99,10 @@ http://localhost:3000/report
    - **Excel-Compatible Dates**: All dates are formatted for Excel recognition, enabling date filtering, pivot tables, and formulas
    - **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time, Sprint Duration, and Agile Maturity Level
    - **Manual Enrichment**: Blank columns provided for teams to fill in missing Epic IDs/Names, Rework/Bug flags, and notes
+   - **Data Validation**: Excel export validates data structure before sending to server, preventing errors and providing clear feedback
+   - **Empty Tab Handling**: Empty tabs (Epics, Sprints) show placeholder messages explaining why data is missing
+   - **File Size Warnings**: Large Excel files (>50MB) trigger a warning before generation, allowing users to filter data or cancel
+   - **Improved Error Messages**: Specific, actionable error messages for network errors, server errors, timeouts, and invalid data
    
 7. **Export CSV** (Secondary Option):
    - **Per-Section Exports**: Each tab has its own "Export CSV" button for quick single-section exports
@@ -253,7 +257,7 @@ npm run test:api
 - **Epic TTM Accuracy**: Epic TTM uses Epic issue dates when available. Falls back to story dates if Epic issues unavailable, with warning displayed in Metrics tab. Definition clearly explained: "Days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable)."
 - **Cache Transparency**: Preview meta shows cache age when data is served from cache, enabling users to assess data freshness.
 - **Error Recovery**: Epic fetch failures don't break preview generation - system gracefully degrades to story-based calculation.
-- **Excel Export**: Main export generates comprehensive Excel workbook with 5 tabs (Summary, Stories, Sprints, Epics, Metadata). Files use descriptive naming: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx`. All dates are Excel-compatible format, enabling filtering and formulas.
+- **Excel Export**: Main export generates comprehensive Excel workbook with 5 tabs (Summary, Stories, Sprints, Epics, Metadata). Files use descriptive naming: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx`. All dates are Excel-compatible format, enabling filtering and formulas. Data is validated before export, empty tabs show placeholder messages, large files (>50MB) trigger warnings, and error messages are actionable.
 - **Business-Friendly Columns**: Technical column names mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`) for easier analysis by leaders and analysts.
 - **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time (Days), Sprint Duration (Work Days), Days Since Created, and Agile Maturity Level (1-5 scale).
 - **Manual Enrichment**: Excel exports include blank columns for teams to fill in: Epic ID (Manual), Epic Name (Manual), Is Rework (Manual), Is Bug (Manual), and Team Notes.

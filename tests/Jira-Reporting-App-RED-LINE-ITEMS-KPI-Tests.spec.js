@@ -8,9 +8,8 @@ async function runDefaultPreview(page, overrides = {}) {
     projects = ['MPSA', 'MAS'],
     start = '2025-04-01T00:00',
     end = '2025-06-30T23:59',
-    includeStoryPoints = true,
-    includeBugsForRework = false,
-    includeEpicTTM = false,
+    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
+    // No need to pass these parameters - they're always included in reports
   } = overrides;
 
   await page.goto('/report');
@@ -243,8 +242,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     test.setTimeout(300000);
 
     await runDefaultPreview(page, { 
-      includeStoryPoints: true,
-      includeEpicTTM: true 
+      // Story Points and Epic TTM are now mandatory (always enabled) 
     });
 
     const previewVisible = await page.locator('#preview-content').isVisible();
@@ -254,7 +252,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     }
 
     // Check API response for Epic TTM data
-    const response = await page.request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&includeEpicTTM=true`, {
+    const response = await page.request.get(`/preview.json${DEFAULT_Q2_QUERY}`, {
       timeout: 120000
     });
 
@@ -290,7 +288,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
     test.setTimeout(300000);
 
     // Test via API with cache bypass
-    const previewResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&includeBugsForRework=true&bypassCache=true`, {
+    const previewResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
       timeout: 120000
     });
 

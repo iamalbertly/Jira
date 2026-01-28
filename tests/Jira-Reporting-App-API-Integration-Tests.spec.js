@@ -173,12 +173,10 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       projects: 'MPSA,MAS',
       start: '2025-04-01T00:00:00.000Z',
       end: '2025-06-30T23:59:59.999Z',
-      includeStoryPoints: 'true',
+      // Story Points, Bugs/Rework, and Epic TTM are now mandatory (always enabled)
       requireResolvedBySprintEnd: 'true',
-      includeBugsForRework: 'true',
       includePredictability: 'true',
       predictabilityMode: 'approx',
-      includeEpicTTM: 'true',
       includeActiveOrMissingEndDateSprints: 'true',
     });
 
