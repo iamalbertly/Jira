@@ -137,4 +137,37 @@ test.describe('VodaAgileBoard – Login, Security & Deploy Validation', () => {
     expect(hasContent || hasError).toBeTruthy();
     expect(consoleErrors.filter((e) => e.type === 'error')).toHaveLength(0);
   });
+
+  test('shows session timeout message when error=timeout', async ({ page }) => {
+    const consoleErrors = captureConsoleErrors(page);
+    await page.goto('/login?error=timeout&redirect=%2Freport');
+    const hasLogin = await page.locator('#username').isVisible().catch(() => false);
+    if (!hasLogin) {
+      test.skip(true, 'Auth disabled – /login redirects to /report');
+      return;
+    }
+    const message = await page.locator('#login-error').innerText();
+    expect(message.toLowerCase()).toContain('session expired');
+    expect(consoleErrors.filter((e) => e.type === 'error')).toHaveLength(0);
+  });
+
+  test('stays on login after repeated invalid attempts (rate limit path)', async ({ page }) => {
+    const consoleErrors = captureConsoleErrors(page);
+    await page.goto('/login');
+    const hasLogin = await page.locator('#username').isVisible().catch(() => false);
+    if (!hasLogin) {
+      test.skip(true, 'Auth disabled');
+      return;
+    }
+    for (let i = 0; i < 6; i++) {
+      await page.fill('#username', `wrong${i}`);
+      await page.fill('#password', `wrong${i}`);
+      await page.click('button[type="submit"]');
+      await page.waitForURL(/\/(login)?(\?|$)/, { timeout: 5000 }).catch(() => {});
+    }
+    const url = page.url();
+    const stayOnLogin = url.includes('/login') || (await page.locator('#username').isVisible());
+    expect(stayOnLogin).toBeTruthy();
+    expect(consoleErrors.filter((e) => e.type === 'error')).toHaveLength(0);
+  });
 });

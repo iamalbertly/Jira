@@ -63,6 +63,14 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 2. Log in with the credentials configured in your environment (see Environment Variables).
 3. After login you are redirected to the report at `http://localhost:3000/report`.
 
+### Quickstart for Scrum Masters & Leaders
+
+1. Get the live VodaAgileBoard URL from your admin (for example, `https://voda-agile-board.onrender.com`).
+2. Sign in with the credentials shared by your admin.
+3. On the Sprint Report screen, keep both MPSA and MAS selected for a combined view, or choose a single project for a focused view.
+4. Leave the default quarter dates or adjust them to your sprint window, then click **Preview**.
+5. Use **Export to Excel – All Data** to download a workbook you can slice and share in your own tooling.
+
 ## Usage
 
 ### Generating a Report
@@ -364,6 +372,23 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 - All dates are handled in UTC
 - The UI shows both UTC and local time for reference
 - Ensure your date inputs are correct for your timezone
+
+## Environment Modes
+
+VodaAgileBoard behaves slightly differently depending on which environment variables you set:
+
+- **Local development (no auth, default)**:
+  - Set Jira variables and (optionally) `PORT`, but **do not** set `SESSION_SECRET` or any `APP_LOGIN_*` values.
+  - Visit `http://localhost:3000/report` directly; `/` redirects to `/report` for a fast feedback loop.
+- **Local development (auth enabled)**:
+  - In addition to Jira variables, set `SESSION_SECRET`, `APP_LOGIN_USER`, and `APP_LOGIN_PASSWORD`.
+  - Visit `http://localhost:3000`; you will see the login screen, and `/report` plus the APIs require a valid session.
+- **CI (GitHub Actions)**:
+  - CI runs `npm run test:all` with a controlled set of environment variables.
+  - Recommended: keep auth disabled in CI by omitting `SESSION_SECRET`, so most tests remain simple and deterministic.
+- **Production (Render)**:
+  - Always set `SESSION_SECRET`, `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`, Jira variables, and `NODE_ENV=production` from the Render dashboard.
+  - End users always experience the login page plus honeypot, rate limiting, and session timeout before they reach `/report`.
 
 ## Environment Variables
 

@@ -20,7 +20,7 @@
   <div class="container login-container">
     <header>
       <h1>VodaAgileBoard</h1>
-      <p class="subtitle">Sign in to continue</p>
+      <p class="subtitle">Sprint insights from Jira for Voda squads – sign in to generate reports for your teams.</p>
     </header>
     <form class="login-form" action="/login" method="post">
       <div id="login-error" class="login-error" style="display: none;"></div>
@@ -43,7 +43,15 @@
     var err = q.get('error');
     if (err) {
       var el = document.getElementById('login-error');
-      el.textContent = err === 'invalid' ? 'Invalid username or password.' : (err === 'bot' ? 'Invalid request.' : 'Please try again.');
+      if (err === 'invalid') {
+        el.textContent = 'Invalid username or password. Check your details or contact your admin.';
+      } else if (err === 'bot') {
+        el.textContent = 'Invalid request. Please try again from your browser.';
+      } else if (err === 'timeout') {
+        el.textContent = 'Your session expired. Please sign in again.';
+      } else {
+        el.textContent = 'Something went wrong. Please try again or contact your admin.';
+      }
       el.style.display = 'block';
     }
   </script>

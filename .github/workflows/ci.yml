@@ -18,3 +18,37 @@ jobs:
       - run: npm run test:all
         env:
           CI: true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Install Render CLI (Linux) - keep version pinned for stability
+      - name: Install Render CLI
+        run: |
+          curl -L https://github.com/render-oss/cli/releases/download/v1.1.0/cli_1.1.0_linux_amd64.zip -o render.zip
+          unzip render.zip
+          sudo mv cli_v1.1.0 /usr/local/bin/render
+      - name: Validate render.yaml blueprint
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: render blueprints validate
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: render deploys create ${{ secrets.RENDER_SERVICE_ID }} --output json --confirm --wait
+      - name: Run deploy smoke tests against live app
+        env:
+          CI: true
+          BASE_URL: ${{ secrets.VODAAGILEBOARD_PROD_BASE_URL }}
+          TEST_LOGIN_USER: ${{ secrets.APP_LOGIN_USER }}
+          TEST_LOGIN_PASSWORD: ${{ secrets.APP_LOGIN_PASSWORD }}
+        run: npx playwright test tests/VodaAgileBoard-Deploy-Smoke-Tests.spec.js --reporter=list
