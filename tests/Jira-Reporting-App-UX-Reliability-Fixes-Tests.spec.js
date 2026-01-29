@@ -99,9 +99,17 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     }
     await expect(page.locator('#preview-content')).toBeVisible({ timeout: 10000 });
 
+    let resolveRouteHandled;
+    const routeHandled = new Promise(resolve => {
+      resolveRouteHandled = resolve;
+    });
+
     await page.route('**/preview.json*', async route => {
       await new Promise(resolve => setTimeout(resolve, 800));
-      await route.continue();
+      const response = await route.fetch();
+      await route.fulfill({ response });
+      resolveRouteHandled();
+      await page.unroute('**/preview.json*').catch(() => {});
     });
 
     await page.click('#preview-btn');
@@ -110,7 +118,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     await expect(statusBanner).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#preview-content')).toBeVisible({ timeout: 5000 });
 
-    await page.unroute('**/preview.json*').catch(() => {});
+    await routeHandled.catch(() => {});
     await page.waitForSelector('#loading', { state: 'hidden', timeout: 120000 }).catch(() => {});
   });
 

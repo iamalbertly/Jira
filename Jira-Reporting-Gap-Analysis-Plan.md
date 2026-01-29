@@ -307,3 +307,164 @@ Remote
 2. **Zero done stories**: avoid divide-by-zero and show N/A for SP/Story and On-Time %.
 3. **Feedback submission failure**: UI shows a clear error without blocking report usage.
 
+---
+
+## 10. Customer / Simplicity / Trust — Detailed Plan (Execution To‑Dos)
+
+This plan converts the KPI truth statement and the recent UX/perf fixes into a concrete execution checklist. It focuses on clear, decision‑grade reporting for leaders, and keeps behavior auditable and explainable.
+
+Guiding values
+- Customer: Every KPI answers a real leadership question and can be verified in the export.
+- Simplicity: One place to find the answer; tooltips explain “what / why / how.”
+- Trust: Metrics explicitly state assumptions, data quality, and gaps.
+
+### 10.1 KPI truth‑mapping and auditability
+
+Objective
+- Guarantee that every red‑line KPI is backed by data already in the Stories/Sprints/Epics exports.
+
+To‑dos
+- Build a “KPI truth table” mapping each KPI to:
+  - Source tab(s) in the report (Stories / Sprints / Epics / Summary).
+  - Field dependencies (Issue Type, Story Points, Sprint dates, Resolution Date).
+  - Constraints (e.g., “SP requires Story Points configured”).
+- Add a UI “KPI Notes” section in Summary / Metadata export:
+  - “This KPI is not available if …”
+  - “This KPI uses fallback if …”
+- Add a “Metric integrity” column in Metadata:
+  - “SP present?” “Sprint dates present?” “Epic links present?”
+
+Rationale
+- Leaders can validate KPIs without hunting through Jira.
+- Ensures the team isn’t making claims that aren’t supported.
+
+Validation
+- Playwright test: Summary/Metadata tabs include KPI notes and integrity rows.
+- Export test: CSV/Excel contain the integrity section.
+
+### 10.2 Throughput and predictability consistency
+
+Objective
+- Ensure that throughput, predictability, and averages all use the same logic and are consistent across UI/exports.
+
+To‑dos
+- Make a single “Predictability definition” block in UI tooltips:
+  - Committed = in sprint at sprint start
+  - Delivered = resolved within sprint window
+  - Predictability = Delivered / Committed
+- Add a checkbox or note if predictability is off, explaining why the columns are hidden.
+- Make the Sprints tab show “N/A” instead of 0 if story points are unavailable.
+
+Rationale
+- Avoids a “numbers don’t match across tabs” trust gap.
+
+Validation
+- Playwright test: When SP is unavailable, SP columns show N/A, not 0.
+- API test: Predictability per sprint matches aggregate in Summary.
+
+### 10.3 Epic / PI TTM clarity (and fallback)
+
+Objective
+- Make Epic TTM trustworthy and explicit when Epic dates are missing.
+
+To‑dos
+- Add tooltip copy: “If Epic dates are missing, start/end uses first/last story date.”
+- Add a “Fallback count” row in Summary (already present in meta), make visible.
+- Include Epic TTM in exports with clear “Start Date Source” column.
+
+Rationale
+- Keeps leaders aware of the difference between Epic‑tracked and story‑derived TTM.
+
+Validation
+- Playwright test: Epic TTM table includes tooltip and fallback note.
+- Export test: Epic TTM sheet has “Start Date Source.”
+
+### 10.4 Team comparison by capacity proxy (assignees)
+
+Objective
+- Provide a fair way to compare teams when headcount data is not in Jira.
+
+To‑dos
+- Use “Active Assignees” and per‑assignee rates as default capacity proxy.
+- Add “Assumed Capacity (Person‑Days)” and “Assumed Waste %” with explicit assumptions:
+  - “18 days/month per person.”
+  - “Does not account for PTO, part‑time, or non‑sprint work.”
+- Include these in Boards export with the same labels.
+
+Rationale
+- Gives leaders a consistent cross‑team lens while clearly flagging assumptions.
+
+Validation
+- Playwright test: Boards table shows capacity proxy columns and tooltips.
+- Export test: Boards CSV/Excel include these columns.
+
+### 10.5 Data speed and cache trust
+
+Objective
+- Make response time explainable and ensure cache hits are fast and obvious.
+
+To‑dos
+- Surface cache‑served duration (Elapsed) vs original generation time (CachedElapsed).
+- Add “Cache source” and “Cache age” in preview meta (already visible).
+- Shrink metadata payload by removing large field inventories from preview response.
+
+Rationale
+- Users should see cache is working and not misinterpret old timings.
+
+Validation
+- API test: second `/preview.json` is `fromCache = true`.
+- UI test: Details section shows “Original generation” when cached.
+
+---
+
+## 11. Build + Deploy Validation (No timeline, execution steps only)
+
+Local build and validation
+- `npm install`
+- `npm start` and confirm `/report` loads
+- `npm run test:all` (foreground, fail‑fast)
+
+Remote validation
+- Set `BASE_URL` to deployment host
+- `npm run test:all` (ensures production parity)
+
+Expected results
+- No blocking errors; warnings around epic/TTM fallback and subtask time tracking are acceptable if Jira APIs are limited.
+
+---
+
+## 12. Test Plan Addendum (Playwright‑first)
+
+Important note about ADB/logcat
+- This is a web application; there is no Android APK or ADB flow in this repo.
+- Therefore, **logcat and adb‑driven validation are not applicable**.
+- We will use Playwright MCP / browser‑based tests instead, which is consistent with the existing test stack.
+
+Required tests to add (in tests/):
+1) Customer‑Simplicity‑Trust validation:
+   - Ensure Boards table contains capacity proxy columns.
+   - Ensure tooltips include assumptions.
+2) Cache transparency:
+   - First /preview.json cache miss, second call cache hit.
+3) KPI availability:
+   - When Story Points missing, SP columns show N/A (not 0).
+
+Orchestration update
+- Add new spec to `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` so it runs with `npm run test:all`.
+
+---
+
+## 13. Bonus Edge‑Case Solutions (Realistic scope)
+
+1) Sprint window overlap ambiguity  
+If a sprint overlaps the window by 1 day, counts can be misleading.  
+Solution: show an “Overlap Days” column in Sprints export and a tooltip explaining partial inclusion.
+
+2) Story Points missing on some issues  
+If a team partially uses Story Points, SP‑based KPIs under‑report.  
+Solution: show a “% with SP” metric and warn when below 80%.
+
+3) Epic types renamed by Jira config  
+If “Epic” issue type is renamed (e.g., “Epic (Feature)”), Epic TTM can misclassify.  
+Solution: add a configuration note in Metadata listing detected Epic issue types.
+

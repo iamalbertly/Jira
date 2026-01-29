@@ -98,8 +98,8 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       expect(json.meta).toHaveProperty('fieldInventory');
       expect(json.meta.fieldInventory).toHaveProperty('availableFieldCount');
       expect(json.meta.fieldInventory).toHaveProperty('customFieldCount');
-      expect(Array.isArray(json.meta.fieldInventory.availableFields)).toBeTruthy();
-      expect(Array.isArray(json.meta.fieldInventory.customFields)).toBeTruthy();
+      expect(Array.isArray(json.meta.fieldInventory.ebmFieldsFound)).toBeTruthy();
+      expect(Array.isArray(json.meta.fieldInventory.ebmFieldsMissing)).toBeTruthy();
 
       // Drill-down rows should include time tracking and EBM-related fields
       if (json.rows.length > 0) {

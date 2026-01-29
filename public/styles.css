@@ -627,4 +627,24 @@ header h1 {
   .tabs {
     border-radius: 16px;
   }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .sprint-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .sprint-meta {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .section-export {
+    justify-content: flex-start;
+  }
 }

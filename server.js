@@ -288,6 +288,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     if (cachedEntry) {
       const cachedPreview = cachedEntry.value || cachedEntry; // Handle both formats
       const cacheAge = cachedEntry.cachedAt ? Date.now() - cachedEntry.cachedAt : null;
+      const cacheServedMs = Date.now() - previewStartedAt;
       
       logger.info('Serving preview response from cache', {
         cacheKey,
@@ -295,6 +296,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         windowStart,
         windowEnd,
         cacheAgeMs: cacheAge,
+        cacheServedMs,
       });
 
       let fieldInventory = cachedPreview?.meta?.fieldInventory || null;
@@ -340,8 +342,6 @@ app.get('/preview.json', requireAuth, async (req, res) => {
           fieldInventory = {
             availableFieldCount: (fieldDiscovery.availableFields || []).length,
             customFieldCount: (fieldDiscovery.customFields || []).length,
-            availableFields: fieldDiscovery.availableFields || [],
-            customFields: fieldDiscovery.customFields || [],
             ebmFieldsFound,
             ebmFieldsMissing,
           };
@@ -350,8 +350,6 @@ app.get('/preview.json', requireAuth, async (req, res) => {
           fieldInventory = {
             availableFieldCount: 0,
             customFieldCount: 0,
-            availableFields: [],
-            customFields: [],
             ebmFieldsFound: [],
             ebmFieldsMissing: [],
           };
@@ -366,6 +364,8 @@ app.get('/preview.json', requireAuth, async (req, res) => {
           fromCache: true,
           cacheAgeMs: cacheAge,
           cacheAgeMinutes: cacheAge ? Math.floor(cacheAge / 60000) : undefined,
+          cachedElapsedMs: cachedPreview?.meta?.elapsedMs ?? null,
+          elapsedMs: cacheServedMs,
           requestedAt,
           cacheKey,
           fieldInventory,
@@ -374,6 +374,13 @@ app.get('/preview.json', requireAuth, async (req, res) => {
 
       return res.json(cachedResponse);
     }
+
+    logger.info('Cache miss for preview response', {
+      cacheKey,
+      projects: selectedProjects,
+      windowStart,
+      windowEnd,
+    });
 
     // Initialize clients
     logger.info('Initializing Jira clients', { projects: selectedProjects });
@@ -456,8 +463,6 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     const fieldInventory = {
       availableFieldCount: (fields.availableFields || []).length,
       customFieldCount: (fields.customFields || []).length,
-      availableFields: fields.availableFields || [],
-      customFields: fields.customFields || [],
       ebmFieldsFound,
       ebmFieldsMissing,
     };
@@ -690,7 +695,11 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       selectedProjects,
       windowStart,
       windowEnd,
-      discoveredFields: fields,
+      discoveredFields: {
+        storyPointsFieldId: fields.storyPointsFieldId,
+        epicLinkFieldId: fields.epicLinkFieldId,
+        ebmFieldIds: fields.ebmFieldIds || {},
+      },
       fieldInventory,
       fromCache: false,
       requestedAt,
