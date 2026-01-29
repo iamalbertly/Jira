@@ -1,4 +1,5 @@
 import express from 'express';
+import session from 'express-session';
 import dotenv from 'dotenv';
 
 // SIZE-EXEMPT: Cohesive Express server entry and preview/export orchestration kept together
@@ -41,9 +42,99 @@ const PORT = process.env.PORT || 3000;
 const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
 const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
 
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const APP_LOGIN_USER = process.env.APP_LOGIN_USER;
+const APP_LOGIN_PASSWORD = process.env.APP_LOGIN_PASSWORD;
+const authEnabled = Boolean(SESSION_SECRET && APP_LOGIN_USER && APP_LOGIN_PASSWORD);
+const SESSION_IDLE_MS = Number(process.env.SESSION_IDLE_MS) || 30 * 60 * 1000; // 30 min default
+const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const loginFailuresByIp = new Map(); // ip -> { count, resetAt }
+
+if (process.env.NODE_ENV === 'production' && SESSION_SECRET && (!APP_LOGIN_USER || !APP_LOGIN_PASSWORD)) {
+  logger.error('Production requires APP_LOGIN_USER and APP_LOGIN_PASSWORD when SESSION_SECRET is set');
+  process.exit(1);
+}
+
 // Middleware
 app.use(express.json({ limit: '50mb' })); // Increase limit for large CSV exports
+app.use(express.urlencoded({ extended: true })); // For login form POST
 app.use(express.static('public'));
+
+if (authEnabled) {
+  app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    name: 'vodaagileboard.sid',
+    cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 60 * 60 * 1000 },
+  }));
+}
+
+function requireAuth(req, res, next) {
+  if (!authEnabled) return next();
+  if (req.session && req.session.user) {
+    const now = Date.now();
+    const last = req.session.lastActivity || now;
+    if (now - last > SESSION_IDLE_MS) {
+      req.session.destroy(() => {});
+      const isApi = req.path.endsWith('.json') || req.get('Accept')?.includes('application/json') || req.xhr;
+      if (isApi) return res.status(401).json({ error: 'Unauthorized', code: 'SESSION_EXPIRED' });
+      return res.redirect(`/login?redirect=${encodeURIComponent(req.originalUrl)}&error=timeout`);
+    }
+    req.session.lastActivity = now;
+    return next();
+  }
+  const isApi = req.path.endsWith('.json') || req.get('Accept')?.includes('application/json') || req.xhr;
+  if (isApi) return res.status(401).json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' });
+  const redirect = encodeURIComponent(req.originalUrl);
+  return res.redirect(`/login?redirect=${redirect}`);
+}
+
+// Login: first screen for unauthenticated users
+app.get('/', (req, res) => {
+  if (!authEnabled) return res.redirect('/report');
+  if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
+  res.sendFile('login.html', { root: './public' });
+});
+
+app.get('/login', (req, res) => {
+  if (!authEnabled) return res.redirect('/report');
+  if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
+  res.sendFile('login.html', { root: './public' });
+});
+
+app.post('/login', (req, res) => {
+  if (!authEnabled) return res.redirect('/report');
+  const redirect = (req.body.redirect && req.body.redirect.startsWith('/')) ? req.body.redirect : '/report';
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const now = Date.now();
+  let record = loginFailuresByIp.get(ip);
+  if (record && now > record.resetAt) {
+    loginFailuresByIp.delete(ip);
+    record = null;
+  }
+  if (record && record.count >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS) {
+    logger.warn('Login rate limit exceeded', { ip });
+    return res.redirect(`/login?redirect=${encodeURIComponent(redirect)}&error=invalid`);
+  }
+  const honeypot = (req.body.website || '').trim();
+  if (honeypot) {
+    logger.warn('Login honeypot filled, rejecting', { ip });
+    return res.redirect(`/login?redirect=${encodeURIComponent(redirect)}&error=bot`);
+  }
+  const username = (req.body.username || '').trim();
+  const password = req.body.password || '';
+  if (username !== APP_LOGIN_USER || password !== APP_LOGIN_PASSWORD) {
+    if (!record) loginFailuresByIp.set(ip, { count: 1, resetAt: now + LOGIN_RATE_LIMIT_WINDOW_MS });
+    else record.count += 1;
+    return res.redirect(`/login?redirect=${encodeURIComponent(redirect)}&error=invalid`);
+  }
+  loginFailuresByIp.delete(ip);
+  req.session.user = username;
+  req.session.lastActivity = Date.now();
+  return res.redirect(redirect);
+});
 
 /**
  * Retry handler for 429 rate limit errors
@@ -79,16 +170,16 @@ async function retryOnRateLimit(fn, maxRetries = 3, operation = 'unknown') {
 }
 
 /**
- * GET /report - Serve the main report page
+ * GET /report - Serve the main report page (protected when auth enabled)
  */
-app.get('/report', (req, res) => {
+app.get('/report', requireAuth, (req, res) => {
   res.sendFile('report.html', { root: './public' });
 });
 
 /**
- * GET /preview.json - Generate preview data
+ * GET /preview.json - Generate preview data (protected when auth enabled)
  */
-app.get('/preview.json', async (req, res) => {
+app.get('/preview.json', requireAuth, async (req, res) => {
   try {
     // Preview timing and phase tracking for transparency and partial responses
     const MAX_PREVIEW_MS = 4 * 60 * 1000; // 4 minutes soft limit
@@ -810,7 +901,7 @@ app.get('/preview.json', async (req, res) => {
 /**
  * POST /export - Stream CSV export
  */
-app.post('/export', (req, res) => {
+app.post('/export', requireAuth, (req, res) => {
   try {
     const { columns, rows } = req.body;
 
@@ -831,7 +922,7 @@ app.post('/export', (req, res) => {
 /**
  * POST /export-excel - Generate Excel workbook with multiple sheets
  */
-app.post('/export-excel', async (req, res) => {
+app.post('/export-excel', requireAuth, async (req, res) => {
   try {
     const { workbookData, meta } = req.body;
 
@@ -871,8 +962,8 @@ app.use((err, req, res, next) => {
 // Start server
 app.listen(PORT, () => {
   // Keep console.log for startup messages
-  console.log(`Jira Reporting App running on http://localhost:${PORT}`);
-  console.log(`Access the report at http://localhost:${PORT}/report`);
+  console.log(`VodaAgileBoard running on http://localhost:${PORT}`);
+  console.log(`Access: ${authEnabled ? 'login at / then /report' : `report at http://localhost:${PORT}/report`}`);
   
   // Verify environment variables are loaded
   const hasHost = !!process.env.JIRA_HOST;

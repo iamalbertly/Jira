@@ -17,7 +17,7 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('text/html');
     const body = await response.text();
-    expect(body).toContain('Jira Sprint Report');
+    expect(body).toContain('VodaAgileBoard');
     expect(body).toContain('MPSA');
     expect(body).toContain('MAS');
   });

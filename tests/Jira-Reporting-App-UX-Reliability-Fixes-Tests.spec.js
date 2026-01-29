@@ -84,7 +84,7 @@ async function runDefaultPreview(page, overrides = {}) {
 test.describe('UX Reliability & Technical Debt Fixes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('Jira Sprint Report');
+    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
   });
 
   test('refreshing preview keeps previous results visible while loading', async ({ page }) => {

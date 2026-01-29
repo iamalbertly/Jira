@@ -1632,7 +1632,7 @@ async function exportCSV(rows, type) {
   }
 
   const meta = getSafeMeta(previewData);
-  const filename = buildCsvFilename('jira-report', meta, type);
+  const filename = buildCsvFilename('voda-agile-board', meta, type);
 
   // Bonus Edge Case 2: Handle very large CSV exports (>10MB) gracefully
   const estimatedSize = JSON.stringify(rows).length; // Rough estimate

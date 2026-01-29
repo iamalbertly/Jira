@@ -1,0 +1,22 @@
+services:
+  - type: web
+    runtime: node
+    name: voda-agile-board
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JIRA_HOST
+        sync: false
+      - key: JIRA_EMAIL
+        sync: false
+      - key: JIRA_API_TOKEN
+        sync: false
+      - key: APP_LOGIN_USER
+        sync: false
+      - key: APP_LOGIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        sync: false

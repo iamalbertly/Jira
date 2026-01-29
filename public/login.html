@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login – VodaAgileBoard</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .login-container { max-width: 360px; margin: 2rem auto; padding: 1.5rem; }
+    .login-container h1 { margin-bottom: 0.5rem; }
+    .login-container .subtitle { color: #666; margin-bottom: 1.5rem; }
+    .login-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+    .login-form input[type="text"], .login-form input[type="password"] { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+    .login-form button { width: 100%; padding: 0.6rem; cursor: pointer; }
+    .login-error { color: #c00; margin-bottom: 1rem; }
+    .honeypot { position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="container login-container">
+    <header>
+      <h1>VodaAgileBoard</h1>
+      <p class="subtitle">Sign in to continue</p>
+    </header>
+    <form class="login-form" action="/login" method="post">
+      <div id="login-error" class="login-error" style="display: none;"></div>
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <div class="honeypot" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+      <input type="hidden" name="redirect" value="">
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+  <script>
+    var q = new URLSearchParams(window.location.search);
+    var r = q.get('redirect') || '/report';
+    document.querySelector('input[name="redirect"]').value = r;
+    var err = q.get('error');
+    if (err) {
+      var el = document.getElementById('login-error');
+      el.textContent = err === 'invalid' ? 'Invalid username or password.' : (err === 'bot' ? 'Invalid request.' : 'Please try again.');
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

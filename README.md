@@ -1,6 +1,6 @@
-# Jira Reporting App
+# VodaAgileBoard
 
-A Node.js web application for generating sprint reports from Jira for MPSA and MAS projects. The app provides a preview-first workflow where users can configure filters, preview data in a tabbed interface, and export CSV files without re-fetching from Jira.
+VodaAgileBoard is the tool for scrum masters and leaders: a Node.js web application for generating sprint reports from Jira for MPSA and MAS projects. It provides a preview-first workflow where you configure filters, preview data in a tabbed interface, and export CSV or Excel without re-fetching from Jira.
 
 This README is the SSOT for usage and validation. Supplemental documents (e.g. `Jira-Reporting-Gap-Analysis-Plan.md`) provide planning context only and do not supersede this guide.
 
@@ -59,10 +59,9 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 
 ### Access the Application
 
-Open your browser and navigate to:
-```
-http://localhost:3000/report
-```
+1. Open your browser and go to `http://localhost:3000` (or the port in `PORT`).
+2. Log in with the credentials configured in your environment (see Environment Variables).
+3. After login you are redirected to the report at `http://localhost:3000/report`.
 
 ## Usage
 
@@ -279,7 +278,7 @@ npm run test:validation
 
 ### Test Orchestration & Playwright
 
-- The `Jira-Reporting-App-Test-Orchestration-Runner.js` script (`npm run test:all`) runs:
+- The test orchestration script (`npm run test:all`) runs:
   1. `npm install`
   2. Playwright API integration tests (headed)
   3. Playwright E2E user-journey tests (headed)
@@ -371,9 +370,29 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 - `JIRA_HOST`: Your Jira instance URL (e.g., `https://your-domain.atlassian.net`)
 - `JIRA_EMAIL`: Your Jira account email
 - `JIRA_API_TOKEN`: Your Jira API token
+- `APP_LOGIN_USER`: Username for app login (required when auth is enabled)
+- `APP_LOGIN_PASSWORD`: Password for app login (required when auth is enabled)
+- `SESSION_SECRET`: Secret for signing session cookies (required when auth is enabled)
 - `PORT`: Server port (default: 3000)
 - `LOG_LEVEL`: Logging level - `DEBUG`, `INFO`, `WARN`, `ERROR` (default: `INFO`)
 - `NODE_ENV`: Environment - `development` or `production`
+
+## Deployment
+
+VodaAgileBoard can be deployed to [Render](https://render.com) or any Node host.
+
+1. Connect your Git repo (e.g. GitHub) to Render and create a Web Service.
+2. Set **Build command** to `npm install` (or `npm ci`) and **Start command** to `npm start`.
+3. Add all environment variables in the Render dashboard: `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`, `SESSION_SECRET`, `NODE_ENV=production`.
+4. Optional: use a [Blueprint](https://render.com/docs/infrastructure-as-code) by adding `render.yaml` at the repo root; validate with `render blueprints validate`. Deploy via Render CLI: `render deploys create <SERVICE_ID> --confirm`.
+
+### Live instance
+
+After the first deploy succeeds, your app will be available at a URL like `https://voda-agile-board.onrender.com`. Update this README with your actual live URL.
+
+### CI/CD
+
+Tests run on push via GitHub Actions (when configured). Deploys are triggered by Render on push to `main` (Git-backed), or by running the Render CLI in CI with `RENDER_API_KEY` and `RENDER_SERVICE_ID`.
 
 ## License
 

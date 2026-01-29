@@ -1,7 +1,7 @@
 {
-  "name": "jira-reporting-app",
+  "name": "voda-agile-board",
   "version": "1.0.0",
-  "description": "Jira reporting web app for MPSA and MAS projects",
+  "description": "Agile reporting for scrum masters and leaders – sprint reports from Jira (MPSA & MAS)",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -12,12 +12,13 @@
     "test:api": "playwright test tests/Jira-Reporting-App-API-Integration-Tests.spec.js",
     "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js"
   },
-  "keywords": ["jira", "reporting", "sprint"],
+  "keywords": ["voda-agile-board", "agile", "reporting", "sprint", "jira"],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "jira.js": "^5.3.0",
     "dotenv": "^16.3.1"
   },

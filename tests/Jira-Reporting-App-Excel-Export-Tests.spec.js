@@ -30,7 +30,7 @@ async function runDefaultPreview(page) {
 test.describe('Jira Reporting App - Excel Export Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('Jira Sprint Report');
+    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
   });
 
   test('should generate Excel file with correct filename format', async ({ page }) => {

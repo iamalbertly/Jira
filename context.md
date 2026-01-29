@@ -1,4 +1,4 @@
-## Jira Reporting App – Architecture & Context
+## VodaAgileBoard – Architecture & Context
 
 ### Modules & Dependencies
 

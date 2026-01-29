@@ -56,6 +56,12 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Login Security Deploy Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/VodaAgileBoard-Login-Security-Deploy-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run E2E User Journey Tests',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],

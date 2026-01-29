@@ -60,7 +60,7 @@ async function runDefaultPreview(page, overrides = {}) {
 test.describe('RED LINE ITEMS KPI Validation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('Jira Sprint Report');
+    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
   });
 
   test('should include issueType column in CSV export', async ({ page, request }) => {

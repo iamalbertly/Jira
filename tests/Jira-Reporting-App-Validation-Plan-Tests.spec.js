@@ -47,7 +47,7 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
 
     await page.goto('/report');
 
-    await expect(page.locator('h1')).toContainText('Jira Sprint Report');
+    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
     await expect(page.locator('#project-mpsa')).toBeVisible();
     await expect(page.locator('#project-mas')).toBeVisible();
     await expect(page.locator('#start-date')).toBeVisible();
