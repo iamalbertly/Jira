@@ -90,11 +90,11 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     
     // If Epic data exists, check for Epic columns
     if (contentText && contentText.includes('Epic')) {
-      // Check for Epic Key, Epic Title, and Epic Summary columns
+      // Check for Epic, Epic Title, and Epic Summary columns
       const tableHeaders = page.locator('#done-stories-content table thead th');
       const headerTexts = await tableHeaders.allTextContents();
       
-      const hasEpicKey = headerTexts.some(text => text.includes('Epic Key'));
+      const hasEpicKey = headerTexts.some(text => text.includes('Epic'));
       const hasEpicTitle = headerTexts.some(text => text.includes('Epic Title'));
       const hasEpicSummary = headerTexts.some(text => text.includes('Epic Summary'));
       
@@ -152,10 +152,10 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const boardsContent = page.locator('#project-epic-level-content');
     const boardsText = await boardsContent.textContent();
     if (boardsText) {
-      expect(boardsText).toContain('Total Sprint Days');
-      expect(boardsText).toContain('SP per Sprint Day');
-      expect(boardsText).toContain('Done by Sprint End %');
-      expect(boardsText).toContain('Total Non Epics');
+      expect(boardsText).toContain('Sprint Days');
+      expect(boardsText).toContain('SP / Day');
+      expect(boardsText).toContain('On-Time %');
+      expect(boardsText).toContain('Ad-hoc');
       console.log('[TEST] ✓ Boards table includes time-normalized delivery columns');
     }
 
@@ -178,18 +178,15 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       console.log('[TEST] ✓ Subtask time tracking columns found in Sprints tab');
     }
     
-    // Check Metrics tab - Per Sprint section should NOT exist
-    await page.click('.tab-btn[data-tab="metrics"]');
-    await expect(page.locator('#tab-metrics')).toHaveClass(/active/);
-    
-    const metricsContent = page.locator('#metrics-content');
-    const metricsText = await metricsContent.textContent();
+    // Project & Epic Level content should not include a separate Per Sprint table
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    const metricsText = await page.locator('#project-epic-level-content').textContent();
     
     // Should NOT contain "Per Sprint" as a separate section
     if (metricsText) {
       const perSprintSection = metricsText.match(/Per Sprint[\s\S]*?<\/table>/);
       expect(perSprintSection).toBeNull();
-      console.log('[TEST] ✓ Per Sprint section removed from Metrics tab');
+      console.log('[TEST] ✓ Per Sprint section removed from Project & Epic Level view');
       
       // Should contain note about Per Sprint data being in Sprints tab
       expect(metricsText).toContain('Per Sprint data is shown in the Sprints tab');
@@ -243,26 +240,26 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const contentText = await sprintsContent.textContent();
     
     // Should contain new labels
-    expect(contentText).toContain('Stories Completed (Total)');
-    console.log('[TEST] ✓ "Stories Completed (Total)" label found');
+    expect(contentText).toContain('Done Stories');
+    console.log('[TEST] ✓ "Done Stories" label found');
     
     // Check for tooltip on column header
-    const storiesCompletedHeader = page.locator('#sprints-content th').filter({ hasText: 'Stories Completed (Total)' });
+    const storiesCompletedHeader = page.locator('#sprints-content th').filter({ hasText: 'Done Stories' });
     if (await storiesCompletedHeader.count() > 0) {
       const titleAttr = await storiesCompletedHeader.getAttribute('title');
-      expect(titleAttr).toContain('Stories currently marked Done');
-      console.log('[TEST] ✓ Tooltip found on "Stories Completed (Total)" header');
+      expect(titleAttr).toContain('Stories marked Done in this sprint');
+      console.log('[TEST] ✓ Tooltip found on "Done Stories" header');
     }
     
-    // If doneComparison exists, check for renamed "Completed Within Sprint End Date"
-    if (contentText && contentText.includes('Completed Within Sprint End Date')) {
-      console.log('[TEST] ✓ "Completed Within Sprint End Date" label found');
+    // If doneComparison exists, check for renamed "On-Time Stories"
+    if (contentText && contentText.includes('On-Time Stories')) {
+      console.log('[TEST] ✓ "On-Time Stories" label found');
       
-      const completedWithinHeader = page.locator('#sprints-content th').filter({ hasText: 'Completed Within Sprint End Date' });
+      const completedWithinHeader = page.locator('#sprints-content th').filter({ hasText: 'On-Time Stories' });
       if (await completedWithinHeader.count() > 0) {
         const titleAttr = await completedWithinHeader.getAttribute('title');
-        expect(titleAttr).toContain('Stories currently marked Done');
-        console.log('[TEST] ✓ Tooltip found on "Completed Within Sprint End Date" header');
+        expect(titleAttr).toContain('Stories marked Done in this sprint');
+        console.log('[TEST] ✓ Tooltip found on "On-Time Stories" header');
       }
     }
   });

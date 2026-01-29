@@ -13,6 +13,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Flexible Export**: Export filtered or raw preview data as CSV
 - **Runtime Discovery**: Automatically discovers boards and field IDs from your Jira instance
 - **Error Handling**: Robust error handling with user-friendly messages and retry logic
+- **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
 
 ## Prerequisites
 
@@ -93,7 +94,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 5. **Review Tabs**:
    - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Throughput remains available by issue type, along with rework ratio, predictability, and Epic TTM. Includes per-section CSV export button.
    - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. When subtask tracking exists, adds Subtask Est/Spent/Remaining/Variance columns. Includes per-section CSV export button.
-   - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Includes per-section CSV export button.
+   - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Dates render in local-friendly format with raw ISO on hover. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
 
 6. **Export to Excel**:
@@ -125,6 +126,10 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 ### Preview Behaviour & Feedback
 
 - **In-flight feedback**:
+- **User feedback capture**:
+  - Click **Give Feedback** at the top of the report to submit your email and detailed feedback.
+  - Submissions are stored on the server in `data/JiraReporting-Feedback-UserInput-Submission-Log.jsonl`.
+
   - When you click **Preview**, the button is temporarily disabled to prevent double-clicks while the loading overlay shows progress updates.
   - The loading panel includes a live timer and step log (e.g. “Collecting filter parameters”, “Sending request to server”, “Received data from server”).
   - If a previous preview is already visible, the UI keeps it on-screen while the new request runs and shows a refresh banner so users see immediate results.

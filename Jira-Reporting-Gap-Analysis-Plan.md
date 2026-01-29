@@ -290,3 +290,20 @@ Remote
 - This plan is SSOT for duplication mapping and refactor strategy.
 - README.md remains SSOT for usage and validation steps.
 - Any renaming should be tracked in context.md for SIZE-EXEMPT files.
+
+## Customer/Simplicity/Trust UX Implementation Notes (Applied)
+
+### What we simplified
+- Normalized delivery metrics now use short labels (e.g., **SP / Day**, **On-Time %**) and tooltips explain calculations.
+- Date displays now render in local-friendly format with raw ISO preserved on hover.
+- Boards view merges overlapping throughput metrics into a single decision-grade table to reduce duplication.
+
+### Why this improves trust
+- Rates and percentages now show **N/A** instead of misleading zero when sprint dates are missing.
+- Tooltips document the exact calculation so leaders can audit the meaning quickly.
+
+### Bonus edge cases considered
+1. **Missing sprint dates**: show N/A for rate metrics instead of 0 to avoid false precision.
+2. **Zero done stories**: avoid divide-by-zero and show N/A for SP/Story and On-Time %.
+3. **Feedback submission failure**: UI shows a clear error without blocking report usage.
+

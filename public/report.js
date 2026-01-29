@@ -139,6 +139,68 @@ const loadingEl = document.getElementById('loading');
 const errorEl = document.getElementById('error');
 const previewContent = document.getElementById('preview-content');
 const previewMeta = document.getElementById('preview-meta');
+const feedbackToggle = document.getElementById('feedback-toggle');
+const feedbackPanel = document.getElementById('feedback-panel');
+const feedbackEmail = document.getElementById('feedback-email');
+const feedbackMessage = document.getElementById('feedback-message');
+const feedbackSubmit = document.getElementById('feedback-submit');
+const feedbackCancel = document.getElementById('feedback-cancel');
+const feedbackStatus = document.getElementById('feedback-status');
+
+function setFeedbackStatus(message, tone = 'info') {
+  if (!feedbackStatus) return;
+  feedbackStatus.textContent = message;
+  feedbackStatus.style.color = tone === 'error' ? '#c33' : '#1b4f9c';
+}
+
+function toggleFeedbackPanel(show) {
+  if (!feedbackPanel) return;
+  const shouldShow = typeof show === 'boolean' ? show : feedbackPanel.style.display === 'none';
+  feedbackPanel.style.display = shouldShow ? 'block' : 'none';
+  if (shouldShow) {
+    setFeedbackStatus('');
+  }
+}
+
+if (feedbackToggle) {
+  feedbackToggle.addEventListener('click', () => toggleFeedbackPanel());
+}
+
+if (feedbackCancel) {
+  feedbackCancel.addEventListener('click', () => toggleFeedbackPanel(false));
+}
+
+if (feedbackSubmit) {
+  feedbackSubmit.addEventListener('click', async () => {
+    const email = (feedbackEmail?.value || '').trim();
+    const message = (feedbackMessage?.value || '').trim();
+    if (!email || !message) {
+      setFeedbackStatus('Please enter your email and feedback.', 'error');
+      return;
+    }
+
+    feedbackSubmit.disabled = true;
+    setFeedbackStatus('Sending feedback...');
+    try {
+      const response = await fetch('/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, message })
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => 'Unable to submit feedback.');
+        throw new Error(text);
+      }
+      setFeedbackStatus('Thanks! Your feedback was received.');
+      if (feedbackEmail) feedbackEmail.value = '';
+      if (feedbackMessage) feedbackMessage.value = '';
+    } catch (error) {
+      setFeedbackStatus(`Failed to send feedback: ${error.message}`, 'error');
+    } finally {
+      feedbackSubmit.disabled = false;
+    }
+  });
+}
 
 // Tab management
 const tabButtons = document.querySelectorAll('.tab-btn');
@@ -587,6 +649,10 @@ function renderPreview() {
   const unusableCount = previewData.sprintsUnusable?.length || 0;
   const startDate = new Date(meta.windowStart);
   const endDate = new Date(meta.windowEnd);
+  const windowStartLocal = formatDateForDisplay(meta.windowStart);
+  const windowEndLocal = formatDateForDisplay(meta.windowEnd);
+  const windowStartUtc = startDate && !Number.isNaN(startDate.getTime()) ? startDate.toUTCString() : '';
+  const windowEndUtc = endDate && !Number.isNaN(endDate.getTime()) ? endDate.toUTCString() : '';
   const fromCache = meta.fromCache === true;
   const partial = meta.partial === true;
   const partialReason = meta.partialReason || '';
@@ -626,8 +692,8 @@ function renderPreview() {
   previewMeta.innerHTML = `
     <div class="meta-info">
       <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
-      <strong>Date Window (UTC):</strong> ${escapeHtml(meta.windowStart)} to ${escapeHtml(meta.windowEnd)}<br>
-      <strong>Date Window (Local):</strong> ${startDate.toLocaleString()} to ${endDate.toLocaleString()}<br>
+      <strong>Date Window (Local):</strong> ${escapeHtml(windowStartLocal)} to ${escapeHtml(windowEndLocal)}<br>
+      <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
       <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
       <strong>Details:</strong> ${escapeHtml(detailsLines.join(' - '))}
       ${partialNotice}
@@ -720,12 +786,14 @@ function updateDateDisplay() {
       `;
       return;
     }
-    const startLocal = new Date(startDate).toLocaleString();
-    const endLocal = new Date(endDate).toLocaleString();
+    const startLocal = formatDateForDisplay(startDate);
+    const endLocal = formatDateForDisplay(endDate);
+    const startUtc = new Date(startISO).toUTCString();
+    const endUtc = new Date(endISO).toUTCString();
 
     document.getElementById('date-display').innerHTML = `
       <small>
-        UTC: ${startISO} to ${endISO}<br>
+        UTC: ${startUtc} to ${endUtc}<br>
         Local: ${startLocal} to ${endLocal}
       </small>
     `;
@@ -770,6 +838,15 @@ function formatPercent(value, decimals = 2) {
     return 'N/A';
   }
   return `${Number(value).toFixed(decimals)}%`;
+}
+
+function formatDateForDisplay(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toLocaleString();
 }
 
 function buildBoardSummaries(boards, sprintsIncluded, rows, meta) {
@@ -913,13 +990,38 @@ function renderProjectEpicLevelTab(boards, metrics) {
   if (!boards || boards.length === 0) {
     html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
   } else {
-    html += '<table class="data-table"><thead><tr><th>Board ID</th><th>Board Name</th><th>Type</th><th>Projects</th><th>Included Sprints</th><th>Total Sprint Days</th><th>Avg Sprint Length (Days)</th><th>Done Stories</th><th>Done SP</th><th>Stories per Sprint</th><th>SP per Story</th><th>Stories per Sprint Day</th><th>SP per Sprint Day</th><th>Avg SP per Sprint</th><th>SP Variance per Sprint</th><th>Done by Sprint End %</th><th>Total Epics</th><th>Total Non Epics</th><th>Sprint Window</th><th>Latest Sprint End</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr>' +
+      '<th title="Jira board identifier.">Board ID</th>' +
+      '<th title="Board name shown in Jira.">Board</th>' +
+      '<th title="Board type (scrum/kanban).">Type</th>' +
+      '<th title="Projects mapped to this board.">Projects</th>' +
+      '<th title="Count of included sprints in the date window.">Sprints</th>' +
+      '<th title="Sum of (sprint end - sprint start + 1) days across included sprints.">Sprint Days</th>' +
+      '<th title="Total Sprint Days ÷ Sprints.">Avg Sprint Days</th>' +
+      '<th title="Stories marked Done in included sprints.">Done Stories</th>' +
+      '<th title="Story points completed in included sprints.">Done SP</th>' +
+      '<th title="Done Stories ÷ Sprints.">Stories / Sprint</th>' +
+      '<th title="Done SP ÷ Done Stories. Indicates average story size.">SP / Story</th>' +
+      '<th title="Done Stories ÷ Sprint Days. Normalized delivery rate. (EBM: T2M)">Stories / Day</th>' +
+      '<th title="Done SP ÷ Sprint Days. Normalized delivery rate. (EBM: T2M)">SP / Day</th>' +
+      '<th title="Done SP ÷ Sprints.">SP / Sprint</th>' +
+      '<th title="Variance of SP delivered per sprint. Higher = less consistent.">SP Variance</th>' +
+      '<th title="Stories resolved by sprint end ÷ Done Stories. On-time delivery discipline.">On-Time %</th>' +
+      '<th title="Stories linked to an Epic (planned work).">Planned</th>' +
+      '<th title="Stories without an Epic (often ad-hoc work).">Ad-hoc</th>' +
+      '<th title="Earliest sprint start to latest sprint end in the window.">Sprint Window</th>' +
+      '<th title="Latest sprint end date in the window.">Latest End</th>' +
+      '</tr></thead><tbody>';
     for (const board of boards) {
       const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0 };
-      const sprintWindow = summary.earliestStart && summary.latestEnd
+      const sprintWindowRaw = summary.earliestStart && summary.latestEnd
         ? `${summary.earliestStart.toISOString()} to ${summary.latestEnd.toISOString()}`
         : '';
-      const latestEnd = summary.latestEnd ? summary.latestEnd.toISOString() : '';
+      const sprintWindowDisplay = summary.earliestStart && summary.latestEnd
+        ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}`
+        : '';
+      const latestEndRaw = summary.latestEnd ? summary.latestEnd.toISOString() : '';
+      const latestEndDisplay = summary.latestEnd ? formatDateForDisplay(summary.latestEnd) : '';
       const totalSprintDays = summary.totalSprintDays || 0;
       const avgSprintLength = summary.validSprintDaysCount > 0
         ? totalSprintDays / summary.validSprintDaysCount
@@ -963,8 +1065,8 @@ function renderProjectEpicLevelTab(boards, metrics) {
           <td>${formatPercent(doneBySprintEndPct)}</td>
           <td>${summary.epicStories}</td>
           <td>${summary.nonEpicStories}</td>
-          <td>${escapeHtml(sprintWindow)}</td>
-          <td>${escapeHtml(latestEnd)}</td>
+          <td title="${escapeHtml(sprintWindowRaw)}">${escapeHtml(sprintWindowDisplay)}</td>
+          <td title="${escapeHtml(latestEndRaw)}">${escapeHtml(latestEndDisplay)}</td>
         </tr>
       `;
     }
@@ -1084,22 +1186,29 @@ function renderSprintsTab(sprints, metrics) {
     total.subtaskEstimateHours || total.subtaskSpentHours || total.subtaskRemainingHours || total.subtaskVarianceHours
   );
 
-  let html = '<table class="data-table"><thead><tr><th>Project</th><th>Board</th><th>Sprint</th><th>Start</th><th>End</th><th>State</th><th title="Stories currently marked Done vs stories resolved by the sprint end date">Stories Completed (Total)</th>';
+  let html = '<table class="data-table"><thead><tr>' +
+    '<th title="Projects included for this sprint.">Project</th>' +
+    '<th title="Board that owns the sprint.">Board</th>' +
+    '<th title="Sprint name.">Sprint</th>' +
+    '<th title="Sprint start date (local display).">Start</th>' +
+    '<th title="Sprint end date (local display).">End</th>' +
+    '<th title="Sprint state in Jira.">State</th>' +
+    '<th title="Stories marked Done in this sprint.">Done Stories</th>';
   
   if (metrics?.doneComparison) {
-    html += '<th title="Stories currently marked Done vs stories resolved by the sprint end date">Completed Within Sprint End Date</th>';
+    html += '<th title="Stories resolved by the sprint end date.">On-Time Stories</th>';
   }
   
   if (metrics?.throughput) {
-    html += '<th>Done SP</th><th>Total SP</th><th>Story Count</th>';
+    html += '<th title="Story points completed in this sprint.">Done SP</th><th title="Total SP recorded for this sprint in throughput.">Total SP</th><th title="Story count used in throughput.">Story Count</th>';
   }
 
   if (hasTimeTracking) {
-    html += '<th>Est Hrs</th><th>Spent Hrs</th><th>Remaining Hrs</th><th>Variance Hrs</th>';
+    html += '<th title="Sum of original estimates.">Est Hrs</th><th title="Sum of time spent.">Spent Hrs</th><th title="Sum of remaining estimates.">Remaining Hrs</th><th title="Spent - Estimate.">Variance Hrs</th>';
   }
 
   if (hasSubtaskTimeTracking) {
-    html += '<th>Subtask Est Hrs</th><th>Subtask Spent Hrs</th><th>Subtask Remaining Hrs</th><th>Subtask Variance Hrs</th>';
+    html += '<th title="Sum of subtask estimates.">Subtask Est Hrs</th><th title="Sum of subtask time spent.">Subtask Spent Hrs</th><th title="Sum of subtask remaining estimates.">Subtask Remaining Hrs</th><th title="Subtask spent - estimate.">Subtask Variance Hrs</th>';
   }
   
   html += '</tr></thead><tbody>';
@@ -1117,13 +1226,15 @@ function renderSprintsTab(sprints, metrics) {
       subtaskVarianceHours: 0,
     };
     
+    const sprintStartDisplay = formatDateForDisplay(sprint.startDate);
+    const sprintEndDisplay = formatDateForDisplay(sprint.endDate);
     html += `
       <tr>
         <td>${escapeHtml((sprint.projectKeys || []).join(', '))}</td>
         <td>${escapeHtml(sprint.boardName || '')}</td>
         <td>${escapeHtml(sprint.name || '')}</td>
-        <td>${escapeHtml(sprint.startDate || '')}</td>
-        <td>${escapeHtml(sprint.endDate || '')}</td>
+        <td title="${escapeHtml(sprint.startDate || '')}">${escapeHtml(sprintStartDisplay)}</td>
+        <td title="${escapeHtml(sprint.endDate || '')}">${escapeHtml(sprintEndDisplay)}</td>
         <td>${escapeHtml(sprint.state || '')}</td>
         <td>${sprint.doneStoriesNow || 0}</td>
     `;
@@ -1333,39 +1444,39 @@ function renderDoneStoriesTab(rows) {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Key</th>
-                <th>Summary</th>
-                <th>Status</th>
-                <th>Type</th>
-                ${hasStatusCategory ? '<th>Status Category</th>' : ''}
-                ${hasPriority ? '<th>Priority</th>' : ''}
-                ${hasLabels ? '<th>Labels</th>' : ''}
-                ${hasComponents ? '<th>Components</th>' : ''}
-                ${hasFixVersions ? '<th>Fix Versions</th>' : ''}
-                ${hasEbmTeam ? '<th>EBM Team</th>' : ''}
-                ${hasEbmProductArea ? '<th>EBM Product Area</th>' : ''}
-                ${hasEbmCustomerSegments ? '<th>EBM Customer Segments</th>' : ''}
-                ${hasEbmValue ? '<th>EBM Value</th>' : ''}
-                ${hasEbmImpact ? '<th>EBM Impact</th>' : ''}
-                ${hasEbmSatisfaction ? '<th>EBM Satisfaction</th>' : ''}
-                ${hasEbmSentiment ? '<th>EBM Sentiment</th>' : ''}
-                ${hasEbmSeverity ? '<th>EBM Severity</th>' : ''}
-                ${hasEbmSource ? '<th>EBM Source</th>' : ''}
-                ${hasEbmWorkCategory ? '<th>EBM Work Category</th>' : ''}
-                ${hasEbmGoals ? '<th>EBM Goals</th>' : ''}
-                ${hasEbmTheme ? '<th>EBM Theme</th>' : ''}
-                ${hasEbmRoadmap ? '<th>EBM Roadmap</th>' : ''}
-                ${hasEbmFocusAreas ? '<th>EBM Focus Areas</th>' : ''}
-                ${hasEbmDeliveryStatus ? '<th>EBM Delivery Status</th>' : ''}
-                ${hasEbmDeliveryProgress ? '<th>EBM Delivery Progress</th>' : ''}
-                <th>Assignee</th>
-                <th>Created</th>
-                <th>Resolved</th>
-                ${hasSubtasks ? '<th>Subtasks</th>' : ''}
-                ${hasTimeTracking ? '<th>Est (Hrs)</th><th>Spent (Hrs)</th><th>Remaining (Hrs)</th><th>Variance (Hrs)</th>' : ''}
-                ${hasSubtaskTimeTracking ? '<th>Subtask Est (Hrs)</th><th>Subtask Spent (Hrs)</th><th>Subtask Remaining (Hrs)</th><th>Subtask Variance (Hrs)</th>' : ''}
-                ${meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
-                ${meta?.discoveredFields?.epicLinkFieldId ? '<th>Epic Key</th><th>Epic Title</th><th>Epic Summary</th>' : ''}
+                <th title="Jira issue key.">Key</th>
+                <th title="Issue summary from Jira.">Summary</th>
+                <th title="Current Jira status.">Status</th>
+                <th title="Issue type (Story, Bug, etc.).">Type</th>
+                ${hasStatusCategory ? '<th title="Status group (To Do / In Progress / Done).">Status Group</th>' : ''}
+                ${hasPriority ? '<th title="Priority from Jira.">Priority</th>' : ''}
+                ${hasLabels ? '<th title="Issue labels.">Labels</th>' : ''}
+                ${hasComponents ? '<th title="Components on the issue.">Components</th>' : ''}
+                ${hasFixVersions ? '<th title="Fix versions on the issue.">Fix Versions</th>' : ''}
+                ${hasEbmTeam ? '<th title="EBM: Team field (customer value context).">EBM Team</th>' : ''}
+                ${hasEbmProductArea ? '<th title="EBM: Product area.">EBM Product Area</th>' : ''}
+                ${hasEbmCustomerSegments ? '<th title="EBM: Customer segments.">EBM Customer Segments</th>' : ''}
+                ${hasEbmValue ? '<th title="EBM: Value signal (CV/UV).">EBM Value</th>' : ''}
+                ${hasEbmImpact ? '<th title="EBM: Impact signal (CV/UV).">EBM Impact</th>' : ''}
+                ${hasEbmSatisfaction ? '<th title="EBM: Satisfaction signal (CV).">EBM Satisfaction</th>' : ''}
+                ${hasEbmSentiment ? '<th title="EBM: Sentiment signal (CV).">EBM Sentiment</th>' : ''}
+                ${hasEbmSeverity ? '<th title="EBM: Severity or urgency.">EBM Severity</th>' : ''}
+                ${hasEbmSource ? '<th title="EBM: Source of demand.">EBM Source</th>' : ''}
+                ${hasEbmWorkCategory ? '<th title="EBM: Work category (A2I).">EBM Work Category</th>' : ''}
+                ${hasEbmGoals ? '<th title="EBM: Goals alignment (UV).">EBM Goals</th>' : ''}
+                ${hasEbmTheme ? '<th title="EBM: Strategic theme (UV).">EBM Theme</th>' : ''}
+                ${hasEbmRoadmap ? '<th title="EBM: Roadmap linkage (UV).">EBM Roadmap</th>' : ''}
+                ${hasEbmFocusAreas ? '<th title="EBM: Focus areas (UV).">EBM Focus Areas</th>' : ''}
+                ${hasEbmDeliveryStatus ? '<th title="EBM: Delivery status.">EBM Delivery Status</th>' : ''}
+                ${hasEbmDeliveryProgress ? '<th title="EBM: Delivery progress.">EBM Delivery Progress</th>' : ''}
+                <th title="Assignee display name.">Assignee</th>
+                <th title="Created date (local display).">Created</th>
+                <th title="Resolved date (local display).">Resolved</th>
+                ${hasSubtasks ? '<th title="Count of subtasks.">Subtasks</th>' : ''}
+                ${hasTimeTracking ? '<th title="Original estimate (hours).">Est (Hrs)</th><th title="Time spent (hours).">Spent (Hrs)</th><th title="Remaining estimate (hours).">Remaining (Hrs)</th><th title="Spent - Estimate (hours).">Variance (Hrs)</th>' : ''}
+                ${hasSubtaskTimeTracking ? '<th title="Subtask estimate (hours).">Subtask Est (Hrs)</th><th title="Subtask spent (hours).">Subtask Spent (Hrs)</th><th title="Subtask remaining (hours).">Subtask Remaining (Hrs)</th><th title="Subtask spent - estimate (hours).">Subtask Variance (Hrs)</th>' : ''}
+                ${meta?.discoveredFields?.storyPointsFieldId ? '<th title="Story Points.">SP</th>' : ''}
+                ${meta?.discoveredFields?.epicLinkFieldId ? '<th title="Epic key (planned work).">Epic</th><th title="Epic title.">Epic Title</th><th title="Epic summary (truncated in UI).">Epic Summary</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -1415,8 +1526,8 @@ function renderDoneStoriesTab(rows) {
           ${hasEbmDeliveryStatus ? `<td>${escapeHtml(row.ebmDeliveryStatus || '')}</td>` : ''}
           ${hasEbmDeliveryProgress ? `<td>${escapeHtml(row.ebmDeliveryProgress || '')}</td>` : ''}
           <td>${escapeHtml(row.assigneeDisplayName)}</td>
-          <td>${escapeHtml(row.created)}</td>
-          <td>${escapeHtml(row.resolutionDate || '')}</td>
+          <td title="${escapeHtml(row.created || '')}">${escapeHtml(formatDateForDisplay(row.created))}</td>
+          <td title="${escapeHtml(row.resolutionDate || '')}">${escapeHtml(formatDateForDisplay(row.resolutionDate || ''))}</td>
           ${hasSubtasks ? `<td>${row.subtaskCount || 0}</td>` : ''}
           ${hasTimeTracking ? `
             <td>${row.timeOriginalEstimateHours ?? ''}</td>
@@ -2996,6 +3107,3 @@ function renderUnusableSprintsTab(unusable) {
   html += '</tbody></table>';
   content.innerHTML = html;
 }
-
-
-

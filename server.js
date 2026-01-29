@@ -1,6 +1,9 @@
 import express from 'express';
 import session from 'express-session';
 import dotenv from 'dotenv';
+import { mkdir, appendFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 // SIZE-EXEMPT: Cohesive Express server entry and preview/export orchestration kept together
 // for operational transparency, logging, and simpler deployment without introducing additional
@@ -41,6 +44,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
 const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FEEDBACK_DIR = path.join(__dirname, 'data');
+const FEEDBACK_FILE = path.join(__dirname, 'data', 'JiraReporting-Feedback-UserInput-Submission-Log.jsonl');
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const APP_LOGIN_USER = process.env.APP_LOGIN_USER;
@@ -946,6 +953,42 @@ app.post('/export-excel', requireAuth, async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to export Excel',
       message: error.message 
+    });
+  }
+});
+
+/**
+ * POST /feedback - Capture user feedback for later review
+ */
+app.post('/feedback', requireAuth, async (req, res) => {
+  try {
+    const { email, message } = req.body || {};
+    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+    const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+
+    if (!trimmedEmail || !trimmedMessage) {
+      return res.status(400).json({
+        error: 'Invalid feedback payload',
+        message: 'Email and feedback message are required.'
+      });
+    }
+
+    await mkdir(FEEDBACK_DIR, { recursive: true });
+    const feedbackEntry = {
+      submittedAt: new Date().toISOString(),
+      email: trimmedEmail,
+      message: trimmedMessage,
+      userAgent: req.headers['user-agent'] || '',
+      ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '',
+    };
+    await appendFile(FEEDBACK_FILE, `${JSON.stringify(feedbackEntry)}\n`, 'utf-8');
+
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Failed to save feedback', { error: error.message });
+    res.status(500).json({
+      error: 'Failed to save feedback',
+      message: 'Please try again later.'
     });
   }
 });

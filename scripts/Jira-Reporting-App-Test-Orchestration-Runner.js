@@ -80,6 +80,18 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Feedback & Date Display Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Feedback-UX-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Column Titles & Tooltips Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Column-Tooltip-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run Validation Plan Tests',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],

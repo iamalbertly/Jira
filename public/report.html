@@ -3,14 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VodaAgileBoard – Sprint Report</title>
+  <title>VodaAgileBoard – Performance Report</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>VodaAgileBoard – Sprint Report</h1>
-      <p class="subtitle">MPSA & MAS Projects - Q2 2025</p>
+      <div class="header-row">
+        <div>
+          <h1>VodaAgileBoard   Sprint Report</h1>
+          <p class="subtitle">Projects - Q2 2025</p>
+        </div>
+        <button id="feedback-toggle" class="btn btn-secondary btn-compact">Give Feedback</button>
+      </div>
+      <div id="feedback-panel" class="feedback-panel" style="display: none;">
+        <h2>Share Feedback</h2>
+        <p class="feedback-hint"><small>Your feedback helps improve clarity and trust in the reports.</small></p>
+        <label>
+          Email
+          <input type="email" id="feedback-email" placeholder="you@vodacom.co.tz">
+        </label>
+        <label>
+          Feedback
+          <textarea id="feedback-message" rows="4" placeholder="What is unclear, missing, or incorrect?"></textarea>
+        </label>
+        <div class="feedback-actions">
+          <button id="feedback-submit" class="btn btn-primary btn-compact">Send Feedback</button>
+          <button id="feedback-cancel" class="btn btn-secondary btn-compact">Cancel</button>
+          <div id="feedback-status" class="feedback-status"></div>
+        </div>
+      </div>
     </header>
 
     <div class="main-layout">
