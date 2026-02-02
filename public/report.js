@@ -165,22 +165,65 @@ if (feedbackSubmit) {
   });
 }
 
-// Tab management
+// Tab management (with ARIA + keyboard support)
 const tabButtons = document.querySelectorAll('.tab-btn');
 const tabPanes = document.querySelectorAll('.tab-pane');
+const tabsContainer = document.querySelector('.tabs');
 
-tabButtons.forEach(btn => {
+if (tabsContainer) {
+  tabsContainer.setAttribute('role', 'tablist');
+}
+
+function activateTab(btn) {
+  const tabName = btn.dataset.tab;
+  if (!tabName) return;
+
+  tabButtons.forEach((b) => {
+    const isActive = b === btn;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    b.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+
+  tabPanes.forEach((p) => p.classList.remove('active'));
+  const pane = document.getElementById(`tab-${tabName}`);
+  if (pane) {
+    pane.classList.add('active');
+    const firstFocusable = pane.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (firstFocusable) firstFocusable.focus();
+  }
+  updateExportFilteredState();
+}
+
+tabButtons.forEach((btn, index) => {
+  if (!btn.hasAttribute('role')) {
+    btn.setAttribute('role', 'tab');
+  }
+  const isActive = btn.classList.contains('active');
+  btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  btn.setAttribute('tabindex', isActive ? '0' : '-1');
+
   btn.addEventListener('click', () => {
-    const tabName = btn.dataset.tab;
-    
-    // Update buttons
-    tabButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    
-    // Update panes
-    tabPanes.forEach(p => p.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    updateExportFilteredState();
+    activateTab(btn);
+  });
+
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const buttons = Array.from(tabButtons);
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const nextIndex = (index + dir + buttons.length) % buttons.length;
+      const nextBtn = buttons[nextIndex];
+      if (nextBtn) {
+        activateTab(nextBtn);
+        nextBtn.focus();
+      }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      activateTab(btn);
+    }
   });
 });
 
@@ -712,7 +755,7 @@ function renderPreview() {
   if (exportHint) {
     if (!hasRows) {
       exportHint.innerHTML = `
-        <small>Exports are available once there is at least one Done story in the preview.</small>
+        <small>Generate a report with data to enable export. Use the main Excel button for the full workbook, or per-tab Export CSV for focused slices.</small>
       `;
     } else if (partial) {
       exportHint.innerHTML = `
@@ -1267,14 +1310,24 @@ function renderProjectEpicLevelTab(boards, metrics) {
   const boardSummaries = buildBoardSummaries(boards, previewData?.sprintsIncluded || [], previewRows, meta, predictabilityPerSprint);
 
   // Section 1: Boards (merged with throughput fundamentals)
-  html += '<h3>Boards</h3>';
   if (!boards || boards.length === 0) {
+    if (!metrics) {
+      renderEmptyState(
+        content,
+        'No boards in this range',
+        'No boards were discovered for the selected projects in the date window.',
+        'Try a different date range or project selection.'
+      );
+      return;
+    }
+    html += '<h3>Boards</h3>';
     if (previewData?.boards?.length > 0) {
       html += '<p><em>No boards match the current filters. Adjust search or project filters.</em></p>';
     } else {
-      html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
+      html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p><p><small>Try a different date range or project selection.</small></p>';
     }
   } else {
+    html += '<h3>Boards</h3>';
     const hasPredictability = !!metrics?.predictability;
     html += '<p class="metrics-hint"><small>Time-normalized metrics (Stories / Day, SP / Day, Indexed Delivery) are shown. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Do not use to rank teams.</small></p>';
     html += '<table class="data-table"><thead><tr>';
@@ -2048,7 +2101,7 @@ function applyFilters() {
   if (exportHint) {
     if (previewRows.length > 0 && visibleRows.length === 0) {
       exportHint.innerHTML = `
-        <small>No rows match the current filters. Adjust search or project filters to enable filtered export.</small>
+        <small>No rows match the current filters. Adjust search or project filters to enable filtered export. The main Excel export still uses all preview rows.</small>
       `;
     } else if (meta?.partial) {
       exportHint.innerHTML = `
@@ -2084,15 +2137,72 @@ function updateExportFilteredState() {
 exportExcelBtn.addEventListener('click', () => exportToExcel());
 
 if (exportDropdownTrigger && exportDropdownMenu) {
+  function openExportMenu() {
+    if (exportDropdownTrigger.disabled) return;
+    exportDropdownMenu.setAttribute('aria-hidden', 'false');
+    exportDropdownTrigger.setAttribute('aria-expanded', 'true');
+    const firstItem = exportDropdownMenu.querySelector('.export-dropdown-item:not([disabled])');
+    if (firstItem) firstItem.focus();
+  }
+  function closeExportMenu() {
+    exportDropdownMenu.setAttribute('aria-hidden', 'true');
+    exportDropdownTrigger.setAttribute('aria-expanded', 'false');
+    exportDropdownTrigger.focus();
+  }
   exportDropdownTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
     const open = exportDropdownMenu.getAttribute('aria-hidden') !== 'false';
-    exportDropdownMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
-    exportDropdownTrigger.setAttribute('aria-expanded', open);
+    if (open) openExportMenu();
+    else closeExportMenu();
+  });
+  exportDropdownTrigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openExportMenu();
+    }
   });
   document.addEventListener('click', () => {
-    exportDropdownMenu.setAttribute('aria-hidden', 'true');
-    exportDropdownTrigger.setAttribute('aria-expanded', 'false');
+    if (exportDropdownMenu.getAttribute('aria-hidden') !== 'false') return;
+    closeExportMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && exportDropdownMenu.getAttribute('aria-hidden') === 'false') {
+      e.preventDefault();
+      closeExportMenu();
+    }
+  });
+  const menuItems = () => Array.from(exportDropdownMenu.querySelectorAll('.export-dropdown-item:not([disabled])'));
+  exportDropdownMenu.addEventListener('keydown', (e) => {
+    const items = menuItems();
+    if (items.length === 0) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeExportMenu();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const i = items.indexOf(e.target);
+      const next = i < items.length - 1 ? items[i + 1] : items[0];
+      if (next) next.focus();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const i = items.indexOf(e.target);
+      const prev = i > 0 ? items[i - 1] : items[items.length - 1];
+      if (prev) prev.focus();
+      return;
+    }
+    if (e.key === 'Tab' && items.indexOf(e.target) >= 0) {
+      if (e.shiftKey && e.target === items[0]) {
+        e.preventDefault();
+        closeExportMenu();
+      } else if (!e.shiftKey && e.target === items[items.length - 1]) {
+        e.preventDefault();
+        closeExportMenu();
+      }
+    }
   });
   exportDropdownMenu.addEventListener('click', (e) => e.stopPropagation());
 }
@@ -3635,12 +3745,15 @@ function renderMetricsTab(metrics) {
   }
 
   if (!hasMetrics) {
-    renderEmptyState(
-      content,
-      'No metrics available',
-      'Metrics are only calculated when the corresponding options are enabled in the filters panel.',
-      'Enable options like "Include Story Points", "Include Predictability", "Include Epic TTM", or "Include Bugs for Rework" to see metrics.'
-    );
+    const epicHygieneFailed = meta?.epicHygiene?.ok === false;
+    const title = epicHygieneFailed ? 'Epic TTM not available' : 'No metrics available';
+    const message = epicHygieneFailed
+      ? (meta.epicHygiene?.message || 'Epic TTM is not available because epic hygiene is below threshold.')
+      : 'Metrics are only calculated when the corresponding options are enabled in the filters panel.';
+    const hint = epicHygieneFailed
+      ? 'Check Epic Link usage and epic span in Jira, or adjust project configuration.'
+      : 'Enable options like "Include Story Points", "Include Predictability", "Include Epic TTM", or "Include Bugs for Rework" to see metrics.';
+    renderEmptyState(content, title, message, hint);
   } else {
     content.innerHTML = hintHtml + html;
   }

@@ -149,8 +149,8 @@
           <button id="preview-btn" class="btn btn-primary">Generate Report</button>
           <div class="export-split-group">
             <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export to Excel (all data)</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Export options" disabled>▾</button>
-            <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true">
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>▾</button>
+            <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
               <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
               <button type="button" class="export-dropdown-item" data-export="excel-filtered" role="menuitem" title="Only rows currently visible in this tab (after filters).">Export to Excel (filtered)</button>
@@ -177,16 +177,16 @@
           </div>
           <div id="preview-summary-sticky" class="preview-summary-sticky" aria-hidden="true"></div>
           <!-- Tabs -->
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="project-epic-level">Project & Epic Level</button>
-            <button class="tab-btn" data-tab="sprints">Sprints</button>
-            <button class="tab-btn" data-tab="done-stories">Done Stories</button>
-            <button class="tab-btn" data-tab="unusable-sprints">Unusable Sprints</button>
+          <div class="tabs" role="tablist">
+            <button id="tab-btn-project-epic-level" class="tab-btn active" data-tab="project-epic-level" role="tab" aria-selected="true" aria-controls="tab-project-epic-level" tabindex="0">Project & Epic Level</button>
+            <button id="tab-btn-sprints" class="tab-btn" data-tab="sprints" role="tab" aria-selected="false" aria-controls="tab-sprints" tabindex="-1">Sprints</button>
+            <button id="tab-btn-done-stories" class="tab-btn" data-tab="done-stories" role="tab" aria-selected="false" aria-controls="tab-done-stories" tabindex="-1">Done Stories</button>
+            <button id="tab-btn-unusable-sprints" class="tab-btn" data-tab="unusable-sprints" role="tab" aria-selected="false" aria-controls="tab-unusable-sprints" tabindex="-1">Unusable Sprints</button>
           </div>
 
           <!-- Tab Content -->
           <div class="tab-content">
-            <div id="tab-project-epic-level" class="tab-pane active">
+            <div id="tab-project-epic-level" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-project-epic-level">
               <div class="boards-controls done-stories-controls">
                 <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
                 <div class="project-pills" id="boards-project-pills"></div>
@@ -197,7 +197,7 @@
               </div>
             </div>
 
-            <div id="tab-sprints" class="tab-pane">
+            <div id="tab-sprints" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-sprints">
               <div class="sprints-controls done-stories-controls">
                 <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
                 <div class="project-pills" id="sprints-project-pills"></div>
@@ -208,7 +208,7 @@
               </div>
             </div>
 
-            <div id="tab-done-stories" class="tab-pane">
+            <div id="tab-done-stories" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-done-stories">
               <div class="done-stories-controls">
                 <input type="text" id="search-box" placeholder="Search by key or summary...">
                 <div class="project-pills" id="project-pills"></div>
@@ -221,7 +221,7 @@
             </div>
 
 
-            <div id="tab-unusable-sprints" class="tab-pane">
+            <div id="tab-unusable-sprints" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-unusable-sprints">
               <div id="unusable-sprints-content"></div>
             </div>
           </div>

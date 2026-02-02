@@ -284,8 +284,9 @@ This runs the test orchestration script which:
 11. Runs Refactor SSOT Validation tests
 12. Runs Boards Summary Filters Export Validation tests
 13. Runs Current Sprint and Leadership View tests
-14. Terminates on first error
-15. Shows all steps in foreground with live output from each test command
+14. Runs UX Trust Validation tests (report, current-sprint, leadership with console and UI assertions)
+15. Terminates on first error
+16. Shows all steps in foreground with live output from each test command
 
 ### Run Specific Test Suites
 ```bash
@@ -300,6 +301,9 @@ npm run test:validation
 
 # Current Sprint and Leadership view E2E tests
 npm run test:current-sprint-leadership
+
+# UX Trust Validation (report, current-sprint, leadership + console/UI assertions)
+npm run test:ux-trust
 ```
 
 ### Test Coverage and Caching Behavior
@@ -328,10 +332,10 @@ npm run test:current-sprint-leadership
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
 - Playwright is configured (via `playwright.config.js`) to:
-  - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL`).
-  - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server).
+  - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL` for remote runs).
+  - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server, e.g. when `BASE_URL` points to a deployed instance).
 
 The backend maintains an in-memory TTL cache for several concerns:
 
@@ -376,7 +380,8 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 │   ├── Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
 │   ├── Jira-Reporting-App-Excel-Export-Tests.spec.js
 │   ├── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
-│   └── Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
+│   ├── Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
+│   └── Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js
 └── scripts/
     └── Jira-Reporting-App-Test-Orchestration-Runner.js
 ```

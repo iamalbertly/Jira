@@ -22,10 +22,11 @@
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
   - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
   - `Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js` – E2E for current-sprint page (board selector, board selection) and sprint-leadership page (date inputs, Preview)
+  - `Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js` – report, current-sprint, leadership with console (logcat-style) and realtime UI assertions; run by orchestration
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
-  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites (includes Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View steps)
+  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites (includes Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation steps)
 - **File naming:** New lib modules should follow the 5-segment convention (e.g. `Jira-Reporting-App-Sprint-Transparency-CurrentSprint.js`). Existing short names (e.g. `lib/currentSprint.js`) are not renamed in this pass to avoid import churn.
 
 ### Public API Surface – `/preview.json`
@@ -63,6 +64,10 @@
 
 ### Frontend Behaviour & UX Notes
 
+- **Error banner SSOT (per view)**  
+  Each view uses a single DOM node for API/validation errors: report `#error`, current-sprint `#current-sprint-error`, leadership `#leadership-error`. Do not show duplicate or overlapping error messages; use one function per view (e.g. `showError`) that writes to that node.
+- **Data alignment**  
+  Current-sprint and leadership summary logic must use only server-provided fields. Leadership `buildBoardSummaries` uses `sprintsIncluded[]` with `sprintWorkDays` and fallback to `sprintCalendarDays`; keep in sync with server contract (see Public API Surface). Do not introduce client-only computed fields that can drift from server.
 - **Client-side date-range validation**
   - `collectFilterParams()` now throws when `start >= end` after normalising to UTC ISO:
     - Message: `"Start date must be before end date. Please adjust your date range."`

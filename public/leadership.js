@@ -27,6 +27,7 @@
     contentEl.style.display = 'none';
   }
 
+  // Single error banner for this view: #leadership-error
   function showError(msg) {
     loadingEl.style.display = 'none';
     errorEl.textContent = msg || 'An error occurred.';
@@ -146,9 +147,13 @@
     const url = buildPreviewUrl();
     showLoading('Loading preview…');
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(r => {
-        if (!r.ok) throw new Error(r.statusText || 'Preview failed');
-        return r.json();
+      .then(async r => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const msg = (body && (body.message || body.error)) || r.statusText || 'Preview failed';
+          throw new Error(msg);
+        }
+        return body;
       })
       .then(data => {
         const boards = data.boards || [];
@@ -163,7 +168,7 @@
       .catch(err => showError(err.message || 'Failed to load preview.'));
   }
 
-  // Board summary must match server-provided sprintsIncluded shape (sprintWorkDays, doneSP, etc.).
+  // Board summary must match server-provided sprintsIncluded shape (sprintWorkDays, sprintCalendarDays, doneSP, etc.). Use only server fields; fallback to sprintCalendarDays when sprintWorkDays is missing.
   function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predictabilityPerSprint) {
     const summaries = new Map();
     for (const board of boards || []) {

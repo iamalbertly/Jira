@@ -121,6 +121,12 @@ const steps = [
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
+  {
+    name: 'Run UX Trust Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
 ];
 
 function runStep(step, stepIndex, envOverrides = {}) {

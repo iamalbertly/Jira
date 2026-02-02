@@ -11,7 +11,7 @@
   const contentEl = document.getElementById('current-sprint-content');
 
   function showLoading(msg) {
-    loadingEl.textContent = msg || 'Loading…';
+    loadingEl.textContent = msg || 'Loading boards for projects MPSA, MAS…';
     loadingEl.style.display = 'block';
     errorEl.style.display = 'none';
     contentEl.style.display = 'none';
@@ -186,7 +186,7 @@
       .catch(function (err) {
         const msg = err.message || 'Failed to load current sprint.';
         showError(msg);
-        if (msg.indexOf('Session expired') !== -1 && errorEl) {
+        if ((msg || '').indexOf('Session expired') !== -1 && errorEl) {
           const link = document.createElement('a');
           link.href = '/';
           link.className = 'nav-link';
@@ -199,7 +199,7 @@
   }
 
   function init() {
-    showLoading('Loading boards…');
+    showLoading('Loading boards for projects MPSA, MAS…');
     loadBoards()
       .then(function (res) {
         const boards = res.boards || [];
@@ -218,13 +218,13 @@
           boardSelect.value = boards[0].id;
           onBoardChange();
         } else {
-          showLoading('No boards found for the selected projects. Check project access or try different projects.');
+          showLoading('No boards found for the selected projects. Check your Jira access or try different projects.');
         }
       })
       .catch(function (err) {
         const msg = err.message || 'Failed to load boards.';
         showError(msg);
-        if (msg.indexOf('Session expired') !== -1 && errorEl) {
+        if ((msg || '').indexOf('Session expired') !== -1 && errorEl) {
           const link = document.createElement('a');
           link.href = '/';
           link.className = 'nav-link';
