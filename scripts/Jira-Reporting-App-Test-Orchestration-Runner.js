@@ -103,6 +103,24 @@ const steps = [
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Excel-Export-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
+  {
+    name: 'Run Refactor SSOT Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Boards Summary Filters Export Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Boards-Summary-Filters-Export-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Current Sprint and Leadership View Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
 ];
 
 function runStep(step, stepIndex, envOverrides = {}) {

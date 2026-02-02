@@ -5,21 +5,28 @@
 - **Server (`server.js`)**
   - Depends on `express`, `dotenv`, `jira.js`, and internal libs:
     - `lib/jiraClients.js` – Jira client creation
-    - `lib/discovery.js` – boards/fields discovery
-    - `lib/sprints.js` – sprint fetching and overlap filtering
-    - `lib/issues.js` – issue fetching and drill-down row building
-    - `lib/metrics.js` – throughput, done comparison, rework, predictability, epic TTM
-    - `lib/csv.js` – CSV streaming for `/export`
+    - `lib/discovery.js` – boards/fields discovery (uses `lib/JiraReporting-Data-JiraAPI-Pagination-Helper.js`)
+    - `lib/sprints.js` – sprint fetching, overlap filtering, `getActiveSprintForBoard`, `getRecentClosedSprintForBoard` (uses pagination helper)
+    - `lib/currentSprint.js` – current-sprint transparency: `buildCurrentSprintPayload` (observed window, daily completions, scope changes, burndown context)
+    - `lib/issues.js` – issue fetching, drill-down row building, `fetchSprintIssuesForTransparency` (done + in-progress for current sprint) (uses pagination helper)
+    - `lib/metrics.js` – throughput, done comparison, rework, predictability (with planned carryover / unplanned spillover), epic TTM (uses `calculateWorkDays` from `lib/kpiCalculations.js`)
+    - `lib/csv.js` – CSV column list and escaping (SSOT); CSV streaming for `/export`
     - `lib/cache.js` – TTL cache for preview responses
     - `lib/Jira-Reporting-App-Server-Logging-Utility.js` – structured logging
-- **Frontend (`public/report.js`, `public/report.html`, `public/styles.css`)**
+  - **Public API:** `GET /api/csv-columns` – returns `{ columns: CSV_COLUMNS }` (SSOT for client CSV column order). `GET /api/boards.json` – list boards for projects (for current-sprint board selector). `GET /api/current-sprint.json` – current-sprint transparency payload per board (snapshot-first; query `boardId`, optional `projects`, `live=true`).
+  - **Routes:** `GET /report`, `GET /current-sprint` (squad transparency), `GET /sprint-leadership` (leadership view).
+- **Frontend (`public/report.js`, `public/report.html`, `public/styles.css`, `public/current-sprint.html`, `public/current-sprint.js`, `public/leadership.html`, `public/leadership.js`)**
   - `report.html` – filters panel, preview header, tabs, and content containers
   - `report.js` – preview flow, client-side validation, tab rendering, CSV exports
 - **Tests (`tests/*.spec.js`)**
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
-  - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics
+  - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
+  - `Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js` – E2E for current-sprint page (board selector, board selection) and sprint-leadership page (date inputs, Preview)
+  - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
+  - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
-  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites
+  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites (includes Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View steps)
+- **File naming:** New lib modules should follow the 5-segment convention (e.g. `Jira-Reporting-App-Sprint-Transparency-CurrentSprint.js`). Existing short names (e.g. `lib/currentSprint.js`) are not renamed in this pass to avoid import churn.
 
 ### Public API Surface – `/preview.json`
 
@@ -35,8 +42,10 @@
   - `elapsedMs: number`
   - `partial: boolean`
   - `partialReason: string | null`
-  - `requireResolvedBySprintEnd: boolean` **(NEW – surfaced so the UI can explain empty states)**
+  - `requireResolvedBySprintEnd: boolean` **(surfaced so the UI can explain empty states)**
+  - `epicHygiene: { ok: boolean, pctWithoutEpic: number, epicsSpanningOverN: number, message: string | null }` **(gates Epic TTM display)**
   - `phaseLog: Array<{ phase: string; at: string; ... }>`
+- **Preview response:** `boards[].indexedDelivery: { currentSPPerDay, rollingAvgSPPerDay, sprintCount, index }`; `sprintsIncluded[]` include `sprintCalendarDays`, `sprintWorkDays`, `spPerSprintDay`, `storiesPerSprintDay`. Predictability `perSprint` includes `plannedCarryoverStories`, `plannedCarryoverSP`, `unplannedSpilloverStories`, `unplannedSpilloverSP`, `plannedCarryoverPct`, `unplannedSpilloverPct`.
 
 ### Typed Error Path – `/preview.json`
 
@@ -95,14 +104,12 @@
 
 ### Test & Helper Consolidation
 
-- **E2E Playwright helpers (`Jira-Reporting-App-E2E-User-Journey-Tests.spec.js`)**
-  - `runDefaultPreview(page, overrides?)` – navigates to `/report`, sets default Q2 MPSA+MAS window, applies overrides, then runs a full preview with loading state waits.
-  - Reused across tests that previously duplicated “navigate → configure filters → preview → wait” sequences.
+- **Shared test helpers (`tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js`)**
+  - `runDefaultPreview(page, overrides?)` – navigates to `/report`, sets default Q2 MPSA+MAS window, applies overrides, clicks Preview, then waits for result.
+  - `waitForPreview(page)` – waits for preview content or error and loading overlay to disappear.
+  - Imported by E2E User Journey, Excel Export, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs.
 - **API integration tests (`Jira-Reporting-App-API-Integration-Tests.spec.js`)**
-  - Centralised:
-    - `DEFAULT_Q2_QUERY`
-    - `DEFAULT_PREVIEW_URL = "/preview.json" + DEFAULT_Q2_QUERY`
-  - Used for repeated preview calls and cache sanity checks.
+  - Centralised: `DEFAULT_Q2_QUERY`, `DEFAULT_PREVIEW_URL`, contract test for `GET /api/csv-columns` vs `lib/csv.js` CSV_COLUMNS.
 
 ### SIZE-EXEMPT Notes
 
@@ -112,7 +119,7 @@
 - `public/report.js`
   - Marker: `// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid introducing additional bundling or script loading complexity. Behaviour is cohesive around preview, tabs, and exports; future work can further split if a bundler is added.`
   - Rationale: The script is loaded directly in the browser without a bundler; splitting it into multiple files would complicate loading and ordering. Logic remains cohesive around the main report screen.
--- `lib/metrics.js`
+- `lib/metrics.js`
   - Marker: `// SIZE-EXEMPT: Cohesive metrics domain logic (throughput, done comparison, rework, predictability, epic TTM) is kept in a single module to avoid scattering cross-related calculations and increasing coordination bugs.`
   - Rationale: Metrics functions are tightly related and operate over the same row data; keeping them together avoids duplicated calculations and subtle drift between separate metric modules.
 

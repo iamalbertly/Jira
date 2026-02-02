@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sprint Leadership View – VodaAgileBoard</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .leadership-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+    .leadership-header h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 4px; }
+    .leadership-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+    .leadership-filters label { font-weight: 500; color: var(--muted); }
+    .leadership-filters input, .leadership-filters select { padding: 8px; border-radius: var(--radius); border: 1px solid var(--border); }
+    .leadership-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .leadership-card h2 { color: var(--primary); font-size: 1.15rem; margin-bottom: 12px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .data-table th, .data-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .data-table th { color: var(--muted); font-weight: 500; }
+    .nav-link { color: var(--primary); text-decoration: none; font-size: 0.9em; }
+    .nav-link:hover { text-decoration: underline; }
+    #leadership-loading, #leadership-error { padding: 20px; text-align: center; color: var(--muted); }
+    #leadership-error { color: var(--danger); }
+    .metrics-hint { font-size: 0.9em; color: var(--muted); margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="leadership-header">
+        <div>
+          <h1>Sprint Leadership View</h1>
+          <p class="subtitle">Normalized trends, risk signals. No rankings or individual comparison.</p>
+        </div>
+      </div>
+      <div class="leadership-filters">
+        <label>Projects</label>
+        <select id="leadership-projects">
+          <option value="MPSA,MAS">MPSA, MAS</option>
+          <option value="MPSA">MPSA</option>
+          <option value="MAS">MAS</option>
+        </select>
+        <label>Start</label>
+        <input type="date" id="leadership-start">
+        <label>End</label>
+        <input type="date" id="leadership-end">
+        <button id="leadership-preview" class="btn btn-primary">Preview</button>
+      </div>
+      <p style="margin-top: 8px;">
+        <a href="/report" class="nav-link">Report</a>
+        <span style="margin: 0 8px;">|</span>
+        <a href="/current-sprint" class="nav-link">Current Sprint (Squad)</a>
+      </p>
+    </header>
+    <main>
+      <div id="leadership-loading">Set date range and click Preview to load normalized trends.</div>
+      <div id="leadership-error" style="display: none;"></div>
+      <div id="leadership-content"></div>
+    </main>
+  </div>
+  <script src="leadership.js"></script>
+</body>
+</html>

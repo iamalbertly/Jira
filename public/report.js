@@ -2,59 +2,19 @@
 // introducing additional bundling or script loading complexity. Behaviour is cohesive
 // around preview, tabs, and exports; future work can further split if a bundler is added.
 
-// CSV column order (must match server)
-const CSV_COLUMNS = [
-  'projectKey',
-  'boardId',
-  'boardName',
-  'sprintId',
-  'sprintName',
-  'sprintState',
-  'sprintStartDate',
-  'sprintEndDate',
-  'issueKey',
-  'issueSummary',
-  'issueStatus',
-  'issueType',
-  'issueStatusCategory',
-  'issuePriority',
-  'issueLabels',
-  'issueComponents',
-  'issueFixVersions',
-  'assigneeDisplayName',
-  'created',
-  'updated',
-  'resolutionDate',
-  'subtaskCount',
-  'timeOriginalEstimateHours',
-  'timeRemainingEstimateHours',
-  'timeSpentHours',
-  'timeVarianceHours',
-  'subtaskTimeOriginalEstimateHours',
-  'subtaskTimeRemainingEstimateHours',
-  'subtaskTimeSpentHours',
-  'subtaskTimeVarianceHours',
-  'ebmTeam',
-  'ebmProductArea',
-  'ebmCustomerSegments',
-  'ebmValue',
-  'ebmImpact',
-  'ebmSatisfaction',
-  'ebmSentiment',
-  'ebmSeverity',
-  'ebmSource',
-  'ebmWorkCategory',
-  'ebmGoals',
-  'ebmTheme',
-  'ebmRoadmap',
-  'ebmFocusAreas',
-  'ebmDeliveryStatus',
-  'ebmDeliveryProgress',
-  'storyPoints',
-  'epicKey',
-  'epicTitle',
-  'epicSummary',
+// CSV column order: SSOT is server GET /api/csv-columns; fallback for offline/API failure
+const FALLBACK_CSV_COLUMNS = [
+  'projectKey', 'boardId', 'boardName', 'sprintId', 'sprintName', 'sprintState', 'sprintStartDate', 'sprintEndDate',
+  'issueKey', 'issueSummary', 'issueStatus', 'issueType', 'issueStatusCategory', 'issuePriority', 'issueLabels',
+  'issueComponents', 'issueFixVersions', 'assigneeDisplayName', 'created', 'updated', 'resolutionDate', 'subtaskCount',
+  'timeOriginalEstimateHours', 'timeRemainingEstimateHours', 'timeSpentHours', 'timeVarianceHours',
+  'subtaskTimeOriginalEstimateHours', 'subtaskTimeRemainingEstimateHours', 'subtaskTimeSpentHours', 'subtaskTimeVarianceHours',
+  'ebmTeam', 'ebmProductArea', 'ebmCustomerSegments', 'ebmValue', 'ebmImpact', 'ebmSatisfaction', 'ebmSentiment', 'ebmSeverity',
+  'ebmSource', 'ebmWorkCategory', 'ebmGoals', 'ebmTheme', 'ebmRoadmap', 'ebmFocusAreas', 'ebmDeliveryStatus', 'ebmDeliveryProgress',
+  'storyPoints', 'epicKey', 'epicTitle', 'epicSummary',
 ];
+let CSV_COLUMNS = FALLBACK_CSV_COLUMNS;
+fetch('/api/csv-columns').then(r => r.ok ? r.json() : Promise.reject()).then(d => { if (Array.isArray(d?.columns)) CSV_COLUMNS = d.columns; }).catch(() => {});
 
 const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
 const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
@@ -129,12 +89,15 @@ function generateCSVClient(columns, rows) {
 let previewData = null;
 let previewRows = [];
 let visibleRows = [];
+let visibleBoardRows = [];
+let visibleSprintRows = [];
 let previewHasRows = false;
 
 // DOM Elements
 const previewBtn = document.getElementById('preview-btn');
 const exportExcelBtn = document.getElementById('export-excel-btn');
-const exportFilteredBtn = document.getElementById('export-filtered-btn');
+const exportDropdownTrigger = document.getElementById('export-dropdown-trigger');
+const exportDropdownMenu = document.getElementById('export-dropdown-menu');
 const loadingEl = document.getElementById('loading');
 const errorEl = document.getElementById('error');
 const previewContent = document.getElementById('preview-content');
@@ -217,6 +180,7 @@ tabButtons.forEach(btn => {
     // Update panes
     tabPanes.forEach(p => p.classList.remove('active'));
     document.getElementById(`tab-${tabName}`).classList.add('active');
+    updateExportFilteredState();
   });
 });
 
@@ -225,21 +189,23 @@ document.getElementById('include-predictability').addEventListener('change', (e)
   document.getElementById('predictability-mode-group').style.display = e.target.checked ? 'block' : 'none';
 });
 
+function getSelectedProjects() {
+  return Array.from(document.querySelectorAll('.project-checkbox[data-project]:checked'))
+    .map(input => input.dataset.project)
+    .filter(Boolean);
+}
+
 // Update preview button state based on project selection
 function updatePreviewButtonState() {
-  const hasProject = document.getElementById('project-mpsa').checked || 
-                     document.getElementById('project-mas').checked;
+  const hasProject = getSelectedProjects().length > 0;
   previewBtn.disabled = !hasProject;
-  if (!hasProject) {
-    previewBtn.title = 'Please select at least one project (MPSA or MAS)';
-  } else {
-    previewBtn.title = '';
-  }
+  previewBtn.title = hasProject ? '' : 'Please select at least one project.';
 }
 
 // Listen to project checkbox changes
-document.getElementById('project-mpsa').addEventListener('change', updatePreviewButtonState);
-document.getElementById('project-mas').addEventListener('change', updatePreviewButtonState);
+document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
+  input.addEventListener('change', updatePreviewButtonState);
+});
 updatePreviewButtonState();
 
 // Update loading message
@@ -321,12 +287,12 @@ previewBtn.addEventListener('click', async () => {
   let isLoading = true;
 
   // Capture existing export state so we can restore it on early validation errors
-  const prevExportFilteredDisabled = exportFilteredBtn.disabled;
+  const prevExportFilteredDisabled = exportDropdownTrigger ? exportDropdownTrigger.disabled : true;
   const prevExportExcelDisabled = exportExcelBtn.disabled;
 
   // Immediately prevent double-clicks and exporting while a preview is in flight
   previewBtn.disabled = true;
-  exportFilteredBtn.disabled = true;
+  if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
   exportExcelBtn.disabled = true;
 
   // Ensure loading overlay becomes visible in the next paint, even for very fast responses.
@@ -373,7 +339,7 @@ previewBtn.addEventListener('click', async () => {
     `;
     // Re-enable preview and restore export buttons to their previous state
     previewBtn.disabled = false;
-    exportFilteredBtn.disabled = prevExportFilteredDisabled;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = prevExportFilteredDisabled;
     exportExcelBtn.disabled = prevExportExcelDisabled;
     return;
   }
@@ -422,7 +388,7 @@ previewBtn.addEventListener('click', async () => {
       // Format error message with actionable guidance
       let displayMessage = errorMsg;
       if (errorCode === 'NO_PROJECTS_SELECTED') {
-        displayMessage = 'Please select at least one project (MPSA or MAS) before generating a preview.';
+        displayMessage = 'Please select at least one project before generating a preview.';
       } else if (errorCode === 'INVALID_DATE_FORMAT') {
         displayMessage = 'Invalid date format. Please ensure dates are properly formatted.';
       } else if (errorCode === 'INVALID_DATE_RANGE') {
@@ -451,6 +417,10 @@ previewBtn.addEventListener('click', async () => {
     previewData = responseJson;
     previewRows = previewData.rows || [];
     visibleRows = [...previewRows];
+    const boards = previewData.boards || [];
+    const sprintsIncluded = previewData.sprintsIncluded || [];
+    visibleBoardRows = [...boards];
+    visibleSprintRows = [...sprintsIncluded];
     previewHasRows = previewRows.length > 0;
 
     updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
@@ -458,8 +428,9 @@ previewBtn.addEventListener('click', async () => {
     
     loadingEl.style.display = 'none';
     previewContent.style.display = 'block';
-    exportFilteredBtn.disabled = !previewHasRows;
     exportExcelBtn.disabled = !previewHasRows;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = !previewHasRows;
+    updateExportFilteredState();
   } catch (error) {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -511,20 +482,18 @@ previewBtn.addEventListener('click', async () => {
 
     // Only enable exports if we have rows
     const hasRows = Array.isArray(previewRows) && previewRows.length > 0;
-    exportFilteredBtn.disabled = !hasRows;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
     exportExcelBtn.disabled = !hasRows;
   }
 });
 
 // Collect filter parameters
 function collectFilterParams() {
-  const projects = [];
-  if (document.getElementById('project-mpsa').checked) projects.push('MPSA');
-  if (document.getElementById('project-mas').checked) projects.push('MAS');
+  const projects = getSelectedProjects();
 
   // Validate at least one project is selected
   if (projects.length === 0) {
-    throw new Error('Please select at least one project (MPSA or MAS)');
+    throw new Error('Please select at least one project.');
   }
 
   const startDate = document.getElementById('start-date').value;
@@ -640,8 +609,8 @@ function renderPreview() {
       <br><small>Please refresh the page, run the preview again, or contact an administrator if the problem persists.</small>
     `;
     previewContent.style.display = 'none';
-    exportFilteredBtn.disabled = true;
     exportExcelBtn.disabled = true;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     return;
   }
   const boardsCount = previewData.boards?.length || 0;
@@ -711,6 +680,12 @@ function renderPreview() {
     </div>
   `;
 
+  const stickyEl = document.getElementById('preview-summary-sticky');
+  if (stickyEl) {
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} · ${windowStartLocal} – ${windowEndLocal}`;
+    stickyEl.setAttribute('aria-hidden', 'false');
+  }
+
   // Strong visual banner for partial previews
   const statusEl = document.getElementById('preview-status');
   if (statusEl) {
@@ -730,7 +705,7 @@ function renderPreview() {
 
   // Export buttons reflect data and partial state
   const hasRows = rowsCount > 0;
-  exportFilteredBtn.disabled = !hasRows;
+  if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
   exportExcelBtn.disabled = !hasRows;
 
   const exportHint = document.getElementById('export-hint');
@@ -753,8 +728,10 @@ function renderPreview() {
 
   // Render tabs after the browser has a chance to paint the meta/summary.
   scheduleRender(() => {
-    renderProjectEpicLevelTab(previewData.boards, previewData.metrics);
-    renderSprintsTab(previewData.sprintsIncluded, previewData.metrics);
+    populateBoardsPills();
+    populateSprintsPills();
+    renderProjectEpicLevelTab(visibleBoardRows, previewData.metrics);
+    renderSprintsTab(visibleSprintRows, previewData.metrics);
     renderDoneStoriesTab(visibleRows);
     renderUnusableSprintsTab(previewData.sprintsUnusable);
 
@@ -873,6 +850,8 @@ function buildPredictabilityTableHeaderHtml() {
     '<th title="Story points planned at sprint start (scope commitment).">Committed SP</th>' +
     '<th title="Stories completed by sprint end.">Delivered Stories</th>' +
     '<th title="Story points completed by sprint end.">Delivered SP</th>' +
+    '<th title="Delivered stories that were committed at sprint start (created before sprint start).">Planned Carryover</th>' +
+    '<th title="Delivered stories that were added mid-sprint (created after sprint start). Not a failure metric.">Unplanned Spillover</th>' +
     '<th title="Delivered Stories / Committed Stories. Higher means closer to plan; low suggests scope churn or over-commit.">Predictability % (Stories)</th>' +
     '<th title="Delivered SP / Committed SP. Higher means closer to plan; low suggests estimation drift or unstable capacity.">Predictability % (SP)</th>' +
     '</tr></thead><tbody>';
@@ -888,6 +867,232 @@ function getWindowMonths(meta) {
   if (ms <= 0) return null;
   const days = ms / (1000 * 60 * 60 * 24);
   return days / 30;
+}
+
+// SSOT: one vocabulary for Boards table (UI and Excel); leader-friendly tooltips
+const BOARD_TABLE_COLUMN_ORDER = [
+  'Board ID', 'Board', 'Type', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days',
+  'Done Stories', 'Done SP', 'Committed SP', 'Delivered SP', 'SP Estimation %',
+  'Stories / Sprint', 'SP / Story', 'Stories / Day', 'SP / Day', 'SP / Sprint', 'SP Variance',
+  'Indexed Delivery',
+  'On-Time %', 'Planned', 'Ad-hoc', 'Active Assignees', 'Stories / Assignee', 'SP / Assignee',
+  'Assumed Capacity (PD)', 'Assumed Waste %', 'Sprint Window', 'Latest End',
+];
+const BOARD_TABLE_HEADER_TOOLTIPS = {
+  'Board ID': 'Jira board identifier.',
+  'Board': 'Board name shown in Jira.',
+  'Type': 'Board type: Scrum (time-boxed sprints) or Kanban (flow).',
+  'Projects': 'Projects mapped to this board.',
+  'Sprints': 'Count of sprints included in the date window.',
+  'Sprint Days': 'Sum of sprint length in calendar days across included sprints.',
+  'Avg Sprint Days': 'Average sprint length in days (Total Sprint Days / Sprints).',
+  'Done Stories': 'Stories marked Done in included sprints.',
+  'Done SP': 'Story points completed in included sprints. Total delivered effort when SP is used consistently.',
+  'Committed SP': 'Story points committed at sprint start (estimated scope).',
+  'Delivered SP': 'Story points delivered by sprint end (actual). Compare to Committed SP to assess estimation discipline.',
+  'SP Estimation %': 'Delivered SP / Committed SP. 100% means delivery matched plan; below 100% suggests over-commit or scope churn; above 100% can indicate under-commit or late scope add.',
+  'Stories / Sprint': 'Done Stories / Sprints. Helps compare volume regardless of sprint count.',
+  'SP / Story': 'Done SP / Done Stories. Higher means larger average story size; very high can imply poor slicing.',
+  'Stories / Day': 'Done Stories / Sprint Days. Normalized delivery rate to compare teams with different sprint lengths.',
+  'SP / Day': 'Done SP / Sprint Days. Normalized delivery rate (Time-to-Market proxy).',
+  'SP / Sprint': 'Done SP / Sprints. Average SP delivered per sprint.',
+  'SP Variance': 'Variance of SP delivered per sprint. High variance = delivery swings and weaker predictability.',
+  'Indexed Delivery': 'Current SP/day ÷ rolling avg SP/day (last 3–6 sprints). 1.0 = at own norm; above = above norm. Baseline: last 6 closed sprints. Do not use to rank teams.',
+  'On-Time %': 'Stories resolved by sprint end / Done Stories. Higher means more work finished on time vs carried over.',
+  'Planned': 'Stories linked to an Epic (planned scope).',
+  'Ad-hoc': 'Stories without an Epic (often unplanned work). High values can signal scope churn.',
+  'Active Assignees': 'Unique assignees with done work in the window. Proxy for active team size.',
+  'Stories / Assignee': 'Done Stories / Active Assignees. Proxy for work load per person.',
+  'SP / Assignee': 'Done SP / Active Assignees. Proxy for delivery per person when SP is available.',
+  'Assumed Capacity (PD)': 'Assumed capacity in person-days (Active Assignees × 18 days per month × months in window). Coarse proxy only.',
+  'Assumed Waste %': 'Assumed unused capacity % based on sprint coverage vs assumed capacity. Does not account for PTO, part-time, or non-sprint work.',
+  'Sprint Window': 'Earliest sprint start to latest sprint end in the window (local display).',
+  'Latest End': 'Latest sprint end date in the window (local display).',
+};
+const BOARD_SUMMARY_TOOLTIPS = {
+  'Board ID': '—',
+  'Board': 'Summary row: aggregate across all boards in this view.',
+  'Type': '—',
+  'Projects': '—',
+  'Sprints': 'Sum of sprint count across all boards.',
+  'Sprint Days': 'Sum of sprint days across all boards.',
+  'Avg Sprint Days': 'Average of Avg Sprint Days across boards.',
+  'Done Stories': 'Sum of Done Stories across all boards.',
+  'Done SP': 'Sum of Done SP across all boards.',
+  'Committed SP': 'Sum of Committed SP across all boards.',
+  'Delivered SP': 'Sum of Delivered SP across all boards.',
+  'SP Estimation %': 'Average of SP Estimation % across boards.',
+  'Stories / Sprint': 'Average of Stories / Sprint across boards.',
+  'SP / Story': 'Average of SP / Story across boards.',
+  'Stories / Day': 'Average of Stories / Day across boards.',
+  'SP / Day': 'Average of SP / Day across boards.',
+  'SP / Sprint': 'Average of SP / Sprint across boards.',
+  'SP Variance': 'Average of SP Variance across boards.',
+  'Indexed Delivery': '—',
+  'On-Time %': 'Average of On-Time % across boards.',
+  'Planned': 'Sum of Planned (epic-linked) stories across all boards.',
+  'Ad-hoc': 'Sum of Ad-hoc stories across all boards.',
+  'Active Assignees': 'Sum of unique assignees across boards (person may appear in multiple boards).',
+  'Stories / Assignee': 'Average of Stories / Assignee across boards.',
+  'SP / Assignee': 'Average of SP / Assignee across boards.',
+  'Assumed Capacity (PD)': 'Sum of Assumed Capacity across boards.',
+  'Assumed Waste %': 'Average of Assumed Waste % across boards.',
+  'Sprint Window': 'Aggregate across all boards.',
+  'Latest End': 'Aggregate across all boards.',
+};
+
+function computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability) {
+  const totalSprintDays = summary.totalSprintDays || 0;
+  const avgSprintLength = summary.validSprintDaysCount > 0 ? totalSprintDays / summary.validSprintDaysCount : null;
+  const storiesPerSprint = summary.sprintCount > 0 ? summary.doneStories / summary.sprintCount : null;
+  const spPerStory = spEnabled && summary.doneStories > 0 ? summary.doneSP / summary.doneStories : null;
+  const storiesPerSprintDay = totalSprintDays > 0 ? summary.doneStories / totalSprintDays : null;
+  const spPerSprintDay = spEnabled && totalSprintDays > 0 ? summary.doneSP / totalSprintDays : null;
+  const avgSpPerSprint = spEnabled && summary.sprintCount > 0 ? summary.doneSP / summary.sprintCount : null;
+  const spVariance = spEnabled ? calculateVariance(summary.sprintSpValues) : null;
+  const doneBySprintEndPct = summary.doneStories > 0 ? (summary.doneBySprintEnd / summary.doneStories) * 100 : null;
+  const spEstimationPct = hasPredictability && summary.committedSP > 0 ? (summary.deliveredSP / summary.committedSP) * 100 : null;
+  const activeAssignees = summary.assignees?.size || 0;
+  const storiesPerAssignee = activeAssignees > 0 ? summary.doneStories / activeAssignees : null;
+  const spPerAssignee = spEnabled && activeAssignees > 0 ? summary.doneSP / activeAssignees : null;
+  const windowMonths = getWindowMonths(meta);
+  const assumedCapacity = windowMonths && activeAssignees > 0 ? activeAssignees * 18 * windowMonths : null;
+  const coveredPersonDays = activeAssignees > 0 ? totalSprintDays * activeAssignees : null;
+  const assumedWastePct = assumedCapacity && coveredPersonDays !== null && assumedCapacity > 0
+    ? Math.max(0, ((assumedCapacity - coveredPersonDays) / assumedCapacity) * 100) : null;
+  const sprintWindow = summary.earliestStart && summary.latestEnd
+    ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}` : '';
+  const latestEnd = summary.latestEnd ? formatDateForDisplay(summary.latestEnd) : '';
+  const idx = board.indexedDelivery;
+  const indexedDeliveryStr = idx != null && idx.index != null
+    ? formatNumber(idx.index, 2) + ' (vs own baseline)'
+    : '—';
+  return {
+    'Board ID': board.id,
+    'Board': board.name,
+    'Type': board.type || '',
+    'Projects': (board.projectKeys || []).join(', '),
+    'Sprints': summary.sprintCount,
+    'Sprint Days': totalSprintDays,
+    'Avg Sprint Days': formatNumber(avgSprintLength),
+    'Done Stories': summary.doneStories,
+    'Done SP': spEnabled ? summary.doneSP : 'N/A',
+    'Committed SP': formatNumber(hasPredictability ? summary.committedSP : null, 2),
+    'Delivered SP': formatNumber(hasPredictability ? summary.deliveredSP : null, 2),
+    'SP Estimation %': formatPercent(spEstimationPct),
+    'Stories / Sprint': formatNumber(storiesPerSprint),
+    'SP / Story': formatNumber(spPerStory),
+    'Stories / Day': formatNumber(storiesPerSprintDay),
+    'SP / Day': formatNumber(spPerSprintDay),
+    'SP / Sprint': formatNumber(avgSpPerSprint),
+    'SP Variance': formatNumber(spVariance),
+    'Indexed Delivery': indexedDeliveryStr,
+    'On-Time %': formatPercent(doneBySprintEndPct),
+    'Planned': summary.epicStories,
+    'Ad-hoc': summary.nonEpicStories,
+    'Active Assignees': activeAssignees,
+    'Stories / Assignee': formatNumber(storiesPerAssignee),
+    'SP / Assignee': formatNumber(spPerAssignee),
+    'Assumed Capacity (PD)': formatNumber(assumedCapacity),
+    'Assumed Waste %': formatPercent(assumedWastePct),
+    'Sprint Window': sprintWindow,
+    'Latest End': latestEnd,
+  };
+}
+
+function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPredictability) {
+  if (!boards || boards.length === 0) return null;
+  const windowMonths = getWindowMonths(meta);
+  let sumSprints = 0, sumSprintDays = 0, sumDoneStories = 0, sumDoneSP = 0, sumCommittedSP = 0, sumDeliveredSP = 0;
+  let sumPlanned = 0, sumAdhoc = 0, sumAssignees = 0, sumCapacity = 0;
+  const avgSprintDaysArr = [], storiesPerSprintArr = [], spPerStoryArr = [], storiesPerDayArr = [], spPerDayArr = [];
+  const spPerSprintArr = [], onTimeArr = [], spEstimationArr = [], spVarianceArr = [], wasteArr = [];
+  const storiesPerAssigneeArr = [], spPerAssigneeArr = [];
+  let earliestStart = null, latestEnd = null;
+
+  for (const board of boards) {
+    const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, assignees: new Set() };
+    sumSprints += summary.sprintCount || 0;
+    sumSprintDays += summary.totalSprintDays || 0;
+    sumDoneStories += summary.doneStories || 0;
+    if (spEnabled) sumDoneSP += summary.doneSP || 0;
+    if (hasPredictability) {
+      sumCommittedSP += summary.committedSP || 0;
+      sumDeliveredSP += summary.deliveredSP || 0;
+    }
+    sumPlanned += summary.epicStories || 0;
+    sumAdhoc += summary.nonEpicStories || 0;
+    const activeAssignees = summary.assignees?.size || 0;
+    sumAssignees += activeAssignees;
+
+    const totalSprintDays = summary.totalSprintDays || 0;
+    const avgSprintLength = summary.validSprintDaysCount > 0 ? totalSprintDays / summary.validSprintDaysCount : null;
+    if (avgSprintLength !== null) avgSprintDaysArr.push(avgSprintLength);
+    if (summary.sprintCount > 0) storiesPerSprintArr.push(summary.doneStories / summary.sprintCount);
+    if (spEnabled && summary.doneStories > 0) spPerStoryArr.push(summary.doneSP / summary.doneStories);
+    if (totalSprintDays > 0) {
+      storiesPerDayArr.push(summary.doneStories / totalSprintDays);
+      if (spEnabled) spPerDayArr.push(summary.doneSP / totalSprintDays);
+    }
+    if (spEnabled && summary.sprintCount > 0) spPerSprintArr.push(summary.doneSP / summary.sprintCount);
+    if (summary.doneStories > 0) onTimeArr.push((summary.doneBySprintEnd / summary.doneStories) * 100);
+    if (hasPredictability && summary.committedSP > 0) spEstimationArr.push((summary.deliveredSP / summary.committedSP) * 100);
+    if (spEnabled && summary.sprintSpValues?.length) spVarianceArr.push(calculateVariance(summary.sprintSpValues));
+    const assumedCapacity = windowMonths && activeAssignees > 0 ? activeAssignees * 18 * windowMonths : null;
+    const coveredPersonDays = activeAssignees > 0 ? totalSprintDays * activeAssignees : null;
+    const assumedWastePct = assumedCapacity && coveredPersonDays !== null && assumedCapacity > 0 ? Math.max(0, ((assumedCapacity - coveredPersonDays) / assumedCapacity) * 100) : null;
+    if (assumedWastePct !== null) wasteArr.push(assumedWastePct);
+    sumCapacity += assumedCapacity || 0;
+    if (activeAssignees > 0) {
+      storiesPerAssigneeArr.push(summary.doneStories / activeAssignees);
+      if (spEnabled) spPerAssigneeArr.push(summary.doneSP / activeAssignees);
+    }
+    if (summary.earliestStart) {
+      const d = summary.earliestStart instanceof Date ? summary.earliestStart : new Date(summary.earliestStart);
+      if (!earliestStart || d < earliestStart) earliestStart = d;
+    }
+    if (summary.latestEnd) {
+      const d = summary.latestEnd instanceof Date ? summary.latestEnd : new Date(summary.latestEnd);
+      if (!latestEnd || d > latestEnd) latestEnd = d;
+    }
+  }
+
+  const n = boards.length;
+  const avg = (arr) => (arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length);
+  const sprintWindow = earliestStart && latestEnd ? `${formatDateForDisplay(earliestStart)} to ${formatDateForDisplay(latestEnd)}` : '—';
+  const latestEndStr = latestEnd ? formatDateForDisplay(latestEnd) : '—';
+
+  return {
+    'Board ID': '—',
+    'Board': 'Total',
+    'Type': '—',
+    'Projects': '—',
+    'Sprints': sumSprints,
+    'Sprint Days': sumSprintDays,
+    'Avg Sprint Days': formatNumber(avg(avgSprintDaysArr)),
+    'Done Stories': sumDoneStories,
+    'Done SP': spEnabled ? sumDoneSP : 'N/A',
+    'Committed SP': formatNumber(hasPredictability ? sumCommittedSP : null, 2),
+    'Delivered SP': formatNumber(hasPredictability ? sumDeliveredSP : null, 2),
+    'SP Estimation %': formatPercent(avg(spEstimationArr)),
+    'Stories / Sprint': formatNumber(avg(storiesPerSprintArr)),
+    'SP / Story': formatNumber(avg(spPerStoryArr)),
+    'Stories / Day': formatNumber(avg(storiesPerDayArr)),
+    'SP / Day': formatNumber(avg(spPerDayArr)),
+    'SP / Sprint': formatNumber(avg(spPerSprintArr)),
+    'SP Variance': formatNumber(avg(spVarianceArr)),
+    'Indexed Delivery': '—',
+    'On-Time %': formatPercent(avg(onTimeArr)),
+    'Planned': sumPlanned,
+    'Ad-hoc': sumAdhoc,
+    'Active Assignees': sumAssignees,
+    'Stories / Assignee': formatNumber(avg(storiesPerAssigneeArr)),
+    'SP / Assignee': formatNumber(avg(spPerAssigneeArr)),
+    'Assumed Capacity (PD)': formatNumber(sumCapacity),
+    'Assumed Waste %': formatPercent(avg(wasteArr)),
+    'Sprint Window': sprintWindow,
+    'Latest End': latestEndStr,
+  };
 }
 
 function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predictabilityPerSprint = null) {
@@ -1064,126 +1269,40 @@ function renderProjectEpicLevelTab(boards, metrics) {
   // Section 1: Boards (merged with throughput fundamentals)
   html += '<h3>Boards</h3>';
   if (!boards || boards.length === 0) {
-    html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
+    if (previewData?.boards?.length > 0) {
+      html += '<p><em>No boards match the current filters. Adjust search or project filters.</em></p>';
+    } else {
+      html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p>';
+    }
   } else {
     const hasPredictability = !!metrics?.predictability;
-    html += '<table class="data-table"><thead><tr>' +
-      '<th title="Jira board identifier.">Board ID</th>' +
-      '<th title="Board name shown in Jira.">Board</th>' +
-      '<th title="Board type (scrum/kanban).">Type</th>' +
-      '<th title="Projects mapped to this board.">Projects</th>' +
-      '<th title="Count of sprints included in the date window.">Sprints</th>' +
-      '<th title="Sum of sprint length in calendar days across included sprints.">Sprint Days</th>' +
-      '<th title="Average sprint length in days (Total Sprint Days / Sprints).">Avg Sprint Days</th>' +
-      '<th title="Stories marked Done in included sprints.">Done Stories</th>' +
-      '<th title="Story points completed in included sprints. This is total delivered effort when SP is used consistently.">Done SP</th>' +
-      '<th title="Story points committed at sprint start (estimated scope).">Committed SP</th>' +
-      '<th title="Story points delivered by sprint end (actual). Compare to Committed SP to assess estimation discipline.">Delivered SP</th>' +
-      '<th title="Delivered SP / Committed SP. 100% means delivery matched plan; below 100% suggests over-commit, scope churn, or unstable capacity. Above 100% can indicate under-commit or late scope add.">SP Estimation %</th>' +
-      '<th title="Done Stories / Sprints. Helps compare volume regardless of sprint count.">Stories / Sprint</th>' +
-      '<th title="Done SP / Done Stories. Higher means larger average story size; very high values can imply poor slicing.">SP / Story</th>' +
-      '<th title="Done Stories / Sprint Days. Normalized delivery rate to compare teams with different sprint lengths.">Stories / Day</th>' +
-      '<th title="Done SP / Sprint Days. Normalized delivery rate (EBM: Time-to-Market proxy).">SP / Day</th>' +
-      '<th title="Done SP / Sprints. Average SP delivered per sprint.">SP / Sprint</th>' +
-      '<th title="Variance of SP delivered per sprint. High variance = delivery swings and weaker predictability. Reduce by stabilizing scope and slicing work.">SP Variance</th>' +
-      '<th title="Stories resolved by sprint end / Done Stories. Higher means more work finished on time vs carried over.">On-Time %</th>' +
-      '<th title="Stories linked to an Epic (planned scope).">Planned</th>' +
-      '<th title="Stories without an Epic (often unplanned work). High values can signal scope churn.">Ad-hoc</th>' +
-      '<th title="Unique assignees with done work in the window. Proxy for active team size.">Active Assignees</th>' +
-      '<th title="Done Stories / Active Assignees. Proxy for work load per person.">Stories / Assignee</th>' +
-      '<th title="Done SP / Active Assignees. Proxy for delivery per person when SP is available.">SP / Assignee</th>' +
-      '<th title="Assumed capacity in person-days (Active Assignees × 18 days per month × months in window). Coarse proxy only.">Assumed Capacity (PD)</th>' +
-      '<th title="Assumed unused capacity % based on sprint coverage vs assumed capacity. Uses 18 days/month per person and sprint calendar days. Does not account for PTO, part-time, or non-sprint work.">Assumed Waste %</th>' +
-      '<th title="Earliest sprint start to latest sprint end in the window (local display).">Sprint Window</th>' +
-      '<th title="Latest sprint end date in the window (local display).">Latest End</th>' +
-      '</tr></thead><tbody>';
+    html += '<p class="metrics-hint"><small>Time-normalized metrics (Stories / Day, SP / Day, Indexed Delivery) are shown. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Do not use to rank teams.</small></p>';
+    html += '<table class="data-table"><thead><tr>';
+    for (const key of BOARD_TABLE_COLUMN_ORDER) {
+      const title = BOARD_TABLE_HEADER_TOOLTIPS[key] || '';
+      html += '<th title="' + escapeHtml(title) + '">' + escapeHtml(key) + ' <span class="tooltip-trigger" aria-label="Show definition" data-tooltip="' + escapeHtml(title) + '" tabindex="0" role="button">&#9432;</span></th>';
+    }
+    html += '</tr></thead><tbody>';
     for (const board of boards) {
       const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0 };
-      const sprintWindowRaw = summary.earliestStart && summary.latestEnd
-        ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}`
-        : '';
-      const sprintWindowDisplay = summary.earliestStart && summary.latestEnd
-        ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}`
-        : '';
-      const latestEndRaw = summary.latestEnd ? formatDateForDisplay(summary.latestEnd) : '';
-      const latestEndDisplay = summary.latestEnd ? formatDateForDisplay(summary.latestEnd) : '';
-      const totalSprintDays = summary.totalSprintDays || 0;
-      const avgSprintLength = summary.validSprintDaysCount > 0
-        ? totalSprintDays / summary.validSprintDaysCount
-        : null;
-      const storiesPerSprint = summary.sprintCount > 0
-        ? summary.doneStories / summary.sprintCount
-        : null;
-      const spPerStory = spEnabled && summary.doneStories > 0
-        ? summary.doneSP / summary.doneStories
-        : null;
-      const storiesPerSprintDay = totalSprintDays > 0
-        ? summary.doneStories / totalSprintDays
-        : null;
-      const spPerSprintDay = spEnabled && totalSprintDays > 0
-        ? summary.doneSP / totalSprintDays
-        : null;
-      const avgSpPerSprint = spEnabled && summary.sprintCount > 0
-        ? summary.doneSP / summary.sprintCount
-        : null;
-      const spVariance = spEnabled ? calculateVariance(summary.sprintSpValues) : null;
-      const doneBySprintEndPct = summary.doneStories > 0
-        ? (summary.doneBySprintEnd / summary.doneStories) * 100
-        : null;
-      const spEstimationPct = hasPredictability && summary.committedSP > 0
-        ? (summary.deliveredSP / summary.committedSP) * 100
-        : null;
-      const activeAssignees = summary.assignees?.size || 0;
-      const storiesPerAssignee = activeAssignees > 0
-        ? summary.doneStories / activeAssignees
-        : null;
-      const spPerAssignee = spEnabled && activeAssignees > 0
-        ? summary.doneSP / activeAssignees
-        : null;
-      const windowMonths = getWindowMonths(meta);
-      const assumedCapacity = windowMonths && activeAssignees > 0
-        ? activeAssignees * 18 * windowMonths
-        : null;
-      const coveredPersonDays = activeAssignees > 0
-        ? totalSprintDays * activeAssignees
-        : null;
-      const assumedWastePct = assumedCapacity && coveredPersonDays !== null && assumedCapacity > 0
-        ? Math.max(0, ((assumedCapacity - coveredPersonDays) / assumedCapacity) * 100)
-        : null;
-      html += `
-        <tr>
-          <td>${escapeHtml(board.id)}</td>
-          <td>${escapeHtml(board.name)}</td>
-          <td>${escapeHtml(board.type || '')}</td>
-          <td>${escapeHtml((board.projectKeys || []).join(', '))}</td>
-          <td>${summary.sprintCount}</td>
-          <td>${totalSprintDays}</td>
-          <td>${formatNumber(avgSprintLength)}</td>
-          <td>${summary.doneStories}</td>
-          <td>${spEnabled ? summary.doneSP : 'N/A'}</td>
-          <td>${formatNumber(hasPredictability ? summary.committedSP : null, 2)}</td>
-          <td>${formatNumber(hasPredictability ? summary.deliveredSP : null, 2)}</td>
-          <td>${formatPercent(spEstimationPct)}</td>
-          <td>${formatNumber(storiesPerSprint)}</td>
-          <td>${formatNumber(spPerStory)}</td>
-          <td>${formatNumber(storiesPerSprintDay)}</td>
-          <td>${formatNumber(spPerSprintDay)}</td>
-          <td>${formatNumber(avgSpPerSprint)}</td>
-          <td>${formatNumber(spVariance)}</td>
-          <td>${formatPercent(doneBySprintEndPct)}</td>
-          <td>${summary.epicStories}</td>
-          <td>${summary.nonEpicStories}</td>
-          <td>${activeAssignees}</td>
-          <td>${formatNumber(storiesPerAssignee)}</td>
-          <td>${formatNumber(spPerAssignee)}</td>
-          <td>${formatNumber(assumedCapacity)}</td>
-          <td>${formatPercent(assumedWastePct)}</td>
-          <td title="${escapeHtml(sprintWindowRaw)}">${escapeHtml(sprintWindowDisplay)}</td>
-          <td title="${escapeHtml(latestEndRaw)}">${escapeHtml(latestEndDisplay)}</td>
-        </tr>
-      `;
+      const row = computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability);
+      html += '<tr>';
+      for (const key of BOARD_TABLE_COLUMN_ORDER) {
+        html += '<td>' + escapeHtml(String(row[key] ?? '')) + '</td>';
+      }
+      html += '</tr>';
     }
-    html += '</tbody></table>';
+    html += '</tbody>';
+    const summaryRow = computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPredictability);
+    if (summaryRow) {
+      html += '<tfoot><tr class="boards-summary-row">';
+      for (const key of BOARD_TABLE_COLUMN_ORDER) {
+        const tip = BOARD_SUMMARY_TOOLTIPS[key] || '';
+        html += '<td title="' + escapeHtml(tip) + '">' + escapeHtml(String(summaryRow[key] ?? '—')) + ' <span class="tooltip-trigger" aria-label="Show definition" data-tooltip="' + escapeHtml(tip) + '" tabindex="0" role="button">&#9432;</span></td>';
+      }
+      html += '</tr></tfoot>';
+    }
+    html += '</table>';
   }
 
   // Section 2: Metrics (if available)
@@ -1220,20 +1339,29 @@ function renderProjectEpicLevelTab(boards, metrics) {
       }
     }
 
-    // Predictability
+    // Predictability (planned vs unplanned carryover)
     if (metrics.predictability) {
       html += '<h3>Predictability</h3>';
       html += `<p>Mode: ${escapeHtml(metrics.predictability.mode)}</p>`;
+      html += '<p class="metrics-hint"><small>Detection: Planned carryover = created before sprint start and delivered. Unplanned spillover = added mid-sprint and delivered. Do not use unplanned spillover as a failure metric.</small></p>';
       html += buildPredictabilityTableHeaderHtml();
       const predictPerSprint = metrics.predictability.perSprint || {};
       for (const data of Object.values(predictPerSprint)) {
         if (!data) continue;
+      const plannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.plannedCarryoverPct == null)
+        ? '—'
+        : (data.plannedCarryoverStories ?? '—') + ' (' + formatPercent(data.plannedCarryoverPct) + '%)';
+      const unplannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.unplannedSpilloverPct == null)
+        ? '—'
+        : (data.unplannedSpilloverStories ?? '—') + ' (' + formatPercent(data.unplannedSpilloverPct) + '%)';
       html += `<tr>
           <td>${escapeHtml(data.sprintName)}</td>
           <td>${data.committedStories}</td>
           <td>${data.committedSP}</td>
           <td>${data.deliveredStories}</td>
           <td>${data.deliveredSP}</td>
+          <td>${plannedCell}</td>
+          <td>${unplannedCell}</td>
           <td>${formatPercent(data.predictabilityStories)}</td>
           <td>${formatPercent(data.predictabilitySP)}</td>
         </tr>`;
@@ -1241,13 +1369,18 @@ function renderProjectEpicLevelTab(boards, metrics) {
       html += '</tbody></table>';
     }
 
-    // Epic TTM
+    // Epic TTM (gated by epic hygiene)
     if (metrics.epicTTM) {
       html += '<h3>Epic Time-To-Market</h3>';
+      const epicHygiene = meta?.epicHygiene;
+      if (epicHygiene && epicHygiene.ok === false) {
+        html += '<p class="data-quality-warning"><strong>Epic hygiene insufficient for timing metrics.</strong> ' + escapeHtml(epicHygiene.message || '') + ' Epic TTM is suppressed. Fix Epic Link usage and/or epic span before using TTM.</p>';
+      } else {
       html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
       if (meta?.epicTTMFallbackCount > 0) {
         html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
       }
+      html += '<p class="metrics-hint"><small>Completion anchored to: Resolution date.</small></p>';
       html += '<table class="data-table"><thead><tr>' +
         '<th title="Epic identifier in Jira.">Epic Key</th>' +
         '<th title="Number of stories linked to the epic in this window.">Story Count</th>' +
@@ -1267,6 +1400,7 @@ function renderProjectEpicLevelTab(boards, metrics) {
         </tr>`;
       }
       html += '</tbody></table>';
+      }
     }
   } else {
     html += '<hr style="margin: 30px 0;">';
@@ -1287,8 +1421,15 @@ function renderSprintsTab(sprints, metrics) {
       `${new Date(meta.windowStart).toLocaleDateString()} to ${new Date(meta.windowEnd).toLocaleDateString()}` :
       'selected date range';
     const title = 'No sprints found';
-    const message = `No sprints overlap with the selected date window (${windowInfo}).`;
-    const hint = 'Try adjusting your date range or enable "Include Active/Missing End Date Sprints" if you want to include active sprints.';
+    let message;
+    let hint;
+    if (previewData?.sprintsIncluded?.length > 0) {
+      message = 'No sprints match the current filters.';
+      hint = 'Adjust search or project filters.';
+    } else {
+      message = `No sprints overlap with the selected date window (${windowInfo}).`;
+      hint = 'Try adjusting your date range or enable "Include Active/Missing End Date Sprints" if you want to include active sprints.';
+    }
     renderEmptyState(content, title, message, hint);
     return;
   }
@@ -1526,7 +1667,7 @@ function renderDoneStoriesTab(rows) {
     if (projectPills) {
       projectPills.innerHTML = '';
     }
-    exportFilteredBtn.disabled = true;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     return;
   }
 
@@ -1815,36 +1956,94 @@ window.toggleSprint = function(sprintKey) {
   }
 };
 
+// Unified filter helper: one pipeline for Boards, Sprints, and Done Stories
+function applyTabFilter(allItems, searchText, activePills, config) {
+  if (!allItems || !Array.isArray(allItems)) return [];
+  const lower = (searchText || '').toLowerCase();
+  const hasSearch = lower.length > 0;
+  const hasPills = activePills && activePills.length > 0;
+  return allItems.filter(item => {
+    if (hasSearch && config.getSearchText) {
+      const text = config.getSearchText(item);
+      if (!text.toLowerCase().includes(lower)) return false;
+    }
+    if (hasPills && config.matchesPills && !config.matchesPills(item, activePills)) return false;
+    return true;
+  });
+}
+
+function applyBoardsFilters() {
+  const searchText = document.getElementById('boards-search-box')?.value || '';
+  const activePills = Array.from(document.querySelectorAll('#boards-project-pills .pill.active')).map(p => p.dataset.project);
+  visibleBoardRows = applyTabFilter(previewData?.boards || [], searchText, activePills, {
+    getSearchText: (b) => `${b.name || ''} ${b.id || ''}`,
+    matchesPills: (b, pills) => !(b.projectKeys && b.projectKeys.length) || (b.projectKeys || []).some(p => pills.includes(p)),
+  });
+  renderProjectEpicLevelTab(visibleBoardRows, previewData?.metrics);
+  updateExportFilteredState();
+}
+
+function applySprintsFilters() {
+  const searchText = document.getElementById('sprints-search-box')?.value || '';
+  const activePills = Array.from(document.querySelectorAll('#sprints-project-pills .pill.active')).map(p => p.dataset.project);
+  visibleSprintRows = applyTabFilter(previewData?.sprintsIncluded || [], searchText, activePills, {
+    getSearchText: (s) => s.name || '',
+    matchesPills: (s, pills) => !(s.projectKeys && s.projectKeys.length) || (s.projectKeys || []).some(p => pills.includes(p)),
+  });
+  renderSprintsTab(visibleSprintRows, previewData?.metrics);
+  updateExportFilteredState();
+}
+
+function populateBoardsPills() {
+  const container = document.getElementById('boards-project-pills');
+  if (!container) return;
+  const meta = getSafeMeta(previewData);
+  const projects = meta?.selectedProjects || [];
+  container.innerHTML = projects.map(p => `<span class="pill active" data-project="${escapeHtml(p)}">${escapeHtml(p)}</span>`).join('');
+  container.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('active');
+      applyBoardsFilters();
+    });
+  });
+}
+
+function populateSprintsPills() {
+  const container = document.getElementById('sprints-project-pills');
+  if (!container) return;
+  const meta = getSafeMeta(previewData);
+  const projects = meta?.selectedProjects || [];
+  container.innerHTML = projects.map(p => `<span class="pill active" data-project="${escapeHtml(p)}">${escapeHtml(p)}</span>`).join('');
+  container.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('active');
+      applySprintsFilters();
+    });
+  });
+}
+
 // Search and filter
 const searchBox = document.getElementById('search-box');
 searchBox.addEventListener('input', applyFilters);
 
+const boardsSearchBox = document.getElementById('boards-search-box');
+if (boardsSearchBox) boardsSearchBox.addEventListener('input', applyBoardsFilters);
+const sprintsSearchBox = document.getElementById('sprints-search-box');
+if (sprintsSearchBox) sprintsSearchBox.addEventListener('input', applySprintsFilters);
+
 function applyFilters() {
   const searchText = (searchBox.value || '').toLowerCase();
-  const activeProjects = Array.from(document.querySelectorAll('.pill.active')).map(p => p.dataset.project);
+  const activeProjects = Array.from(document.querySelectorAll('#project-pills .pill.active')).map(p => p.dataset.project);
   const meta = getSafeMeta(previewData);
 
-  visibleRows = previewRows.filter(row => {
-    // Search filter
-    if (searchText) {
-      const issueKey = (row.issueKey || '').toLowerCase();
-      const issueSummary = (row.issueSummary || '').toLowerCase();
-      const matchesKey = issueKey.includes(searchText);
-      const matchesSummary = issueSummary.includes(searchText);
-      if (!matchesKey && !matchesSummary) return false;
-    }
-
-    // Project filter
-    if (activeProjects.length > 0 && !activeProjects.includes(row.projectKey)) {
-      return false;
-    }
-
-    return true;
+  visibleRows = applyTabFilter(previewRows, searchText, activeProjects, {
+    getSearchText: (row) => `${row.issueKey || ''} ${row.issueSummary || ''}`,
+    matchesPills: (row, pills) => pills.length === 0 || pills.includes(row.projectKey),
   });
 
   renderDoneStoriesTab(visibleRows);
 
-  exportFilteredBtn.disabled = visibleRows.length === 0;
+  updateExportFilteredState();
   const exportHint = document.getElementById('export-hint');
   if (exportHint) {
     if (previewRows.length > 0 && visibleRows.length === 0) {
@@ -1861,9 +2060,72 @@ function applyFilters() {
   }
 }
 
-// Export functions
+// Export functions: primary = Excel full; dropdown = full / CSV filtered / Excel filtered
+function getCurrentTabId() {
+  return document.querySelector('.tab-btn.active')?.dataset?.tab || 'project-epic-level';
+}
+
+function getVisibleCountForTab(tabId) {
+  if (tabId === 'project-epic-level') return visibleBoardRows.length;
+  if (tabId === 'sprints') return visibleSprintRows.length;
+  if (tabId === 'done-stories') return visibleRows.length;
+  return 0;
+}
+
+function updateExportFilteredState() {
+  const tabId = getCurrentTabId();
+  const count = getVisibleCountForTab(tabId);
+  const csvFiltered = document.querySelector('.export-dropdown-item[data-export="csv-filtered"]');
+  const excelFiltered = document.querySelector('.export-dropdown-item[data-export="excel-filtered"]');
+  if (csvFiltered) csvFiltered.disabled = count === 0;
+  if (excelFiltered) excelFiltered.disabled = count === 0;
+}
+
 exportExcelBtn.addEventListener('click', () => exportToExcel());
-exportFilteredBtn.addEventListener('click', () => exportCSV(visibleRows, 'filtered'));
+
+if (exportDropdownTrigger && exportDropdownMenu) {
+  exportDropdownTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = exportDropdownMenu.getAttribute('aria-hidden') !== 'false';
+    exportDropdownMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+    exportDropdownTrigger.setAttribute('aria-expanded', open);
+  });
+  document.addEventListener('click', () => {
+    exportDropdownMenu.setAttribute('aria-hidden', 'true');
+    exportDropdownTrigger.setAttribute('aria-expanded', 'false');
+  });
+  exportDropdownMenu.addEventListener('click', (e) => e.stopPropagation());
+}
+
+document.querySelectorAll('.export-dropdown-item').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const action = e.target.dataset.export;
+    exportDropdownMenu.setAttribute('aria-hidden', 'true');
+    exportDropdownTrigger.setAttribute('aria-expanded', 'false');
+    if (action === 'excel-full') exportToExcel();
+    else if (action === 'csv-filtered') {
+      const tabId = getCurrentTabId();
+      if (tabId === 'done-stories') exportCSV(visibleRows, 'filtered');
+      else if (tabId === 'project-epic-level') exportSectionCSV('project-epic-level', visibleBoardRows, null);
+      else if (tabId === 'sprints') exportSectionCSV('sprints', visibleSprintRows, null);
+    } else if (action === 'excel-filtered') exportToExcelFiltered();
+  });
+});
+
+function setExportButtonLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.dataset.exportOriginalText = btn.textContent;
+    btn.dataset.exportOriginalDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.textContent = 'Exporting…';
+  } else {
+    btn.disabled = btn.dataset.exportOriginalDisabled === 'true';
+    btn.textContent = btn.dataset.exportOriginalText || 'Export CSV';
+    delete btn.dataset.exportOriginalText;
+    delete btn.dataset.exportOriginalDisabled;
+  }
+}
 
 // Validate CSV columns before export
 function validateCSVColumns(columns, rows) {
@@ -2213,176 +2475,29 @@ function prepareStoriesSheetData(rows, metrics) {
   return { columns, rows: sheetRows };
 }
 
-// Prepare Boards sheet data
+// Prepare Boards sheet data (uses computeBoardRowFromSummary SSOT)
 function prepareBoardsSheetData(boards, sprintsIncluded, rows, meta, predictabilityPerSprint = null) {
   const boardSummaries = buildBoardSummaries(boards, sprintsIncluded, rows, meta, predictabilityPerSprint);
   const hasPredictability = !!predictabilityPerSprint && Object.keys(predictabilityPerSprint).length > 0;
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
-  const columns = [
-    'Board ID',
-    'Board Name',
-    'Type',
-    'Projects',
-    'Included Sprints',
-    'Total Sprint Days',
-    'Avg Sprint Length (Days)',
-    'Done Stories',
-    'Done SP',
-    'Committed SP',
-    'Delivered SP',
-    'SP Estimation %',
-    'Stories per Sprint',
-    'SP per Story',
-    'Stories per Sprint Day',
-    'SP per Sprint Day',
-    'Avg SP per Sprint',
-    'SP Variance per Sprint',
-    'Done by Sprint End %',
-    'Total Epics',
-    'Total Non Epics',
-    'Active Assignees',
-    'Stories per Assignee',
-    'SP per Assignee',
-    'Assumed Capacity (Person-Days)',
-    'Assumed Waste %',
-    'Sprint Window',
-    'Latest Sprint End',
-  ];
-
+  const defaultSummary = {
+    sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0,
+    earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0,
+    doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0,
+    assignees: new Set(), assigneeStoryCounts: new Map(), assigneeSpTotals: new Map(),
+  };
   let rowsData = (boards || []).map(board => {
-    const summary = boardSummaries.get(board.id) || {
-      sprintCount: 0,
-      doneStories: 0,
-      doneSP: 0,
-      committedSP: 0,
-      deliveredSP: 0,
-      earliestStart: null,
-      latestEnd: null,
-      totalSprintDays: 0,
-      validSprintDaysCount: 0,
-      doneBySprintEnd: 0,
-      sprintSpValues: [],
-      epicStories: 0,
-      nonEpicStories: 0,
-      assignees: new Set(),
-      assigneeStoryCounts: new Map(),
-      assigneeSpTotals: new Map(),
-    };
-
-    const sprintWindow = summary.earliestStart && summary.latestEnd
-      ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}`
-      : '';
-    const latestEnd = summary.latestEnd ? formatDateForDisplay(summary.latestEnd) : '';
-    const totalSprintDays = summary.totalSprintDays || 0;
-    const avgSprintLength = summary.validSprintDaysCount > 0
-      ? totalSprintDays / summary.validSprintDaysCount
-      : null;
-    const storiesPerSprint = summary.sprintCount > 0
-      ? summary.doneStories / summary.sprintCount
-      : null;
-    const spPerStory = spEnabled && summary.doneStories > 0
-      ? summary.doneSP / summary.doneStories
-      : null;
-    const storiesPerSprintDay = totalSprintDays > 0
-      ? summary.doneStories / totalSprintDays
-      : null;
-    const spPerSprintDay = spEnabled && totalSprintDays > 0
-      ? summary.doneSP / totalSprintDays
-      : null;
-    const avgSpPerSprint = spEnabled && summary.sprintCount > 0
-      ? summary.doneSP / summary.sprintCount
-      : null;
-    const spVariance = spEnabled ? calculateVariance(summary.sprintSpValues) : null;
-    const doneBySprintEndPct = summary.doneStories > 0
-      ? (summary.doneBySprintEnd / summary.doneStories) * 100
-      : null;
-    const spEstimationPct = hasPredictability && summary.committedSP > 0
-      ? (summary.deliveredSP / summary.committedSP) * 100
-      : null;
-    const activeAssignees = summary.assignees?.size || 0;
-    const storiesPerAssignee = activeAssignees > 0
-      ? summary.doneStories / activeAssignees
-      : null;
-    const spPerAssignee = spEnabled && activeAssignees > 0
-      ? summary.doneSP / activeAssignees
-      : null;
-    const windowMonths = getWindowMonths(meta);
-    const assumedCapacity = windowMonths && activeAssignees > 0
-      ? activeAssignees * 18 * windowMonths
-      : null;
-    const coveredPersonDays = activeAssignees > 0
-      ? totalSprintDays * activeAssignees
-      : null;
-    const assumedWastePct = assumedCapacity && coveredPersonDays !== null && assumedCapacity > 0
-      ? Math.max(0, ((assumedCapacity - coveredPersonDays) / assumedCapacity) * 100)
-      : null;
-
-    return {
-      'Board ID': board.id,
-      'Board Name': board.name,
-      'Type': board.type || '',
-      'Projects': (board.projectKeys || []).join(', '),
-      'Included Sprints': summary.sprintCount,
-      'Total Sprint Days': totalSprintDays,
-      'Avg Sprint Length (Days)': formatNumber(avgSprintLength),
-      'Done Stories': summary.doneStories,
-      'Done SP': spEnabled ? summary.doneSP : '',
-      'Committed SP': hasPredictability ? formatNumber(summary.committedSP, 2) : '',
-      'Delivered SP': hasPredictability ? formatNumber(summary.deliveredSP, 2) : '',
-      'SP Estimation %': hasPredictability ? formatPercent(spEstimationPct) : '',
-      'Stories per Sprint': formatNumber(storiesPerSprint),
-      'SP per Story': formatNumber(spPerStory),
-      'Stories per Sprint Day': formatNumber(storiesPerSprintDay),
-      'SP per Sprint Day': formatNumber(spPerSprintDay),
-      'Avg SP per Sprint': formatNumber(avgSpPerSprint),
-      'SP Variance per Sprint': formatNumber(spVariance),
-      'Done by Sprint End %': formatNumber(doneBySprintEndPct),
-      'Total Epics': summary.epicStories,
-      'Total Non Epics': summary.nonEpicStories,
-      'Active Assignees': activeAssignees,
-      'Stories per Assignee': formatNumber(storiesPerAssignee),
-      'SP per Assignee': formatNumber(spPerAssignee),
-      'Assumed Capacity (Person-Days)': formatNumber(assumedCapacity),
-      'Assumed Waste %': formatPercent(assumedWastePct),
-      'Sprint Window': sprintWindow,
-      'Latest Sprint End': latestEnd,
-    };
+    const summary = boardSummaries.get(board.id) || defaultSummary;
+    return computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability);
   });
-
   if (rowsData.length === 0) {
-    rowsData = [{
-      'Board ID': 'No board data available',
-      'Board Name': 'Try adjusting date range or project selection',
-      'Type': '',
-      'Projects': '',
-      'Included Sprints': '',
-      'Total Sprint Days': '',
-      'Avg Sprint Length (Days)': '',
-      'Done Stories': '',
-      'Done SP': '',
-      'Committed SP': '',
-      'Delivered SP': '',
-      'SP Estimation %': '',
-      'Stories per Sprint': '',
-      'SP per Story': '',
-      'Stories per Sprint Day': '',
-      'SP per Sprint Day': '',
-      'Avg SP per Sprint': '',
-      'SP Variance per Sprint': '',
-      'Done by Sprint End %': '',
-      'Total Epics': '',
-      'Total Non Epics': '',
-      'Active Assignees': '',
-      'Stories per Assignee': '',
-      'SP per Assignee': '',
-      'Assumed Capacity (Person-Days)': '',
-      'Assumed Waste %': '',
-      'Sprint Window': '',
-      'Latest Sprint End': '',
-    }];
+    const placeholder = {};
+    for (const key of BOARD_TABLE_COLUMN_ORDER) {
+      placeholder[key] = key === 'Board ID' ? 'No board data available' : (key === 'Board' ? 'Try adjusting date range or project selection' : '');
+    }
+    rowsData = [placeholder];
   }
-
-  return { columns, rows: rowsData };
+  return { columns: [...BOARD_TABLE_COLUMN_ORDER], rows: rowsData };
 }
 
 // Prepare Sprints sheet data
@@ -2725,6 +2840,74 @@ async function exportToExcel() {
   }
 }
 
+async function exportToExcelFiltered() {
+  const tabId = getCurrentTabId();
+  const count = getVisibleCountForTab(tabId);
+  if (count === 0 || !previewData) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `
+      <strong>Export error:</strong> No data to export for the current tab.
+      <br><small>Adjust filters or switch to a tab that has visible rows.</small>
+    `;
+    return;
+  }
+  const originalButtonText = exportExcelBtn.textContent;
+  const originalButtonDisabled = exportExcelBtn.disabled;
+  exportExcelBtn.disabled = true;
+  exportExcelBtn.textContent = 'Generating Excel (filtered)...';
+  try {
+    const meta = getSafeMeta(previewData);
+    const predictabilityPerSprint = previewData?.metrics?.predictability?.perSprint || null;
+    const summaryColumns = ['Section', 'Metric', 'Value'];
+    const summaryRows = createSummarySheetRows(previewData.metrics, meta, previewRows);
+    const metadataSheet = prepareMetadataSheetData(meta, previewRows, previewData.sprintsIncluded);
+    let sheets = [
+      { name: 'Summary', columns: summaryColumns, rows: summaryRows },
+      { name: 'Metadata', columns: metadataSheet.columns, rows: metadataSheet.rows }
+    ];
+    if (tabId === 'project-epic-level') {
+      const boardsSheet = prepareBoardsSheetData(visibleBoardRows, previewData.sprintsIncluded || [], previewRows, meta, predictabilityPerSprint);
+      sheets.splice(1, 0, { name: 'Boards', columns: boardsSheet.columns, rows: boardsSheet.rows });
+    } else if (tabId === 'sprints') {
+      const sprintsSheet = prepareSprintsSheetData(visibleSprintRows, previewRows, predictabilityPerSprint);
+      sheets.splice(1, 0, { name: 'Sprints', columns: sprintsSheet.columns, rows: sprintsSheet.rows });
+    } else if (tabId === 'done-stories') {
+      const storiesSheet = prepareStoriesSheetData(visibleRows, previewData.metrics);
+      sheets.splice(1, 0, { name: 'Stories', columns: storiesSheet.columns, rows: storiesSheet.rows });
+    }
+    const workbookData = { sheets };
+    const validation = validateExcelWorkbookData(workbookData);
+    if (!validation.valid) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `<strong>Export error:</strong> ${validation.error}`;
+      return;
+    }
+    const response = await fetch('/export-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workbookData, meta })
+    });
+    if (!response.ok) throw new Error(await response.text().catch(() => 'Export failed'));
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const projects = (meta.selectedProjects || []).join('-');
+    const dateRange = formatDateRangeForFilename(meta.windowStart, meta.windowEnd);
+    a.download = `${projects}_${dateRange}_Sprint-Report-filtered_${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+  } catch (error) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = `<strong>Export error:</strong> ${error.message}`;
+  } finally {
+    exportExcelBtn.disabled = originalButtonDisabled;
+    exportExcelBtn.textContent = originalButtonText;
+  }
+}
+
 // Helper function to calculate work days between two dates
 // NOTE: This function must match calculateWorkDays in lib/kpiCalculations.js exactly
 // Browser code cannot import server modules, so both must be kept in sync manually
@@ -2852,18 +3035,9 @@ function createSummarySheetRows(metrics, meta, allRows) {
 
 // Per-section CSV export
 async function exportSectionCSV(sectionName, data, button = null) {
-  // Store original button state
-  const originalButtonText = button ? button.textContent : '';
-  const originalButtonDisabled = button ? button.disabled : false;
   const meta = getSafeMeta(previewData);
   const filename = buildCsvFilename(sectionName, meta);
-  
-  // Set loading state
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Exporting...';
-  }
-  
+  setExportButtonLoading(button, true);
   try {
     if (!previewData) {
       errorEl.style.display = 'block';
@@ -2925,8 +3099,8 @@ async function exportSectionCSV(sectionName, data, button = null) {
       const predictabilityPerSprint = previewData?.metrics?.predictability?.perSprint || null;
       const hasPredictability = !!predictabilityPerSprint && Object.keys(predictabilityPerSprint).length > 0;
       const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
-      const boardSummaries = buildBoardSummaries(previewData?.boards || [], previewData?.sprintsIncluded || [], previewRows, getSafeMeta(previewData), predictabilityPerSprint);
-      rows = (previewData?.boards || []).map(board => {
+      const boardSummaries = buildBoardSummaries(data || [], previewData?.sprintsIncluded || [], previewRows, getSafeMeta(previewData), predictabilityPerSprint);
+      rows = (data || []).map(board => {
         const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, assignees: new Set() };
         const sprintWindow = summary.earliestStart && summary.latestEnd
           ? `${formatDateForDisplay(summary.earliestStart)} to ${formatDateForDisplay(summary.latestEnd)}`
@@ -3034,7 +3208,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
       if (hasSprintSubtaskTracking) {
         columns.push('subtaskEstimateHours', 'subtaskSpentHours', 'subtaskRemainingHours', 'subtaskVarianceHours');
       }
-      rows = (previewData?.sprintsIncluded || []).map(sprint => {
+      rows = (data || []).map(sprint => {
         const timeData = sprintTimeTotals.get(sprint.id) || {
           estimateHours: 0,
           spentHours: 0,
@@ -3209,7 +3383,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
       try {
         // Show progress indicator for large exports
         if (button) {
-          button.textContent = `Exporting ${rows.length.toLocaleString()} rows...`;
+          button.textContent = `Exporting ${rows.length.toLocaleString()} rows…`;
         }
         
         const response = await fetch('/export', {
@@ -3268,13 +3442,68 @@ async function exportSectionCSV(sectionName, data, button = null) {
       }
     }
   } finally {
-    // Restore button state
-    if (button) {
-      button.disabled = originalButtonDisabled;
-      button.textContent = originalButtonText;
-    }
+    setExportButtonLoading(button, false);
   }
 }
+
+// Tap-friendly tooltip popover: one delegate, single source of text from data-tooltip
+const TOOLTIP_POPOVER_ID = 'tooltip-popover';
+let tooltipActiveTrigger = null;
+
+function hideTooltipPopover() {
+  const popover = document.getElementById(TOOLTIP_POPOVER_ID);
+  if (popover) {
+    popover.setAttribute('aria-hidden', 'true');
+    popover.textContent = '';
+  }
+  if (tooltipActiveTrigger) {
+    tooltipActiveTrigger.removeAttribute('aria-describedby');
+    tooltipActiveTrigger = null;
+  }
+}
+
+function showTooltipPopover(trigger) {
+  const text = trigger.getAttribute('data-tooltip');
+  if (!text) return;
+  hideTooltipPopover();
+  const popover = document.getElementById(TOOLTIP_POPOVER_ID);
+  if (!popover) return;
+  popover.textContent = text;
+  popover.setAttribute('aria-hidden', 'false');
+  const rect = trigger.getBoundingClientRect();
+  const popoverWidth = 320;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + popoverWidth > window.innerWidth) left = window.innerWidth - popoverWidth - 8;
+  if (left < 8) left = 8;
+  if (top + 120 > window.innerHeight) top = rect.top - 6 - 80;
+  if (top < 8) top = 8;
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+  trigger.setAttribute('aria-describedby', TOOLTIP_POPOVER_ID);
+  tooltipActiveTrigger = trigger;
+}
+
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('.tooltip-trigger');
+  if (trigger) {
+    e.preventDefault();
+    const popover = document.getElementById(TOOLTIP_POPOVER_ID);
+    const isOpen = popover && popover.getAttribute('aria-hidden') === 'false' && tooltipActiveTrigger === trigger;
+    if (isOpen) {
+      hideTooltipPopover();
+    } else {
+      showTooltipPopover(trigger);
+    }
+    return;
+  }
+  if (!e.target.closest('#' + TOOLTIP_POPOVER_ID)) {
+    hideTooltipPopover();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideTooltipPopover();
+});
 
 // Wire up per-section export buttons using event delegation
 document.addEventListener('click', (e) => {
@@ -3286,10 +3515,10 @@ document.addEventListener('click', (e) => {
     switch (section) {
       case 'project-epic-level':
       case 'boards':
-        data = previewData?.boards || [];
+        data = visibleBoardRows.length > 0 ? visibleBoardRows : (previewData?.boards || []);
         break;
       case 'sprints':
-        data = previewData?.sprintsIncluded || [];
+        data = visibleSprintRows.length > 0 ? visibleSprintRows : (previewData?.sprintsIncluded || []);
         break;
       case 'done-stories':
         data = visibleRows.length > 0 ? visibleRows : previewRows;

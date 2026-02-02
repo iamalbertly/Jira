@@ -1,36 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
-
-// Helper: Wait for preview to complete
-async function waitForPreview(page) {
-  const previewBtn = page.locator('#preview-btn');
-  await expect(previewBtn).toBeEnabled({ timeout: 5000 });
-  await previewBtn.click();
-  
-  // Wait for either loading to appear or preview to complete quickly
-  try {
-    await page.waitForSelector('#loading', { state: 'visible', timeout: 5000 });
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 300000 });
-  } catch (e) {
-    // Loading might not appear if request completes quickly - check for preview or error
-    const previewVisible = await page.locator('#preview-content').isVisible();
-    const errorVisible = await page.locator('#error').isVisible();
-    if (!previewVisible && !errorVisible) {
-      // Wait a bit more for preview to appear
-      await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-    }
-  }
-  
-  try {
-    await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-  } catch (error) {
-    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
-    if (!errorVisible) {
-      throw error;
-    }
-  }
-}
 
 // Helper: Get table cell text by row and column index
 async function getTableCellText(page, rowIndex, columnIndex) {
@@ -42,43 +13,6 @@ async function getTableCellText(page, rowIndex, columnIndex) {
 async function validateMetricsTabVisible(page) {
   const tab = page.locator('.tab-btn').filter({ hasText: 'Project & Epic Level' });
   await expect(tab).toBeVisible({ timeout: 5000 });
-}
-
-// Helper: Run default preview with options
-async function runDefaultPreview(page, overrides = {}) {
-  const {
-    projects = ['MPSA', 'MAS'],
-    start = '2025-07-01T00:00',
-    end = '2025-09-30T23:59',
-    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-    // No need to pass these parameters - they're always included in reports
-  } = overrides;
-
-  await page.goto('/report');
-
-  // Configure projects
-  if (projects.includes('MPSA')) {
-    await page.check('#project-mpsa');
-  } else {
-    await page.uncheck('#project-mpsa');
-  }
-
-  if (projects.includes('MAS')) {
-    await page.check('#project-mas');
-  } else {
-    await page.uncheck('#project-mas');
-  }
-
-  // Configure date window
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
-
-  // Configure options
-  // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-  // No need to check/uncheck these options - they're always included in reports
-
-  // Trigger preview
-  await waitForPreview(page);
 }
 
 test.describe('UX Reliability & Technical Debt Fixes', () => {
@@ -251,13 +185,15 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     // Generate preview
     await runDefaultPreview(page, { includeStoryPoints: true });
 
-    // Verify export buttons are enabled
-    const exportFilteredBtn = page.locator('#export-filtered-btn');
-    await expect(exportFilteredBtn).toBeEnabled({ timeout: 10000 });
+    // Verify export is enabled after preview
+    const exportExcelBtn = page.locator('#export-excel-btn');
+    await expect(exportExcelBtn).toBeEnabled({ timeout: 10000 });
 
-    // Test CSV export - should succeed with valid columns
+    // Switch to Done Stories tab and use section Export CSV (avoids dropdown overlay issues)
+    await page.click('.tab-btn[data-tab="done-stories"]');
+    await page.waitForSelector('.export-section-btn[data-section="done-stories"]', { state: 'visible', timeout: 5000 });
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-    await exportFilteredBtn.click();
+    await page.click('.export-section-btn[data-section="done-stories"]');
     const download = await downloadPromise;
 
     const path = await download.path();

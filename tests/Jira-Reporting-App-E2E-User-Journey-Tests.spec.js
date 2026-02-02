@@ -1,60 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
-
-async function runDefaultPreview(page, overrides = {}) {
-  const {
-    projects = ['MPSA', 'MAS'],
-    start = '2025-07-01T00:00',
-    end = '2025-09-30T23:59',
-  } = overrides;
-
-  await page.goto('/report');
-
-  // Configure projects
-  const mpsaChecked = projects.includes('MPSA');
-  const masChecked = projects.includes('MAS');
-
-  if (mpsaChecked) {
-    await page.check('#project-mpsa');
-  } else {
-    await page.uncheck('#project-mpsa');
-  }
-
-  if (masChecked) {
-    await page.check('#project-mas');
-  } else {
-    await page.uncheck('#project-mas');
-  }
-
-  // Configure date window
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
-
-  // Trigger preview and wait for either loading or content/error, handling fast and slow paths.
-  await page.click('#preview-btn');
-
-  await Promise.race([
-    page.waitForSelector('#loading', { state: 'visible', timeout: 10000 }).catch(() => null),
-    page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }).catch(() => null),
-    page.waitForSelector('#error', { state: 'visible', timeout: 10000 }).catch(() => null),
-  ]);
-
-  const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
-  if (loadingVisible) {
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
-  }
-
-  // Ensure we end up with either preview content or an error visible.
-  const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
-  const errorVisible = await page.locator('#error').isVisible().catch(() => false);
-  if (!previewVisible && !errorVisible) {
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }),
-      page.waitForSelector('#error', { state: 'visible', timeout: 10000 }),
-    ]);
-  }
-}
 
 test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -67,7 +14,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     await expect(page.locator('#project-mpsa')).toBeChecked();
     await expect(page.locator('#project-mas')).toBeChecked();
     await expect(page.locator('#preview-btn')).toBeVisible();
-    await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+    await expect(page.locator('#export-excel-btn')).toBeDisabled();
     await expect(page.locator('#export-excel-btn')).toBeDisabled();
   });
 
@@ -169,7 +116,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
       // Export buttons should be enabled
-      await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+      await expect(page.locator('#export-excel-btn')).toBeEnabled();
       await expect(page.locator('#export-excel-btn')).toBeEnabled();
     }
   });
@@ -246,15 +193,15 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
       const hasDoneStoriesText = (text || '').toLowerCase().includes('done stories');
 
       if (hasDoneStoriesText) {
-        await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+        await expect(page.locator('#export-excel-btn')).toBeEnabled();
         await expect(page.locator('#export-excel-btn')).toBeEnabled();
       } else {
-        await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+        await expect(page.locator('#export-excel-btn')).toBeDisabled();
         await expect(page.locator('#export-excel-btn')).toBeDisabled();
       }
     } else if (errorVisible) {
       // On error, exports should remain disabled
-      await expect(page.locator('#export-filtered-btn')).toBeDisabled();
+      await expect(page.locator('#export-excel-btn')).toBeDisabled();
       await expect(page.locator('#export-excel-btn')).toBeDisabled();
     }
   });
@@ -281,7 +228,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
         // When partial, banner and hint should both mention partial state
         expect(statusText.toLowerCase()).toContain('partial');
         expect(exportHintText.toLowerCase()).toContain('partial');
-        await expect(page.locator('#export-filtered-btn')).toBeEnabled();
+        await expect(page.locator('#export-excel-btn')).toBeEnabled();
         await expect(page.locator('#export-excel-btn')).toBeEnabled();
       }
   });

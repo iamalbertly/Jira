@@ -39,17 +39,69 @@
       <!-- Filters Panel -->
       <aside class="filters-panel">
         <h2>Filters</h2>
-        <p class="filters-tip"><small>Start here: 1) choose projects, 2) adjust dates, 3) click <strong>Preview</strong>, 4) use Excel export to share with your stakeholders.</small></p>
+        <p class="filters-tip"><small>Start here: 1) choose projects, 2) adjust dates, 3) click <strong>Generate Report</strong>, 4) use Excel export to share with your stakeholders.</small></p>
         
         <div class="filter-group">
           <h3>Projects</h3>
           <label class="checkbox-label">
-            <input type="checkbox" id="project-mpsa" checked>
-            <span>MPSA</span>
+            <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
+            <span class="project-code">MPSA</span>
+            <span class="project-desc">M-SQUAD</span>
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="project-mas" checked>
-            <span>MAS</span>
+            <input type="checkbox" id="project-mas" class="project-checkbox" data-project="MAS" checked>
+            <span class="project-code">MAS</span>
+            <span class="project-desc">Mini - Apps Squad</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-rpa" class="project-checkbox" data-project="RPA">
+            <span class="project-code">RPA</span>
+            <span class="project-desc">Robotics Process Automation (RPA)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-mva" class="project-checkbox" data-project="MVA">
+            <span class="project-code">MVA</span>
+            <span class="project-desc">Digital Squad</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-asg" class="project-checkbox" data-project="ASG">
+            <span class="project-code">ASG</span>
+            <span class="project-desc">Agile and Security Guild</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-fin" class="project-checkbox" data-project="FIN">
+            <span class="project-code">FIN</span>
+            <span class="project-desc">Finance Squad</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-sd" class="project-checkbox" data-project="SD">
+            <span class="project-code">SD</span>
+            <span class="project-desc">DMS Squad (Kilimanjaro Legends)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-mpsa2" class="project-checkbox" data-project="MPSA2">
+            <span class="project-code">MPSA2</span>
+            <span class="project-desc">TRANSFORMERS</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-trs" class="project-checkbox" data-project="TRS">
+            <span class="project-code">TRS</span>
+            <span class="project-desc">T-Squad</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-vb" class="project-checkbox" data-project="VB">
+            <span class="project-code">VB</span>
+            <span class="project-desc">Vodacom Business</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-ams2" class="project-checkbox" data-project="AMS2">
+            <span class="project-code">AMS2</span>
+            <span class="project-desc">AMS Squad (Tachyons)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-bio" class="project-checkbox" data-project="BIO">
+            <span class="project-code">BIO</span>
+            <span class="project-desc">Bio metric KYC &amp; KYA</span>
           </label>
         </div>
 
@@ -94,9 +146,16 @@
         </div>
 
         <div class="button-group">
-          <button id="preview-btn" class="btn btn-primary">Preview</button>
-          <button id="export-excel-btn" class="btn btn-secondary" disabled>Export to Excel - All Data</button>
-          <button id="export-filtered-btn" class="btn btn-secondary" disabled>Export CSV (Filtered View)</button>
+          <button id="preview-btn" class="btn btn-primary">Generate Report</button>
+          <div class="export-split-group">
+            <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export to Excel (all data)</button>
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Export options" disabled>▾</button>
+            <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true">
+              <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
+              <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
+              <button type="button" class="export-dropdown-item" data-export="excel-filtered" role="menuitem" title="Only rows currently visible in this tab (after filters).">Export to Excel (filtered)</button>
+            </div>
+          </div>
           <div id="export-hint" class="export-hint"></div>
         </div>
       </aside>
@@ -116,7 +175,7 @@
             <div id="preview-meta"></div>
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
-
+          <div id="preview-summary-sticky" class="preview-summary-sticky" aria-hidden="true"></div>
           <!-- Tabs -->
           <div class="tabs">
             <button class="tab-btn active" data-tab="project-epic-level">Project & Epic Level</button>
@@ -128,6 +187,10 @@
           <!-- Tab Content -->
           <div class="tab-content">
             <div id="tab-project-epic-level" class="tab-pane active">
+              <div class="boards-controls done-stories-controls">
+                <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
+                <div class="project-pills" id="boards-project-pills"></div>
+              </div>
               <div id="project-epic-level-content"></div>
               <div class="section-export">
                 <button class="export-section-btn btn btn-secondary" data-section="project-epic-level" style="display: none;">Export CSV</button>
@@ -135,6 +198,10 @@
             </div>
 
             <div id="tab-sprints" class="tab-pane">
+              <div class="sprints-controls done-stories-controls">
+                <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
+                <div class="project-pills" id="sprints-project-pills"></div>
+              </div>
               <div id="sprints-content"></div>
               <div class="section-export">
                 <button class="export-section-btn btn btn-secondary" data-section="sprints" style="display: none;">Export CSV</button>
@@ -163,6 +230,7 @@
     </div>
   </div>
 
+  <div id="tooltip-popover" class="tooltip-popover" role="tooltip" aria-hidden="true"></div>
   <script type="module" src="report.js"></script>
 </body>
 </html>

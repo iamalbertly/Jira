@@ -1,60 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_START = '2025-07-01T00:00';
 const DEFAULT_Q2_END = '2025-09-30T23:59';
-
-async function waitForPreview(page) {
-  const previewBtn = page.locator('#preview-btn');
-  await expect(previewBtn).toBeEnabled({ timeout: 5000 });
-  await previewBtn.click();
-
-  try {
-    await page.waitForSelector('#loading', { state: 'visible', timeout: 5000 });
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 300000 });
-  } catch (e) {
-    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
-    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
-    if (!previewVisible && !errorVisible) {
-      await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-    }
-  }
-
-  try {
-    await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-  } catch (error) {
-    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
-    if (!errorVisible) {
-      throw error;
-    }
-  }
-}
-
-async function runDefaultPreview(page, overrides = {}) {
-  const {
-    projects = ['MPSA', 'MAS'],
-    start = DEFAULT_Q2_START,
-    end = DEFAULT_Q2_END,
-  } = overrides;
-
-  await page.goto('/report');
-
-  if (projects.includes('MPSA')) {
-    await page.check('#project-mpsa');
-  } else {
-    await page.uncheck('#project-mpsa');
-  }
-
-  if (projects.includes('MAS')) {
-    await page.check('#project-mas');
-  } else {
-    await page.uncheck('#project-mas');
-  }
-
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
-
-  await waitForPreview(page);
-}
 
 test.describe('Jira Reporting App - Column Titles & Tooltips', () => {
   test.beforeEach(async ({ page }) => {

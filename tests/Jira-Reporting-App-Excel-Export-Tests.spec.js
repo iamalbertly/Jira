@@ -5,30 +5,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const EXPORT_TIMEOUT_MS = 60000;
 const DIALOG_TIMEOUT_MS = 5000;
-
-// Helper: Wait for preview to complete
-async function waitForPreview(page) {
-  // Wait for either preview content or error to appear
-  await Promise.race([
-    page.waitForSelector('#preview-content', { state: 'visible', timeout: 120000 }),
-    page.waitForSelector('#error', { state: 'visible', timeout: 120000 })
-  ]);
-}
-
-// Helper: Run default preview
-async function runDefaultPreview(page) {
-  await page.goto('/report');
-  
-  // Projects are already checked by default
-  // Dates are already set to Q2 2025
-  
-  // Click preview
-  await page.click('#preview-btn');
-  await waitForPreview(page);
-}
 
 async function clickExcelExportAndWait(page, timeout = EXPORT_TIMEOUT_MS) {
   const downloadPromise = page.waitForEvent('download', { timeout });

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { CSV_COLUMNS as SERVER_CSV_COLUMNS } from '../lib/csv.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 const DEFAULT_PREVIEW_URL = `/preview.json${DEFAULT_Q2_QUERY}`;
@@ -12,6 +13,22 @@ async function safePost(request, url, data, timeoutMs = 10000) {
 }
 
 test.describe('Jira Reporting App - API Integration Tests', () => {
+  test('GET /api/csv-columns returns server SSOT and matches lib/csv.js', async ({ request }) => {
+    const response = await request.get('/api/csv-columns');
+    if (response.status() === 401) {
+      test.skip('Auth required; cannot assert CSV columns contract');
+      return;
+    }
+    if (response.status() === 404) {
+      test.skip('Route /api/csv-columns not found (restart server with latest code)');
+      return;
+    }
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body.columns)).toBe(true);
+    expect(body.columns).toEqual(SERVER_CSV_COLUMNS);
+  });
+
   test('GET /report should return HTML page', async ({ request }) => {
     const response = await request.get('/report');
     expect(response.status()).toBe(200);
@@ -255,6 +272,63 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     // Should have header + 6000 rows = 6001 lines
     const lines = csv.split('\n').filter(l => l.trim());
     expect(lines.length).toBeGreaterThanOrEqual(6000);
+  });
+
+  test('GET /api/boards.json should validate empty projects', async ({ request }) => {
+    const response = await request.get('/api/boards.json?projects=');
+    if (response.status() === 401) {
+      test.skip('Auth required');
+      return;
+    }
+    expect(response.status()).toBe(400);
+    const json = await response.json();
+    expect(json.code).toBe('NO_PROJECTS');
+  });
+
+  test('GET /api/current-sprint.json should require boardId', async ({ request }) => {
+    const response = await request.get('/api/current-sprint.json?projects=MPSA,MAS');
+    if (response.status() === 401) {
+      test.skip('Auth required');
+      return;
+    }
+    expect(response.status()).toBe(400);
+    const json = await response.json();
+    expect(json.code).toBe('MISSING_BOARD_ID');
+  });
+
+  test('GET /api/current-sprint.json should return 404 for unknown board', async ({ request }) => {
+    const response = await request.get('/api/current-sprint.json?boardId=999999&projects=MPSA,MAS');
+    if (response.status() === 401) {
+      test.skip('Auth required');
+      return;
+    }
+    expect(response.status()).toBe(404);
+    const json = await response.json();
+    expect(json.code).toBe('BOARD_NOT_FOUND');
+  });
+
+  test('GET /current-sprint should serve HTML page', async ({ request }) => {
+    const response = await request.get('/current-sprint');
+    if (response.status() === 302) {
+      expect(response.headers()['location']).toMatch(/login|report|\/$/);
+      return;
+    }
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('text/html');
+    const body = await response.text();
+    expect(body).toContain('Current Sprint');
+  });
+
+  test('GET /sprint-leadership should serve HTML page', async ({ request }) => {
+    const response = await request.get('/sprint-leadership');
+    if (response.status() === 302) {
+      expect(response.headers()['location']).toMatch(/login|report|\/$/);
+      return;
+    }
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('text/html');
+    const body = await response.text();
+    expect(body).toContain('Sprint Leadership');
   });
 
   test.skip('GET /preview.json should handle all filter options', async ({ request }) => {

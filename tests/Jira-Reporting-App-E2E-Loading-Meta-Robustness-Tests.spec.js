@@ -1,46 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
-
-// Canonical helper: wait for preview or error, handling fast and slow responses.
-async function waitForPreview(page) {
-  const previewBtn = page.locator('#preview-btn');
-  await expect(previewBtn).toBeEnabled({ timeout: 5000 });
-
-  await previewBtn.click();
-
-  await Promise.race([
-    page.waitForSelector('#loading', { state: 'visible', timeout: 10000 }).catch(() => null),
-    page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }).catch(() => null),
-    page.waitForSelector('#error', { state: 'visible', timeout: 10000 }).catch(() => null),
-  ]);
-
-  const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
-  if (loadingVisible) {
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
-  }
-
-  const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
-  const errorVisible = await page.locator('#error').isVisible().catch(() => false);
-
-  if (!previewVisible && !errorVisible) {
-    await Promise.race([
-      page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 }).catch(() => null),
-      page.waitForSelector('#error', { state: 'visible', timeout: 10000 }).catch(() => null),
-    ]);
-  }
-}
-
-// Shared helper: run a default Q2 preview
-async function runDefaultPreview(page) {
-  await page.goto('/report');
-
-  // Ensure default projects and dates are set
-  await page.check('#project-mpsa').catch(() => {});
-  await page.check('#project-mas').catch(() => {});
-
-  await waitForPreview(page);
-}
 
 test.describe('Jira Reporting App - Loading & Meta Robustness E2E', () => {
   test('fast preview completion still reaches a stable state', async ({ page }) => {

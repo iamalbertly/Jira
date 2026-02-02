@@ -60,7 +60,7 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
 
     // Export buttons should be present (may be disabled before preview)
     await expect(page.locator('#export-excel-btn')).toBeVisible();
-    await expect(page.locator('#export-filtered-btn')).toBeVisible();
+    await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
 
     // Validate no browser errors on load (ignoring favicon noise)
     expect(telemetry.consoleErrors).toEqual([]);

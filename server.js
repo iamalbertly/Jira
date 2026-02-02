@@ -15,14 +15,19 @@ dotenv.config();
 import { createAgileClient, createVersion3Client } from './lib/jiraClients.js';
 import { discoverBoardsForProjects, discoverFields } from './lib/discovery.js';
 import { fetchSprintsForBoard, filterSprintsByOverlap } from './lib/sprints.js';
+import { buildCurrentSprintPayload } from './lib/currentSprint.js';
 import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues } from './lib/issues.js';
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
 import { generateExcelWorkbook, generateExcelFilename, createSummarySheetData } from './lib/excel.js';
 import { mapColumnsToBusinessNames } from './lib/columnMapping.js';
-import { addKPIColumns } from './lib/kpiCalculations.js';
+import { addKPIColumns, calculateWorkDays } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
+
+const DEFAULT_SNAPSHOT_PROJECTS = ['MPSA', 'MAS'];
+const SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const SNAPSHOT_DELAY_BETWEEN_BOARDS_MS = 2000;
 
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection', reason);
@@ -184,6 +189,155 @@ app.get('/report', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /current-sprint - Current sprint transparency page (squad view)
+ */
+app.get('/current-sprint', requireAuth, (req, res) => {
+  res.sendFile('current-sprint.html', { root: './public' });
+});
+
+/**
+ * GET /sprint-leadership - Leadership view (normalized trends, risk signals; no rankings)
+ */
+app.get('/sprint-leadership', requireAuth, (req, res) => {
+  res.sendFile('leadership.html', { root: './public' });
+});
+
+app.get('/api/csv-columns', requireAuth, (req, res) => {
+  res.json({ columns: CSV_COLUMNS });
+});
+
+/**
+ * GET /api/boards.json - List boards for given projects (for current-sprint board selector)
+ * Query: projects (optional, default MPSA,MAS)
+ */
+app.get('/api/boards.json', requireAuth, async (req, res) => {
+  try {
+    const projectsParam = req.query.projects;
+    const selectedProjects = projectsParam != null
+      ? projectsParam.split(',').map(p => p.trim()).filter(Boolean)
+      : ['MPSA', 'MAS'];
+    if (!selectedProjects.length) {
+      return res.status(400).json({ error: 'At least one project required', code: 'NO_PROJECTS' });
+    }
+    const agileClient = createAgileClient();
+    const boards = await retryOnRateLimit(
+      () => discoverBoardsForProjects(selectedProjects, agileClient),
+      3,
+      'discoverBoards'
+    );
+    const list = boards.map(b => ({
+      id: b.id,
+      name: b.name,
+      type: b.type,
+      projectKey: b.location?.projectKey || null,
+    }));
+    res.json({ projects: selectedProjects, boards: list });
+  } catch (error) {
+    logger.error('Error fetching boards', error);
+    res.status(500).json({ error: 'Failed to fetch boards', code: 'BOARDS_ERROR', message: error.message });
+  }
+});
+
+/**
+ * GET /api/current-sprint.json - Current sprint transparency for one board (protected when auth enabled)
+ * Query: boardId (required), projects (optional, default MPSA,MAS), completionAnchor (optional, default resolution)
+ */
+app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
+  try {
+    const boardIdParam = req.query.boardId;
+    const projectsParam = req.query.projects;
+    const selectedProjects = projectsParam != null
+      ? projectsParam.split(',').map(p => p.trim()).filter(Boolean)
+      : ['MPSA', 'MAS'];
+    if (!selectedProjects.length) {
+      return res.status(400).json({
+        error: 'At least one project required',
+        code: 'NO_PROJECTS',
+        message: 'Provide boardId and optionally projects (e.g. projects=MPSA,MAS).',
+      });
+    }
+    const boardId = boardIdParam != null ? Number(boardIdParam) : null;
+    if (boardId == null || Number.isNaN(boardId)) {
+      return res.status(400).json({
+        error: 'boardId required',
+        code: 'MISSING_BOARD_ID',
+        message: 'Provide boardId (e.g. boardId=123).',
+      });
+    }
+
+    const agileClient = createAgileClient();
+    const version3Client = createVersion3Client();
+    const boards = await retryOnRateLimit(
+      () => discoverBoardsForProjects(selectedProjects, agileClient),
+      3,
+      'discoverBoardsForCurrentSprint'
+    );
+    const board = boards.find(b => b.id === boardId);
+    if (!board) {
+      return res.status(404).json({
+        error: 'Board not found',
+        code: 'BOARD_NOT_FOUND',
+        message: `No board with id ${boardId} in projects ${selectedProjects.join(', ')}.`,
+      });
+    }
+
+    const projectKeys = board.location?.projectKey ? [board.location.projectKey] : selectedProjects;
+    const forceLive = req.query.live === 'true' || req.query.refresh === 'true';
+    const snapshotKey = `currentSprintSnapshot:${boardId}`;
+
+    if (!forceLive) {
+      const cached = cache.get(snapshotKey);
+      const cachedPayload = cached?.value ?? cached;
+      if (cachedPayload && typeof cachedPayload === 'object') {
+        const out = { ...cachedPayload };
+        out.meta = out.meta || {};
+        out.meta.fromSnapshot = true;
+        out.meta.snapshotAt = cached?.cachedAt ?? null;
+        return res.json(out);
+      }
+    }
+
+    const fields = await retryOnRateLimit(() => discoverFields(version3Client), 3, 'discoverFields');
+
+    const completionAnchor = (req.query.completionAnchor || 'resolution').toLowerCase();
+    const supportedAnchors = ['resolution', 'lastsubtask', 'statusdone'];
+    const anchor = supportedAnchors.includes(completionAnchor) ? completionAnchor : 'resolution';
+
+    const payload = await buildCurrentSprintPayload({
+      board: { id: board.id, name: board.name, location: board.location },
+      projectKeys,
+      agileClient,
+      fields: {
+        storyPointsFieldId: fields.storyPointsFieldId,
+        epicLinkFieldId: fields.epicLinkFieldId,
+        ebmFieldIds: fields.ebmFieldIds || {},
+      },
+      options: { completionAnchor: anchor },
+    });
+
+    if (!payload.meta) payload.meta = {};
+    payload.meta.completionAnchor = anchor;
+    payload.meta.fromSnapshot = false;
+    payload.meta.snapshotAt = null;
+
+    try {
+      cache.set(snapshotKey, payload, CACHE_TTL.CURRENT_SPRINT_SNAPSHOT);
+    } catch (e) {
+      logger.warn('Failed to cache current-sprint snapshot', { boardId, error: e.message });
+    }
+
+    res.json(payload);
+  } catch (error) {
+    logger.error('Error generating current-sprint payload', error);
+    res.status(500).json({
+      error: 'Failed to generate current sprint data',
+      code: 'CURRENT_SPRINT_ERROR',
+      message: error.message || 'An unexpected error occurred.',
+    });
+  }
+});
+
+/**
  * GET /preview.json - Generate preview data (protected when auth enabled)
  */
 app.get('/preview.json', requireAuth, async (req, res) => {
@@ -223,7 +377,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       return res.status(400).json({ 
         error: 'At least one project must be selected',
         code: 'NO_PROJECTS_SELECTED',
-        message: 'Please select at least one project (MPSA or MAS) to generate a report.'
+        message: 'Please select at least one project to generate a report.'
       });
     }
     
@@ -809,11 +963,11 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       });
     }
 
-    // Build sprint counts for display
+    // Build sprint counts for display with time-normalized fields
     const sprintsWithCounts = sprintsIncluded.map(sprint => {
       const sprintRows = allRows.filter(r => r.sprintId === sprint.id);
       const doneNow = sprintRows.length;
-      
+
       let doneByEnd = doneNow;
       if (requireResolvedBySprintEnd) {
         doneByEnd = sprintRows.filter(row => {
@@ -827,8 +981,17 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         doneSP = sprintRows.reduce((sum, row) => sum + (parseFloat(row.storyPoints) || 0), 0);
       }
 
-      // Get project keys from rows in this sprint
       const projectKeys = [...new Set(sprintRows.map(r => r.projectKey))];
+
+      const sprintCalendarDays = sprint.startDate && sprint.endDate
+        ? Math.ceil((new Date(sprint.endDate) - new Date(sprint.startDate)) / (24 * 60 * 60 * 1000))
+        : null;
+      const sprintWorkDays = sprint.startDate && sprint.endDate
+        ? calculateWorkDays(sprint.startDate, sprint.endDate)
+        : null;
+      const workDaysNum = typeof sprintWorkDays === 'number' ? sprintWorkDays : null;
+      const spPerSprintDay = workDaysNum && workDaysNum > 0 ? doneSP / workDaysNum : null;
+      const storiesPerSprintDay = workDaysNum && workDaysNum > 0 ? doneNow / workDaysNum : null;
 
       return {
         ...sprint,
@@ -836,9 +999,46 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         doneStoriesNow: doneNow,
         doneStoriesBySprintEnd: doneByEnd,
         doneSP,
-        excludedWrongProject: 0, // Would require fetching all sprint issues to calculate accurately
+        excludedWrongProject: 0,
+        sprintCalendarDays,
+        sprintWorkDays: workDaysNum,
+        spPerSprintDay,
+        storiesPerSprintDay,
       };
     });
+
+    // Indexed delivery per board: current SP/day ÷ rolling avg (last 3–6 sprints)
+    const ROLLING_SPRINTS = 6;
+    const boardIndexedDelivery = new Map();
+    for (const board of boards) {
+      const boardSprints = sprintsWithCounts
+        .filter(s => s.boardId === board.id)
+        .sort((a, b) => new Date(b.endDate || 0).getTime() - new Date(a.endDate || 0).getTime());
+      const closed = boardSprints.filter(s => (s.state || '').toLowerCase() === 'closed').slice(0, ROLLING_SPRINTS);
+      const active = boardSprints.find(s => (s.state || '').toLowerCase() === 'active');
+      const currentSprint = active || closed[0];
+      if (!currentSprint || closed.length === 0) continue;
+      let totalSP = 0;
+      let totalDays = 0;
+      for (const s of closed) {
+        const wd = s.sprintWorkDays;
+        if (wd && wd > 0) {
+          totalSP += s.doneSP || 0;
+          totalDays += wd;
+        }
+      }
+      const rollingAvgSPPerDay = totalDays > 0 ? totalSP / totalDays : null;
+      const currentSPPerDay = currentSprint.spPerSprintDay;
+      const index = rollingAvgSPPerDay && rollingAvgSPPerDay > 0 && currentSPPerDay != null
+        ? currentSPPerDay / rollingAvgSPPerDay
+        : null;
+      boardIndexedDelivery.set(board.id, {
+        currentSPPerDay,
+        rollingAvgSPPerDay,
+        sprintCount: closed.length,
+        index,
+      });
+    }
 
     // Response payload
     const generatedAt = new Date().toISOString();
@@ -849,20 +1049,47 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     meta.partial = isPartial;
     meta.partialReason = partialReason;
 
+    // Hygiene gates for Epic TTM
+    const EPIC_HYGIENE_PCT_THRESHOLD = 20;
+    const EPIC_SPAN_SPRINTS_THRESHOLD = 12;
+    const totalStories = allRows.length;
+    const storiesWithoutEpic = allRows.filter(r => !r.epicKey || r.epicKey === '').length;
+    const pctWithoutEpic = totalStories > 0 ? (storiesWithoutEpic / totalStories) * 100 : 0;
+    const epicToSprints = new Map();
+    for (const row of allRows) {
+      if (!row.epicKey) continue;
+      if (!epicToSprints.has(row.epicKey)) epicToSprints.set(row.epicKey, new Set());
+      epicToSprints.get(row.epicKey).add(row.sprintId);
+    }
+    let epicsSpanningTooMany = [];
+    for (const [epicKey, sprintIds] of epicToSprints) {
+      if (sprintIds.size > EPIC_SPAN_SPRINTS_THRESHOLD) epicsSpanningTooMany.push(epicKey);
+    }
+    const epicHygieneOk = pctWithoutEpic <= EPIC_HYGIENE_PCT_THRESHOLD && epicsSpanningTooMany.length === 0;
+    meta.epicHygiene = {
+      ok: epicHygieneOk,
+      pctWithoutEpic: Math.round(pctWithoutEpic * 10) / 10,
+      epicsSpanningOverN: epicsSpanningTooMany.length,
+      epicsSpanningOverNKeys: epicsSpanningTooMany.slice(0, 5),
+      message: !epicHygieneOk
+        ? `Epic hygiene insufficient: ${pctWithoutEpic.toFixed(1)}% stories without epic${epicsSpanningTooMany.length ? `; ${epicsSpanningTooMany.length} epic(s) span > ${EPIC_SPAN_SPRINTS_THRESHOLD} sprints` : ''}.`
+        : null,
+    };
+
     const responsePayload = {
       meta,
       boards: boards.map(b => {
-        // Try to extract project key from board location
-        const projectKey = b.location?.projectKey || 
-                          (b.location?.projectId ? 
+        const projectKey = b.location?.projectKey ||
+                          (b.location?.projectId ?
                             selectedProjects.find(p => b.location.projectId === p) : null) ||
                           null;
-        
+        const indexedDelivery = boardIndexedDelivery.get(b.id) || null;
         return {
           id: b.id,
           name: b.name,
           type: b.type,
           projectKeys: projectKey ? [projectKey] : selectedProjects,
+          indexedDelivery,
         };
       }),
       sprintsIncluded: sprintsWithCounts,
@@ -1011,6 +1238,46 @@ app.use((err, req, res, next) => {
   });
 });
 
+/**
+ * Refresh current-sprint snapshots for all boards (DEFAULT_SNAPSHOT_PROJECTS).
+ * Runs sequentially with delay between boards to avoid Jira rate limits.
+ */
+async function refreshCurrentSprintSnapshots() {
+  if (!process.env.JIRA_HOST || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) {
+    return;
+  }
+  try {
+    const agileClient = createAgileClient();
+    const version3Client = createVersion3Client();
+    const boards = await discoverBoardsForProjects(DEFAULT_SNAPSHOT_PROJECTS, agileClient);
+    const fields = await discoverFields(version3Client);
+    const fieldOpts = {
+      storyPointsFieldId: fields.storyPointsFieldId,
+      epicLinkFieldId: fields.epicLinkFieldId,
+      ebmFieldIds: fields.ebmFieldIds || {},
+    };
+    for (const board of boards) {
+      try {
+        const projectKeys = board.location?.projectKey ? [board.location.projectKey] : DEFAULT_SNAPSHOT_PROJECTS;
+        const payload = await buildCurrentSprintPayload({
+          board: { id: board.id, name: board.name, location: board.location },
+          projectKeys,
+          agileClient,
+          fields: fieldOpts,
+        });
+        cache.set(`currentSprintSnapshot:${board.id}`, payload, CACHE_TTL.CURRENT_SPRINT_SNAPSHOT);
+        logger.debug('Current-sprint snapshot refreshed', { boardId: board.id, boardName: board.name });
+      } catch (err) {
+        logger.warn('Current-sprint snapshot refresh failed for board', { boardId: board.id, error: err.message });
+      }
+      await new Promise(r => setTimeout(r, SNAPSHOT_DELAY_BETWEEN_BOARDS_MS));
+    }
+    logger.info('Current-sprint snapshot refresh completed', { boardCount: boards.length });
+  } catch (err) {
+    logger.error('Current-sprint snapshot refresh failed', { error: err.message });
+  }
+}
+
 // Start server
 app.listen(PORT, () => {
   // Keep console.log for startup messages
@@ -1030,4 +1297,8 @@ app.listen(PORT, () => {
   }
   
   logger.info('Server started', { port: PORT, credentialsLoaded: hasHost && hasEmail && hasToken });
+
+  // Snapshot refresh: first run after 30s, then hourly
+  setTimeout(() => refreshCurrentSprintSnapshots(), 30 * 1000);
+  setInterval(() => refreshCurrentSprintSnapshots(), SNAPSHOT_REFRESH_INTERVAL_MS);
 });

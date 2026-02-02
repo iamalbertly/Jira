@@ -1,61 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
-
-async function runDefaultPreview(page, overrides = {}) {
-  const {
-    projects = ['MPSA', 'MAS'],
-    start = '2025-07-01T00:00',
-    end = '2025-09-30T23:59',
-    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-    // No need to pass these parameters - they're always included in reports
-  } = overrides;
-
-  await page.goto('/report');
-
-  // Configure projects
-  const mpsaChecked = projects.includes('MPSA');
-  const masChecked = projects.includes('MAS');
-
-  if (mpsaChecked) {
-    await page.check('#project-mpsa');
-  } else {
-    await page.uncheck('#project-mpsa');
-  }
-
-  if (masChecked) {
-    await page.check('#project-mas');
-  } else {
-    await page.uncheck('#project-mas');
-  }
-
-  // Configure date window
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
-
-  // Configure options
-  // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-  // No need to check/uncheck these options - they're always included in reports
-
-  // Trigger preview and wait for loading overlay to appear and disappear
-  const previewBtn = page.locator('#preview-btn');
-  await expect(previewBtn).toBeEnabled({ timeout: 5000 });
-  await previewBtn.click();
-  
-  // Wait for either loading to appear or error to show (or preview to complete quickly)
-  try {
-    await page.waitForSelector('#loading', { state: 'visible', timeout: 10000 });
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 600000 });
-  } catch (e) {
-    // Loading might not appear if request fails quickly - check for error or preview
-    const errorVisible = await page.locator('#error').isVisible();
-    const previewVisible = await page.locator('#preview-content').isVisible();
-    if (!errorVisible && !previewVisible) {
-      throw e; // Re-throw if neither error nor preview appeared
-    }
-  }
-}
 
 test.describe('RED LINE ITEMS KPI Validation', () => {
   test.beforeEach(async ({ page }) => {
@@ -100,13 +47,13 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
       console.log(`[TEST] ⚠ API returned status ${response.status()}, may need Jira credentials`);
     }
 
-    // Check that export buttons are enabled
-    const exportFilteredBtn = page.locator('#export-filtered-btn');
-    await expect(exportFilteredBtn).toBeEnabled({ timeout: 10000 });
+    // Check that export is enabled after preview
+    await expect(page.locator('#export-excel-btn')).toBeEnabled({ timeout: 10000 });
+    await page.click('.tab-btn[data-tab="done-stories"]');
+    await page.waitForSelector('.export-section-btn[data-section="done-stories"]', { state: 'visible', timeout: 5000 });
 
-    // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-    await exportFilteredBtn.click();
+    await page.click('.export-section-btn[data-section="done-stories"]');
     const download = await downloadPromise;
 
     // Save downloaded file

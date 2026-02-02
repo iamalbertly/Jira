@@ -10,7 +10,8 @@
     "test:all": "node scripts/Jira-Reporting-App-Test-Orchestration-Runner.js",
     "test:e2e": "playwright test tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js",
     "test:api": "playwright test tests/Jira-Reporting-App-API-Integration-Tests.spec.js",
-    "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js"
+    "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js",
+    "test:current-sprint-leadership": "playwright test tests/Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js"
   },
   "keywords": ["voda-agile-board", "agile", "reporting", "sprint", "jira"],
   "author": "",

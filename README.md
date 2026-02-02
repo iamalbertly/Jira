@@ -14,6 +14,8 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Runtime Discovery**: Automatically discovers boards and field IDs from your Jira instance
 - **Error Handling**: Robust error handling with user-friendly messages and retry logic
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
+- **Current Sprint Transparency**: Squad view at `/current-sprint` – planned vs observed work, daily completion histogram, scope changes
+- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` – indexed delivery, predictability, no rankings
 
 ## Prerequisites
 
@@ -62,7 +64,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 
 1. Open your browser and go to `http://localhost:3000` (or the port in `PORT`).
 2. Log in with the credentials configured in your environment (see Environment Variables).
-3. After login you are redirected to the report at `http://localhost:3000/report`.
+3. After login you can open **Report**, **Current Sprint** (squad view), or **Sprint Leadership** from the app; the default redirect is `http://localhost:3000/report`.
 
 ### Quickstart for Scrum Masters & Leaders
 
@@ -156,6 +158,30 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 ### GET /report
 Serves the main report page HTML.
 
+### GET /current-sprint
+Serves the Current Sprint Transparency HTML page (squad view).
+
+### GET /sprint-leadership
+Serves the Sprint Leadership view HTML page.
+
+### GET /api/boards.json
+Returns a list of boards for the given projects (for the current-sprint board selector).
+
+**Query Parameters:**
+- `projects` (required): Comma-separated project keys (e.g., `MPSA,MAS`)
+
+**Response:** `{ boards: Array<{ id: number, name: string, ... }> }`. Returns 400 with code `NO_PROJECTS` when `projects` is missing or empty.
+
+### GET /api/current-sprint.json
+Returns the current-sprint transparency payload for a board (snapshot-first; use `live=true` to bypass cache).
+
+**Query Parameters:**
+- `boardId` (required): Jira board ID
+- `projects` (optional): Comma-separated project keys
+- `live` (optional): `true` to fetch live from Jira instead of cached snapshot
+
+**Response:** Current-sprint payload (sprint details, daily completion, scope changes, burndown context). Returns 400 with code `MISSING_BOARD_ID` when `boardId` is missing; 404 with code `BOARD_NOT_FOUND` when the board is not in the given projects.
+
 ### GET /preview.json
 Generates preview data from Jira.
 
@@ -246,12 +272,20 @@ npm run test:all
 
 This runs the test orchestration script which:
 1. Installs dependencies
-2. Runs API integration tests
-3. Runs E2E user journey tests
-4. Runs UX reliability tests (validates data quality indicators, error handling, UI improvements)
-5. Runs UX critical fixes tests (validates Epic Title/Summary, merged throughput, renamed labels, per-section exports, TTM definition, export loading states, button visibility)
-6. Terminates on first error
-7. Shows all steps in foreground with live output from each test command
+2. Runs API integration tests (includes `/api/boards.json`, `/api/current-sprint.json`, `/current-sprint`, `/sprint-leadership`)
+3. Runs Login Security Deploy Validation tests
+4. Runs E2E user journey tests
+5. Runs UX reliability tests (validates data quality indicators, error handling, UI improvements)
+6. Runs UX critical fixes tests (validates Epic Title/Summary, merged throughput, renamed labels, per-section exports, TTM definition, export loading states, button visibility)
+7. Runs Feedback & Date Display tests
+8. Runs Column Titles & Tooltips tests
+9. Runs Validation Plan tests
+10. Runs Excel Export tests
+11. Runs Refactor SSOT Validation tests
+12. Runs Boards Summary Filters Export Validation tests
+13. Runs Current Sprint and Leadership View tests
+14. Terminates on first error
+15. Shows all steps in foreground with live output from each test command
 
 ### Run Specific Test Suites
 ```bash
@@ -263,6 +297,9 @@ npm run test:api
 
 # Validation plan tests (UI + telemetry)
 npm run test:validation
+
+# Current Sprint and Leadership view E2E tests
+npm run test:current-sprint-leadership
 ```
 
 ### Test Coverage and Caching Behavior
@@ -291,10 +328,7 @@ npm run test:validation
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs:
-  1. `npm install`
-  2. Playwright API integration tests (headed)
-  3. Playwright E2E user-journey tests (headed)
+- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View) with `--headed`, `--max-failures=1`, and `--workers=1`.
 - Playwright is configured (via `playwright.config.js`) to:
   - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL`).
   - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server).
@@ -341,10 +375,80 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 │   ├── Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
 │   ├── Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
 │   ├── Jira-Reporting-App-Excel-Export-Tests.spec.js
-│   └── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
+│   ├── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
+│   └── Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
 └── scripts/
     └── Jira-Reporting-App-Test-Orchestration-Runner.js
 ```
+
+## Metric guide and governance
+
+Use metrics with explicit assumptions. Every view should make clear what is measured, what is assumed, and what could be wrong. Do not use metrics for performance review, ranking teams, or weaponizing numbers.
+
+### Per-metric guardrails
+
+- **Throughput (SP / stories per sprint)**  
+  **Measures:** Volume of work completed in the window (story points and story count).  
+  **Does not measure:** Quality, complexity, or team capacity.  
+  **Can mislead when:** Sprint length or scope varies; SP is inconsistent across teams.  
+  **Do not use for:** Comparing raw totals across teams; performance appraisal.
+
+- **Predictability % (committed vs delivered)**  
+  **Measures:** How much of the committed scope (at sprint start) was delivered by sprint end.  
+  **Does not measure:** Whether scope change was justified or whether the team “failed.”  
+  **Can mislead when:** Committed is approximated from creation date; late scope add is treated as failure.  
+  **Do not use for:** Single-sprint “team quality” score; blaming teams for unplanned spillover.
+
+- **Planned carryover vs unplanned spillover**  
+  **Measures:** Delivered work that was in plan at sprint start vs added mid-sprint.  
+  **Does not measure:** Why scope changed or whether it was appropriate.  
+  **Do not use for:** Treating unplanned spillover as failure; ranking without context.
+
+- **Rework % (bug SP vs story SP)**  
+  **Measures:** Proportion of delivered effort that was bugs vs stories.  
+  **Does not measure:** Root cause or whether bugs were regression vs new work.  
+  **Can mislead when:** Bug definition or SP usage differs across teams.  
+  **Do not use for:** Naming “worst” team; performance review.
+
+- **Epic TTM (time to market)**  
+  **Measures:** Calendar or working days from Epic start to Epic (or story) completion.  
+  **Does not measure:** Value delivered or quality of the epic.  
+  **Can mislead when:** Epic hygiene is poor (many stories without epic; epics spanning many sprints). Epic TTM is suppressed when hygiene is insufficient.  
+  **Do not use for:** Comparing teams without normalizing for epic size or type.
+
+- **Indexed delivery score**  
+  **Measures:** Current SP per sprint day vs that team’s own rolling average (last 3–6 sprints).  
+  **Does not measure:** Absolute productivity or cross-team comparison.  
+  **Can mislead when:** Used to rank teams; baseline period is unrepresentative.  
+  **Do not use for:** Ranking teams; performance review.
+
+- **Burndown / remaining SP by day**  
+  **Measures:** Context for how remaining scope decreased over the sprint (when completion anchor is resolution date).  
+  **Does not measure:** Effort or “ideal” line accuracy.  
+  **Can mislead when:** Scope changes are not shown; used as a single success criterion.  
+  **Do not use for:** Grading the sprint; ignoring scope-change context.
+
+- **Daily completion histogram**  
+  **Measures:** Stories (and optionally task movement) completed per calendar day.  
+  **Does not measure:** Effort or quality.  
+  **Do not use for:** Inferring “slow” days without scope/blocker context.
+
+- **Observed work window**  
+  **Measures:** Earliest and latest issue activity (created/resolution) in the sprint.  
+  **Does not measure:** Whether sprint dates were wrong; only that work fell inside or outside planned dates.  
+  **Do not use for:** Blaming teams when work extends past sprint end; use for transparency only.
+
+### Metrics that look good but are not trustworthy
+
+- **Raw SP totals across teams** — Sprint length and scope differ; normalize by sprint days and use indexed delivery for trend, not rank.
+- **Sprint count as productivity** — More sprints do not mean more delivery; use stories/SP per sprint day.
+- **Single-sprint predictability as team quality** — One sprint is noise; use planned vs unplanned breakdown and trends.
+- **Unplanned spillover as failure** — Mid-sprint adds (bugs, support) are reality; show cause (Bug/Support/Feature), not blame.
+
+### Example: misuse vs correct interpretation
+
+- **Misuse:** “Team A has lower predictability % than Team B, so Team A is underperforming.”  
+- **Correct:** “Team A had more unplanned spillover (bugs/support). Check scope-change cause and sprint hygiene before comparing predictability.”
 
 ## Troubleshooting
 

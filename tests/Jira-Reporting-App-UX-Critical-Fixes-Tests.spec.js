@@ -1,67 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
 const DIALOG_TIMEOUT_MS = 5000;
-
-// Helper: Wait for preview to complete
-async function waitForPreview(page) {
-  const previewBtn = page.locator('#preview-btn');
-  await expect(previewBtn).toBeEnabled({ timeout: 5000 });
-  await previewBtn.click();
-  
-  // Wait for either loading to appear or preview to complete quickly
-  try {
-    await page.waitForSelector('#loading', { state: 'visible', timeout: 5000 });
-    await page.waitForSelector('#loading', { state: 'hidden', timeout: 300000 });
-  } catch (e) {
-    // Loading might not appear if request completes quickly - check for preview or error
-    const previewVisible = await page.locator('#preview-content').isVisible();
-    const errorVisible = await page.locator('#error').isVisible();
-    if (!previewVisible && !errorVisible) {
-      // Wait a bit more for preview to appear
-      await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-    }
-  }
-  
-  await page.waitForSelector('#preview-content', { state: 'visible', timeout: 10000 });
-}
-
-// Helper: Run default preview with options
-async function runDefaultPreview(page, overrides = {}) {
-  const {
-    projects = ['MPSA', 'MAS'],
-    start = '2025-07-01T00:00',
-    end = '2025-09-30T23:59',
-    // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-    // No need to pass these parameters - they're always included in reports
-  } = overrides;
-
-  await page.goto('/report');
-
-  // Configure projects
-  if (projects.includes('MPSA')) {
-    await page.check('#project-mpsa');
-  } else {
-    await page.uncheck('#project-mpsa');
-  }
-
-  if (projects.includes('MAS')) {
-    await page.check('#project-mas');
-  } else {
-    await page.uncheck('#project-mas');
-  }
-
-  // Configure date window
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
-
-  // Configure options
-  // Note: Story Points, Epic TTM, and Bugs/Rework are now mandatory (always enabled)
-  // No need to check/uncheck these options - they're always included in reports
-
-  // Trigger preview
-  await waitForPreview(page);
-}
 
 async function clickAndWaitForDownload(page, selector, timeout = 15000) {
   const downloadPromise = page.waitForEvent('download', { timeout }).catch(() => null);
@@ -285,7 +226,6 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       return;
     }
 
-    await expect(page.locator('#export-filtered-btn')).toBeDisabled();
     await expect(page.locator('#export-hint')).toContainText('No rows match');
   });
 
@@ -808,11 +748,12 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       console.log('[TEST] Metrics tab not visible, skipping metrics export validation');
     }
 
-    // Test 5: Filtered view export
-    const filteredExportBtn = page.locator('#export-filtered-btn');
-    if (await filteredExportBtn.isEnabled()) {
+    // Test 5: Filtered view export (dropdown CSV filtered)
+    await page.click('#export-dropdown-trigger');
+    const csvFilteredItem = page.locator('.export-dropdown-item[data-export="csv-filtered"]');
+    if (await csvFilteredItem.isEnabled().catch(() => false)) {
       const downloadPromise5 = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
-      await filteredExportBtn.click();
+      await csvFilteredItem.click();
       const download5 = await downloadPromise5;
       if (download5) {
         const path5 = await download5.path();
