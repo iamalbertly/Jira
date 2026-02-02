@@ -4,48 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { runDefaultPreview, waitForPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
-
-const IGNORE_CONSOLE_ERRORS = [
-  'Failed to load resource: the server responded with a status of 404 (Not Found)'
-];
-
-const IGNORE_REQUEST_PATTERNS = [
-  /\/favicon\.ico/i
-];
-
-function captureBrowserTelemetry(page) {
-  const consoleErrors = [];
-  const pageErrors = [];
-  const failedRequests = [];
-
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      const text = msg.text();
-      if (!IGNORE_CONSOLE_ERRORS.includes(text)) {
-        consoleErrors.push(text);
-      }
-    }
-  });
-
-  page.on('pageerror', error => {
-    pageErrors.push(error.message);
-  });
-
-  page.on('requestfailed', request => {
-    const url = request.url();
-    const shouldIgnore = IGNORE_REQUEST_PATTERNS.some(pattern => pattern.test(url));
-    if (!shouldIgnore) {
-      failedRequests.push({
-        url,
-        method: request.method(),
-        failure: request.failure()?.errorText || 'Unknown failure'
-      });
-    }
-  });
-
-  return { consoleErrors, pageErrors, failedRequests };
-}
+import { runDefaultPreview, waitForPreview, captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Jira Reporting App - UX Trust Validation (UI + Console)', () => {
   test('report page loads with expected controls and no console errors', async ({ page }) => {
@@ -58,6 +17,10 @@ test.describe('Jira Reporting App - UX Trust Validation (UI + Console)', () => {
     await expect(page.locator('#export-excel-btn')).toBeVisible();
     await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
     await expect(page.locator('#preview-content')).toBeHidden();
+
+    await expect(page.locator('nav.app-nav')).toBeVisible();
+    await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
+    await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);
@@ -119,6 +82,8 @@ test.describe('Jira Reporting App - UX Trust Validation (UI + Console)', () => {
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
+    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
+    await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');
     const options = await page.locator('#board-select option').allTextContents();
     expect(options.length).toBeGreaterThanOrEqual(1);
 
@@ -141,6 +106,8 @@ test.describe('Jira Reporting App - UX Trust Validation (UI + Console)', () => {
     await expect(page.locator('#leadership-end')).toBeVisible();
     await expect(page.locator('#leadership-preview')).toBeVisible();
     await expect(page.locator('#leadership-preview')).toContainText('Preview');
+    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
+    await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);

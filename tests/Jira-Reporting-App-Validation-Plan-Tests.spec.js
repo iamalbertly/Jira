@@ -1,45 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const IGNORE_CONSOLE_ERRORS = [
-  'Failed to load resource: the server responded with a status of 404 (Not Found)'
-];
-
-const IGNORE_REQUEST_PATTERNS = [
-  /\/favicon\.ico/i
-];
-
-function captureBrowserTelemetry(page) {
-  const consoleErrors = [];
-  const pageErrors = [];
-  const failedRequests = [];
-
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      const text = msg.text();
-      if (!IGNORE_CONSOLE_ERRORS.includes(text)) {
-        consoleErrors.push(text);
-      }
-    }
-  });
-
-  page.on('pageerror', error => {
-    pageErrors.push(error.message);
-  });
-
-  page.on('requestfailed', request => {
-    const url = request.url();
-    const shouldIgnore = IGNORE_REQUEST_PATTERNS.some(pattern => pattern.test(url));
-    if (!shouldIgnore) {
-      failedRequests.push({
-        url,
-        method: request.method(),
-        failure: request.failure()?.errorText || 'Unknown failure'
-      });
-    }
-  });
-
-  return { consoleErrors, pageErrors, failedRequests };
-}
+import { captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
   test('report page loads with expected controls and no console errors', async ({ page }) => {
@@ -53,6 +13,12 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
     await expect(page.locator('#start-date')).toBeVisible();
     await expect(page.locator('#end-date')).toBeVisible();
     await expect(page.locator('#preview-btn')).toBeVisible();
+
+    // Main nav: Report | Current Sprint | Leadership
+    const nav = page.locator('nav.app-nav');
+    await expect(nav).toBeVisible();
+    await expect(nav.locator('a[href="/current-sprint"]')).toContainText('Current Sprint');
+    await expect(nav.locator('a[href="/sprint-leadership"]')).toContainText('Leadership');
 
     // Tabs are present in the DOM but hidden until preview is generated
     await expect(page.locator('.tabs')).toHaveCount(1);

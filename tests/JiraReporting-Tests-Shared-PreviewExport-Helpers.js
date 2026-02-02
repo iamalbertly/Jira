@@ -1,6 +1,52 @@
 /**
- * SSOT for preview and export test flows. Use in E2E, Excel, UX, Column Tooltip, and Refactor Validation specs.
+ * SSOT for preview, export, and browser telemetry test flows. Use in E2E, Excel, UX, Column Tooltip, Refactor Validation, Validation Plan, and UX Trust specs.
  */
+
+export const IGNORE_CONSOLE_ERRORS = [
+  'Failed to load resource: the server responded with a status of 404 (Not Found)'
+];
+
+export const IGNORE_REQUEST_PATTERNS = [
+  /\/favicon\.ico/i
+];
+
+/**
+ * Captures browser console errors, page errors, and failed requests for assertion in tests.
+ * @param {import('@playwright/test').Page} page
+ * @returns {{ consoleErrors: string[], pageErrors: string[], failedRequests: Array<{ url: string, method: string, failure: string }> }}
+ */
+export function captureBrowserTelemetry(page) {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const failedRequests = [];
+
+  page.on('console', msg => {
+    if (msg.type() === 'error') {
+      const text = msg.text();
+      if (!IGNORE_CONSOLE_ERRORS.includes(text)) {
+        consoleErrors.push(text);
+      }
+    }
+  });
+
+  page.on('pageerror', error => {
+    pageErrors.push(error.message);
+  });
+
+  page.on('requestfailed', request => {
+    const url = request.url();
+    const shouldIgnore = IGNORE_REQUEST_PATTERNS.some(pattern => pattern.test(url));
+    if (!shouldIgnore) {
+      failedRequests.push({
+        url,
+        method: request.method(),
+        failure: request.failure()?.errorText || 'Unknown failure'
+      });
+    }
+  });
+
+  return { consoleErrors, pageErrors, failedRequests };
+}
 
 /**
  * Waits for preview to complete (preview content or error visible, loading hidden).

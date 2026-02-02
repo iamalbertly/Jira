@@ -74,6 +74,22 @@ header h1 {
   font-size: 0.95em;
 }
 
+.app-nav {
+  margin-top: 10px;
+  font-size: 0.95em;
+}
+.app-nav a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.app-nav a:hover {
+  text-decoration: underline;
+}
+.app-nav .current {
+  color: var(--muted);
+  cursor: default;
+}
+
 .btn-compact {
   width: auto;
   padding: 8px 14px;

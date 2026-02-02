@@ -45,11 +45,13 @@
         <input type="date" id="leadership-end">
         <button id="leadership-preview" class="btn btn-primary">Preview</button>
       </div>
-      <p style="margin-top: 8px;">
-        <a href="/report" class="nav-link">Report</a>
+      <nav class="app-nav" style="margin-top: 8px;" aria-label="Main">
+        <a href="/report">Report</a>
         <span style="margin: 0 8px;">|</span>
-        <a href="/current-sprint" class="nav-link">Current Sprint (Squad)</a>
-      </p>
+        <a href="/current-sprint">Current Sprint (Squad)</a>
+        <span style="margin: 0 8px;">|</span>
+        <span class="current">Leadership</span>
+      </nav>
     </header>
     <main>
       <div id="leadership-loading">Set date range and click Preview to load normalized trends.</div>

@@ -65,6 +65,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 1. Open your browser and go to `http://localhost:3000` (or the port in `PORT`).
 2. Log in with the credentials configured in your environment (see Environment Variables).
 3. After login you can open **Report**, **Current Sprint** (squad view), or **Sprint Leadership** from the app; the default redirect is `http://localhost:3000/report`.
+4. All three main pages (Report, Current Sprint, Leadership) show a consistent nav strip: **Report | Current Sprint (Squad) | Leadership** so you can move between them without using the browser back button.
 
 ### Quickstart for Scrum Masters & Leaders
 

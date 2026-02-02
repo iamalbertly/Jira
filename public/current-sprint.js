@@ -43,6 +43,7 @@
 
   function getErrorMessage(r, body, fallback) {
     if (r.status === 401) return 'Session expired. Please log in again.';
+    if (r.status === 429) return 'Data may be incomplete due to rate limits; try again later.';
     return (body && (body.message || body.error)) || r.statusText || fallback;
   }
 
