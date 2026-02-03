@@ -8,6 +8,27 @@ import { test, expect } from '@playwright/test';
 import { captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () => {
+  test('current-sprint board list uses project SSOT from localStorage', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('vodaAgileBoard_selectedProjects', 'MPSA,MAS');
+    });
+    let boardsRequestUrl = '';
+    await page.route('**/api/boards.json*', (route) => {
+      boardsRequestUrl = route.request().url();
+      route.continue();
+    });
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+    await page.waitForSelector('#board-select', { state: 'visible', timeout: 15000 }).catch(() => null);
+    expect(boardsRequestUrl).toContain('projects=');
+    expect(boardsRequestUrl).toMatch(/projects=MPSA%2CMAS|projects=MPSA,MAS/);
+    const options = await page.locator('#board-select option[value]:not([value=""])').count();
+    expect(options).toBeGreaterThanOrEqual(0);
+  });
+
   test('current-sprint page loads with nav and board select; URL boardId pre-selects when valid', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
@@ -91,10 +112,17 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const notesVisible = await page.locator('#notes-card').isVisible().catch(() => false);
       expect(summaryVisible).toBeTruthy();
       expect(notesVisible).toBeTruthy();
+      const hasStuckCard = await page.locator('#stuck-card').isVisible().catch(() => false);
+      const hasStuckPrompt = await page.locator('a.stuck-prompt, a[href="#stuck-card"]').isVisible().catch(() => false);
+      if (hasStuckCard || hasStuckPrompt) {
+        expect(page.locator('a[href="#stuck-card"]').first()).toBeVisible();
+      }
       const axisLabelVisible = await page.locator('.burndown-axis').isVisible().catch(() => false);
       expect(axisLabelVisible || hasBurndownHint).toBeTruthy();
       const storiesHeader = await page.locator('#stories-card thead').textContent().catch(() => '');
       expect(storiesHeader).toMatch(/Status/i);
+      expect(storiesHeader).toMatch(/Reporter/i);
+      expect(storiesHeader).toMatch(/Assignee/i);
       const subtaskVisible = await page.locator('#subtask-tracking-card').isVisible().catch(() => false);
       const notificationsVisible = await page.locator('#notifications-card').isVisible().catch(() => false);
       expect(subtaskVisible).toBeTruthy();

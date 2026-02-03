@@ -236,10 +236,19 @@ document.getElementById('include-predictability').addEventListener('change', (e)
   document.getElementById('predictability-mode-group').style.display = e.target.checked ? 'block' : 'none';
 });
 
+const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
+
 function getSelectedProjects() {
   return Array.from(document.querySelectorAll('.project-checkbox[data-project]:checked'))
     .map(input => input.dataset.project)
     .filter(Boolean);
+}
+
+function persistSelectedProjects() {
+  try {
+    const value = getSelectedProjects().join(',');
+    if (value) localStorage.setItem(PROJECTS_SSOT_KEY, value);
+  } catch (_) {}
 }
 
 // Update preview button state based on project selection
@@ -247,6 +256,7 @@ function updatePreviewButtonState() {
   const hasProject = getSelectedProjects().length > 0;
   previewBtn.disabled = !hasProject;
   previewBtn.title = hasProject ? '' : 'Please select at least one project.';
+  persistSelectedProjects();
 }
 
 // Listen to project checkbox changes
@@ -341,6 +351,7 @@ previewBtn.addEventListener('click', async () => {
   previewBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
   exportExcelBtn.disabled = true;
+  document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(b => { b.disabled = true; });
 
   // Ensure loading overlay becomes visible in the next paint, even for very fast responses.
   // This avoids race conditions where tests (and users) never see a loading state.
@@ -384,8 +395,9 @@ previewBtn.addEventListener('click', async () => {
       <strong>Error:</strong> ${escapeHtml(error.message)}
       <br><small>Please fix the filters above and try again.</small>
     `;
-    // Re-enable preview and restore export buttons to their previous state
+    // Re-enable preview, quarter buttons, and restore export buttons
     previewBtn.disabled = false;
+    document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(b => { b.disabled = false; });
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = prevExportFilteredDisabled;
     exportExcelBtn.disabled = prevExportExcelDisabled;
     return;
@@ -524,8 +536,9 @@ previewBtn.addEventListener('click', async () => {
       clearInterval(progressInterval);
     }
 
-    // Re-enable preview regardless of outcome
+    // Re-enable preview and quarter buttons regardless of outcome
     previewBtn.disabled = false;
+    document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(b => { b.disabled = false; });
 
     // Only enable exports if we have rows
     const hasRows = Array.isArray(previewRows) && previewRows.length > 0;
@@ -864,14 +877,41 @@ function formatDateTimeLocalForInput(date) {
   const min = String(date.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${d}T${h}:${min}`;
 }
+// Client-side Vodacom quarter fallback when API fails (Q1 Apr-Jun, Q2 Jul-Sep, Q3 Oct-Dec, Q4 Jan-Mar)
+function getVodacomQuarterFallback(quarterNum) {
+  const q = Number(quarterNum);
+  if (!Number.isInteger(q) || q < 1 || q > 4) return null;
+  const bounds = { 1: [3, 1, 5, 30], 2: [6, 1, 8, 30], 3: [9, 1, 11, 31], 4: [0, 1, 2, 31] };
+  const [sm, sd, em, ed] = bounds[q];
+  const now = new Date();
+  let year = now.getUTCFullYear();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999);
+  for (let i = 0; i < 10; i++) {
+    const start = new Date(Date.UTC(year, sm, sd, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, em, ed, 23, 59, 59, 999));
+    if (end.getTime() <= todayUtc) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const fmt = (d) => d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+      return { start: start.toISOString(), end: end.toISOString(), label: 'Q' + q + ' ' + year, period: fmt(start) + ' – ' + fmt(end) };
+    }
+    year -= 1;
+  }
+  return null;
+}
+
 document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
   btn.addEventListener('click', async () => {
     const q = btn.getAttribute('data-quarter');
     try {
+      let data = null;
       const res = await fetch(`/api/date-range?quarter=${encodeURIComponent(q)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.start || !data.end) return;
+      if (res.ok) {
+        data = await res.json();
+      }
+      if (!data || !data.start || !data.end) {
+        data = getVodacomQuarterFallback(q);
+      }
+      if (!data || !data.start || !data.end) return;
       const startDate = new Date(data.start);
       const endDate = new Date(data.end);
       const startInput = document.getElementById('start-date');
@@ -891,6 +931,9 @@ document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
     fetch(`/api/date-range?quarter=${q}`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
+        if (!data || !data.label) {
+          data = getVodacomQuarterFallback(q);
+        }
         if (!data || !data.label) return;
         const btn = document.querySelector(`.quick-range-btn[data-quarter="${q}"]`);
         if (btn) {
@@ -898,7 +941,16 @@ document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
           if (data.period) btn.title = data.period;
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        const fallback = getVodacomQuarterFallback(q);
+        if (fallback) {
+          const btn = document.querySelector(`.quick-range-btn[data-quarter="${q}"]`);
+          if (btn) {
+            btn.textContent = fallback.label;
+            if (fallback.period) btn.title = fallback.period;
+          }
+        }
+      });
   });
 })();
 

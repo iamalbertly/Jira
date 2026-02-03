@@ -143,14 +143,21 @@ const steps = [
 
 function runStep(step, stepIndex, envOverrides = {}) {
   return new Promise((resolve, reject) => {
+    let args = step.args || [];
+    if (process.env.TEST_LAST_FAILED === '1' || process.env.TEST_LAST_FAILED === 'true') {
+      const isPlaywright = step.command === 'npx' && args.some(a => a === 'playwright');
+      if (isPlaywright && !args.includes('--last-failed')) {
+        args = [...args, '--last-failed'];
+      }
+    }
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Step ${stepIndex + 1}/${steps.length}: ${step.name}`);
     console.log(`${'='.repeat(60)}`);
-    console.log(`Command: ${step.command} ${step.args.join(' ')}`);
+    console.log(`Command: ${step.command} ${args.join(' ')}`);
     console.log(`Working Directory: ${step.cwd}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    const proc = spawn(step.command, step.args, {
+    const proc = spawn(step.command, args, {
       cwd: step.cwd,
       stdio: 'inherit',
       shell: process.platform === 'win32',

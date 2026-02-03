@@ -71,7 +71,9 @@
 
 - **Error banner SSOT (per view)**  
   Each view uses a single DOM node for API/validation errors: report `#error`, current-sprint `#current-sprint-error`, leadership `#leadership-error`. Do not show duplicate or overlapping error messages; use one function per view (e.g. `showError`) that writes to that node.
-- **Sprint order contract**  
+- **Project/Board SSOT**
+  Selected projects are stored in `vodaAgileBoard_selectedProjects` (localStorage). Report persists on project checkbox change; Leadership reads/writes on load/save; Current Sprint reads on load and uses it for `/api/boards.json` and `/api/current-sprint.json` (fallback MPSA,MAS). Board selector on Current Sprint reflects the same projects as Report/Leadership.
+- **Sprint order contract**
   Sprints displayed for filtering (Report Sprints tab, Current Sprint tabs) are ordered **left-to-right from current/latest backwards by sprint end date**. First tab/row = latest end date; each subsequent = same or earlier. Report uses `sortSprintsLatestFirst(sprints)`; Current Sprint uses `resolveRecentSprints` (lib/currentSprint.js) which sorts by `endDate` descending. Automated tests assert this order.
 - **Data alignment**  
   Current-sprint and leadership summary logic must use only server-provided fields. Board summary SSOT: `public/Jira-Reporting-App-Public-Boards-Summary.js` exports `buildBoardSummaries`; report and leadership import it. Canonical shape must match server `sprintsIncluded[]` (sprintWorkDays, sprintCalendarDays, etc.). Do not introduce client-only computed fields that can drift from server.
@@ -89,6 +91,8 @@
   - After the request (success or failure):
     - `#preview-btn` is re-enabled
     - Export buttons enabled **only when there is at least one preview row**
+- **Current Sprint: stuck prompt, stories table, subtask summary**
+  When `stuckCandidates.length > 0`, the summary strip shows a link "X in progress >24h – Follow up" to `#stuck-card`. Stories in sprint table includes Reporter and Assignee columns; planned window line at top of Stories card. Sub-task summary in the summary card is a single line linking to `#subtask-tracking-card` (no duplicate Sub-task logged / Time tracking alerts blocks).
 - **Partial preview visibility**
   - Server already emits `meta.partial` and `meta.partialReason`.
   - UI now also:

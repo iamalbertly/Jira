@@ -14,6 +14,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   const errorEl = document.getElementById('leadership-error');
   const contentEl = document.getElementById('leadership-content');
   const STORAGE_KEY = 'leadership_filters_v1';
+  const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
   const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
 
   function setDefaultDates() {
@@ -26,8 +27,14 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
 
   function loadSavedFilters() {
     try {
+      const ssotProjects = localStorage.getItem(PROJECTS_SSOT_KEY);
+      if (ssotProjects && projectsSelect) {
+        const val = String(ssotProjects).trim();
+        const hasOption = Array.from(projectsSelect.options).some(o => o.value === val);
+        if (hasOption) projectsSelect.value = val;
+      }
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
+      if (!raw) return Boolean(ssotProjects);
       const saved = JSON.parse(raw);
       if (saved?.projects && projectsSelect) {
         projectsSelect.value = saved.projects;
@@ -46,8 +53,10 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
 
   function saveFilters() {
     try {
+      const projectsVal = projectsSelect?.value || '';
+      if (projectsVal) localStorage.setItem(PROJECTS_SSOT_KEY, projectsVal);
       const payload = {
-        projects: projectsSelect?.value || '',
+        projects: projectsVal,
         start: startInput?.value || '',
         end: endInput?.value || '',
       };
@@ -347,6 +356,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
         const meta = data.meta || {};
         if (!boards || boards.length === 0 || (sprintsIncluded && sprintsIncluded.length === 0)) {
           showError('No sprint data in this range. Widen the date range or check project access.');
+          setQuarterButtonsEnabled(true);
           return;
         }
         meta.windowEnd = endInput?.value ? new Date(endInput.value + 'T23:59:59.999Z').toISOString() : new Date().toISOString();
@@ -355,11 +365,43 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
         data.boardSummaries = boardSummaries;
         data.meta = meta;
         showContent(render(data));
+        setQuarterButtonsEnabled(true);
       })
-      .catch(err => showError(err.message || 'Failed to load preview.'));
+      .catch(err => {
+        showError(err.message || 'Failed to load preview.');
+        setQuarterButtonsEnabled(true);
+      });
   }
 
-  if (previewBtn) previewBtn.addEventListener('click', loadPreview);
+  function getVodacomQuarterFallback(quarterNum) {
+    const q = Number(quarterNum);
+    if (!Number.isInteger(q) || q < 1 || q > 4) return null;
+    const bounds = { 1: [3, 1, 5, 30], 2: [6, 1, 8, 30], 3: [9, 1, 11, 31], 4: [0, 1, 2, 31] };
+    const [sm, sd, em, ed] = bounds[q];
+    const now = new Date();
+    let year = now.getUTCFullYear();
+    const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999);
+    for (let i = 0; i < 10; i++) {
+      const start = new Date(Date.UTC(year, sm, sd, 0, 0, 0, 0));
+      const end = new Date(Date.UTC(year, em, ed, 23, 59, 59, 999));
+      if (end.getTime() <= todayUtc) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const fmt = (d) => d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+        return { start: start.toISOString(), end: end.toISOString(), label: 'Q' + q + ' ' + year, period: fmt(start) + ' – ' + fmt(end) };
+      }
+      year -= 1;
+    }
+    return null;
+  }
+
+  function setQuarterButtonsEnabled(enabled) {
+    document.querySelectorAll('.quick-range-btn-leadership[data-quarter]').forEach(b => { b.disabled = !enabled; });
+  }
+
+  if (previewBtn) previewBtn.addEventListener('click', () => {
+    setQuarterButtonsEnabled(false);
+    loadPreview();
+  });
   if (projectsSelect) projectsSelect.addEventListener('change', saveFilters);
   if (startInput) startInput.addEventListener('change', saveFilters);
   if (endInput) endInput.addEventListener('change', saveFilters);
@@ -367,10 +409,11 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     btn.addEventListener('click', async () => {
       const q = btn.getAttribute('data-quarter');
       try {
+        let data = null;
         const res = await fetch(`/api/date-range?quarter=${encodeURIComponent(q)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!data.start || !data.end) return;
+        if (res.ok) data = await res.json();
+        if (!data || !data.start || !data.end) data = getVodacomQuarterFallback(q);
+        if (!data || !data.start || !data.end) return;
         const startStr = data.start.slice(0, 10);
         const endStr = data.end.slice(0, 10);
         if (startInput) startInput.value = startStr;
@@ -381,10 +424,12 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     });
   });
   (function loadQuarterLabels() {
+    document.querySelectorAll('.quick-range-btn-leadership[data-quarter]').forEach(el => { el.textContent = '…'; });
     [1, 2, 3, 4].forEach(q => {
       fetch(`/api/date-range?quarter=${q}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
+          if (!data || !data.label) data = getVodacomQuarterFallback(q);
           if (!data || !data.label) return;
           const el = document.querySelector(`.quick-range-btn-leadership[data-quarter="${q}"]`);
           if (el) {
@@ -392,7 +437,16 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
             if (data.period) el.title = data.period;
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          const fallback = getVodacomQuarterFallback(q);
+          if (fallback) {
+            const el = document.querySelector(`.quick-range-btn-leadership[data-quarter="${q}"]`);
+            if (el) {
+              el.textContent = fallback.label;
+              if (fallback.period) el.title = fallback.period;
+            }
+          }
+        });
     });
   })();
   if (document.readyState === 'loading') {

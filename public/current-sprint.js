@@ -4,7 +4,15 @@
  */
 
 (function () {
-  const projects = 'MPSA,MAS';
+  const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
+  function getProjectsParam() {
+    try {
+      const s = localStorage.getItem(PROJECTS_SSOT_KEY);
+      return (s && String(s).trim()) ? String(s).trim() : 'MPSA,MAS';
+    } catch (_) {
+      return 'MPSA,MAS';
+    }
+  }
   const boardSelect = document.getElementById('board-select');
   const loadingEl = document.getElementById('current-sprint-loading');
   const errorEl = document.getElementById('current-sprint-error');
@@ -21,7 +29,7 @@
   let currentSprintId = null;
 
   function showLoading(msg) {
-    loadingEl.textContent = msg || 'Loading boards for projects MPSA, MAS...';
+    loadingEl.textContent = msg || ('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
     loadingEl.style.display = 'block';
     errorEl.style.display = 'none';
     contentEl.style.display = 'none';
@@ -171,7 +179,7 @@
   }
 
   function loadBoards() {
-    return fetch(`/api/boards.json?projects=${encodeURIComponent(projects)}`, {
+    return fetch(`/api/boards.json?projects=${encodeURIComponent(getProjectsParam())}`, {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     }).then(async r => {
@@ -184,7 +192,7 @@
   function loadCurrentSprint(boardId, sprintId) {
     const params = new URLSearchParams({
       boardId: String(boardId),
-      projects,
+      projects: getProjectsParam(),
     });
     if (sprintId) params.set('sprintId', String(sprintId));
     return fetch(`/api/current-sprint.json?${params.toString()}`, {
@@ -288,12 +296,14 @@
       '<strong>' + doneStories + ' of ' + totalStories + ' stories (' + totalSP + ' pts)</strong>' +
       '<span>' + percentDone + '% done</span>' +
       '</div>';
+    const stuckCount = (data.stuckCandidates || []).length;
     html += '<div class="summary-links">' +
       '<a href="#burndown-card">Burndown</a>' +
       '<span>|</span>' +
       '<a href="#stories-card">Stories</a>' +
       '<span>|</span>' +
       '<a href="#scope-changes-card">Scope changes</a>' +
+      (stuckCount > 0 ? '<span>|</span><a href="#stuck-card" class="stuck-prompt">' + stuckCount + ' in progress &gt;24h – Follow up</a>' : '') +
       '</div>';
     html += '</div>';
 
@@ -320,17 +330,11 @@
       '<span>Support & Ops</span>' +
       '<strong>' + formatNumber(summary.supportOpsSP || 0, 0) + ' SP</strong>' +
       '</div>';
-    html += '<div class="summary-block">' +
-      '<span>Sub-task logged</span>' +
-      '<strong>' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h</strong>' +
-      '</div>';
     const missingEstimate = summary.subtaskMissingEstimate ?? 0;
     const missingLogged = summary.subtaskMissingLogged ?? 0;
-    const alertsClass = (missingEstimate + missingLogged) > 0 ? ' summary-block-alert' : '';
-    html += '<div class="summary-block' + alertsClass + '">' +
-      '<span>Time tracking alerts</span>' +
-      '<strong>' + missingEstimate + ' missing estimate</strong>' +
-      '<span>' + missingLogged + ' no log yet</span>' +
+    html += '<div class="summary-block summary-block-subtask-link">' +
+      '<span>Sub-task</span>' +
+      '<a href="#subtask-tracking-card">' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h logged; ' + missingEstimate + ' missing estimate, ' + missingLogged + ' no log yet</a>' +
       '</div>';
     html += '<div class="summary-block">' +
       '<span>Total SP</span>' +
@@ -467,12 +471,16 @@
 
   function renderStories(data) {
     const stories = data.stories || [];
+    const planned = data.plannedWindow || {};
     let html = '<div class="transparency-card" id="stories-card">';
     html += '<h2>Stories in sprint</h2>';
+    if (planned.start || planned.end) {
+      html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' – ' + formatDate(planned.end) + '</strong></p>';
+    }
     if (!stories.length) {
       html += '<p>No stories found for this sprint.</p>';
     } else {
-      html += '<table class="data-table"><thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Pts</th><th>Completion %</th></tr></thead><tbody>';
+      html += '<table class="data-table"><thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Pts</th><th>Completion %</th><th>Reporter</th><th>Assignee</th></tr></thead><tbody>';
       for (const story of stories) {
         const keyCell = story.issueUrl
           ? '<a href="' + escapeHtml(story.issueUrl) + '" target="_blank" rel="noopener">' + escapeHtml(story.issueKey || '') + '</a>'
@@ -483,6 +491,8 @@
         html += '<td>' + escapeHtml(story.status || '-') + '</td>';
         html += '<td>' + (story.storyPoints ?? '') + '</td>';
         html += '<td>' + (story.completionPct ?? 0) + '%</td>';
+        html += '<td>' + escapeHtml(story.reporter || '-') + '</td>';
+        html += '<td>' + escapeHtml(story.assignee || '-') + '</td>';
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -930,7 +940,7 @@
   function init() {
     const preferredId = getPreferredBoardId();
     const preferredSprintId = getPreferredSprintId();
-    showLoading('Loading boards for projects MPSA, MAS...');
+    showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
     loadBoards()
       .then(function (res) {
         const boards = res.boards || [];
