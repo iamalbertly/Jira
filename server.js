@@ -24,7 +24,7 @@ import { mapColumnsToBusinessNames } from './lib/columnMapping.js';
 import { addKPIColumns, calculateWorkDays } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
-import { getLatestCompletedQuarter } from './lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js';
+import { getQuarterLabelAndPeriod } from './lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js';
 import { DEFAULT_WINDOW_START, DEFAULT_WINDOW_END } from './lib/Jira-Reporting-App-Config-DefaultWindow.js';
 
 const DEFAULT_SNAPSHOT_PROJECTS = ['MPSA', 'MAS'];
@@ -267,7 +267,7 @@ app.get('/api/csv-columns', requireAuth, (req, res) => {
 
 /**
  * GET /api/date-range?quarter=Q1|Q2|Q3|Q4 - Latest completed Vodacom quarter range (UTC).
- * Returns { start, end } in ISO format. Never returns a future quarter.
+ * Returns { start, end, year, label, period } in ISO format. Never returns a future quarter.
  */
 app.get('/api/date-range', requireAuth, (req, res) => {
   const quarterParam = (req.query.quarter || '').toUpperCase().replace(/^Q/, '');
@@ -279,15 +279,15 @@ app.get('/api/date-range', requireAuth, (req, res) => {
       message: 'Provide quarter=Q1, Q2, Q3, or Q4.',
     });
   }
-  const range = getLatestCompletedQuarter(q);
-  if (!range) {
+  const data = getQuarterLabelAndPeriod(q);
+  if (!data) {
     return res.status(500).json({
       error: 'Could not compute quarter range',
       code: 'QUARTER_RANGE_ERROR',
       message: 'Latest completed quarter could not be determined.',
     });
   }
-  res.json({ start: range.startISO, end: range.endISO });
+  res.json({ start: data.startISO, end: data.endISO, year: data.year, label: data.label, period: data.period });
 });
 
 /**

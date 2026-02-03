@@ -16,7 +16,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
 - **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, sub-task time tracking (estimate/logged/remaining), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs (latest to oldest by end date). Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
 - **Persistent Notification Dock**: A fixed top-right alert dock appears across pages when time-tracking alerts exist, showing the latest board/sprint and counts with a shortcut back to Current Sprint.
-- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings. Remembers the last selected date range in the browser.
+- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings. Quarter quick-pick shows year and period (e.g. "Q2 2025"); clicking a quarter loads data immediately. Remembers the last selected date range in the browser.
 
 ## Prerequisites
 
@@ -83,6 +83,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 1. **Select Projects**: Check MPSA and/or MAS (at least one required)
 
 2. **Set Date Window**: 
+   - **Quick range (Vodacom quarters):** Buttons show the financial year and period (e.g. "Q2 2025"); hover for the exact date range. Clicking a quarter sets the range and **automatically runs the report** so results appear without a second click.
    - Default is Q2 2025 (July 1 - September 30, 2025)
    - Adjust start and end dates as needed
    - Dates are in UTC

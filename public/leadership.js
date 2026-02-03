@@ -376,9 +376,25 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
         if (startInput) startInput.value = startStr;
         if (endInput) endInput.value = endStr;
         saveFilters();
+        document.getElementById('leadership-preview')?.click();
       } catch (_) {}
     });
   });
+  (function loadQuarterLabels() {
+    [1, 2, 3, 4].forEach(q => {
+      fetch(`/api/date-range?quarter=${q}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data || !data.label) return;
+          const el = document.querySelector(`.quick-range-btn-leadership[data-quarter="${q}"]`);
+          if (el) {
+            el.textContent = data.label;
+            if (data.period) el.title = data.period;
+          }
+        })
+        .catch(() => {});
+    });
+  })();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       renderNotificationDock();

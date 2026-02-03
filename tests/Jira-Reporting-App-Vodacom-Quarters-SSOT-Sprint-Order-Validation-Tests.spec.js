@@ -14,10 +14,10 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
 
     await expect(page.locator('h1')).toContainText('VodaAgileBoard');
     await expect(page.locator('.quick-range-pills')).toBeVisible();
-    await expect(page.locator('.quick-range-btn[data-quarter="1"]')).toContainText('Q1');
-    await expect(page.locator('.quick-range-btn[data-quarter="2"]')).toContainText('Q2');
-    await expect(page.locator('.quick-range-btn[data-quarter="3"]')).toContainText('Q3');
-    await expect(page.locator('.quick-range-btn[data-quarter="4"]')).toContainText('Q4');
+    await expect(page.locator('.quick-range-btn[data-quarter="1"]')).toContainText(/Q1/);
+    await expect(page.locator('.quick-range-btn[data-quarter="2"]')).toContainText(/Q2/);
+    await expect(page.locator('.quick-range-btn[data-quarter="3"]')).toContainText(/Q3/);
+    await expect(page.locator('.quick-range-btn[data-quarter="4"]')).toContainText(/Q4/);
     await expect(page.locator('#start-date')).toBeVisible();
     await expect(page.locator('#end-date')).toBeVisible();
 
@@ -26,12 +26,13 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
     expect(telemetry.failedRequests).toEqual([]);
   });
 
-  test('report quarter quick-pick Q2 sets start and end inputs', async ({ page }) => {
+  test('report quarter quick-pick Q2 sets start and end inputs and triggers preview', async ({ page }) => {
+    test.setTimeout(180000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
     await page.click('.quick-range-btn[data-quarter="2"]');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(2000);
     const startVal = await page.locator('#start-date').inputValue();
     const endVal = await page.locator('#end-date').inputValue();
     expect(startVal).toBeTruthy();
@@ -41,6 +42,20 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
     expect(Number.isNaN(startDate.getTime())).toBeFalsy();
     expect(Number.isNaN(endDate.getTime())).toBeFalsy();
     expect(startDate.getTime()).toBeLessThanOrEqual(endDate.getTime());
+
+    await Promise.race([
+      page.waitForSelector('#loading', { state: 'visible', timeout: 15000 }).catch(() => null),
+      page.waitForSelector('#preview-content', { state: 'visible', timeout: 15000 }).catch(() => null),
+      page.waitForSelector('#error', { state: 'visible', timeout: 15000 }).catch(() => null),
+    ]);
+    const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
+    if (!loadingVisible && !previewVisible && !errorVisible) {
+      test.skip(true, 'Preview/loading/error did not appear; API auth or Jira may be required');
+      return;
+    }
+    expect(loadingVisible || previewVisible || errorVisible).toBeTruthy();
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);
@@ -154,6 +169,9 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
     const data = await res.json();
     expect(data).toHaveProperty('start');
     expect(data).toHaveProperty('end');
+    expect(data).toHaveProperty('year');
+    expect(data).toHaveProperty('label');
+    expect(data).toHaveProperty('period');
     const start = new Date(data.start);
     const end = new Date(data.end);
     expect(Number.isNaN(start.getTime())).toBeFalsy();

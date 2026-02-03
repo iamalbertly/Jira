@@ -880,10 +880,27 @@ document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
         startInput.value = formatDateTimeLocalForInput(startDate);
         endInput.value = formatDateTimeLocalForInput(endDate);
         updateDateDisplay();
+        if (previewBtn) previewBtn.click();
       }
     } catch (_) {}
   });
 });
+
+(function loadQuarterLabels() {
+  [1, 2, 3, 4].forEach(q => {
+    fetch(`/api/date-range?quarter=${q}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data || !data.label) return;
+        const btn = document.querySelector(`.quick-range-btn[data-quarter="${q}"]`);
+        if (btn) {
+          btn.textContent = data.label;
+          if (data.period) btn.title = data.period;
+        }
+      })
+      .catch(() => {});
+  });
+})();
 
 function calculateVariance(values) {
   if (!Array.isArray(values) || values.length === 0) {
