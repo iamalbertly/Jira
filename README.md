@@ -14,8 +14,8 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Runtime Discovery**: Automatically discovers boards and field IDs from your Jira instance
 - **Error Handling**: Robust error handling with user-friendly messages and retry logic
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
-- **Current Sprint Transparency**: Squad view at `/current-sprint` – sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs. Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
-- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` – indexed delivery, predictability, no rankings
+- **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, sub-task time tracking (estimate/logged/remaining), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs. Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
+- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 2. Sign in with the credentials shared by your admin.
 3. On the Sprint Report screen, keep both MPSA and MAS selected for a combined view, or choose a single project for a focused view.
 4. Leave the default quarter dates or adjust them to your sprint window, then click **Preview**.
-5. Use **Export to Excel – All Data** to download a workbook you can slice and share in your own tooling.
+5. Use **Export to Excel - All Data** to download a workbook you can slice and share in your own tooling.
 
 ## Usage
 
@@ -110,7 +110,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - **Metadata**: Export timestamp, date range, projects, filters applied, and data freshness
    - **Field Inventory** (Metadata): Counts of available/custom Jira fields plus EBM-relevant field matches and missing candidates (no full field list in export payload)
    - **File Naming**: Excel files use descriptive names: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx` (e.g., `MPSA-MAS_Q2-2025_Sprint-Report_2025-01-27.xlsx`)
-   - **Business-Friendly Columns**: All technical column names are mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`)
+   - **Business-Friendly Columns**: All technical column names are mapped to business-friendly labels (e.g., `issueKey` -> `Ticket ID`, `sprintStartDate` -> `Sprint Start Date`)
    - **Excel-Compatible Dates**: All dates are formatted for Excel recognition, enabling date filtering, pivot tables, and formulas
    - **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time, Sprint Duration, and Agile Maturity Level
    - **Manual Enrichment**: Blank columns provided for teams to fill in missing Epic IDs/Names, Rework/Bug flags, and notes
@@ -134,7 +134,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
   - Submissions are stored on the server in `data/JiraReporting-Feedback-UserInput-Submission-Log.jsonl`.
 
   - When you click **Preview**, the button is temporarily disabled to prevent double-clicks while the loading overlay shows progress updates.
-  - The loading panel includes a live timer and step log (e.g. “Collecting filter parameters”, “Sending request to server”, “Received data from server”).
+  - The loading panel includes a live timer and step log (e.g. Collecting filter parameters, Sending request to server, Received data from server).
   - If a previous preview is already visible, the UI keeps it on-screen while the new request runs and shows a refresh banner so users see immediate results.
   - The step log keeps only the most recent entries to avoid overwhelming the UI during long-running previews.
 - **Partial previews**:
@@ -144,7 +144,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
   - When this option is enabled, the **Done Stories** tab will explain when no rows passed this filter, and suggests turning it off or reviewing resolution vs sprint end dates in Jira.
 - **Exports and table state**:
   - Export buttons remain disabled until there is at least one Done story in the preview.
-  - If you change filters and end up with no rows, the empty state explains whether this is due to filters, the “Require Resolved by Sprint End” option, or genuinely no Done stories.
+  - If you change filters and end up with no rows, the empty state explains whether this is due to filters, the Require Resolved by Sprint End option, or genuinely no Done stories.
   - Filtered CSV export is disabled when filters match zero rows, with a hint explaining why.
   - Invalid date inputs are caught client-side with a clear error before any request is sent.
 
@@ -332,7 +332,7 @@ npm run test:current-sprint-ux-ssot
 - **Cache Transparency**: Preview meta shows cache age when data is served from cache, enabling users to assess data freshness.
 - **Error Recovery**: Epic fetch failures don't break preview generation - system gracefully degrades to story-based calculation.
 - **Excel Export**: Main export generates comprehensive Excel workbook with 5 tabs (Summary, Stories, Sprints, Epics, Metadata). Files use descriptive naming: `{Projects}_{DateRange}_{ReportType}_{ExportDate}.xlsx`. All dates are Excel-compatible format, enabling filtering and formulas. Data is validated before export, empty tabs show placeholder messages, large files (>50MB) trigger warnings, and error messages are actionable.
-- **Business-Friendly Columns**: Technical column names mapped to business-friendly labels (e.g., `issueKey` → `Ticket ID`, `sprintStartDate` → `Sprint Start Date`) for easier analysis by leaders and analysts.
+- **Business-Friendly Columns**: Technical column names mapped to business-friendly labels (e.g., `issueKey` -> `Ticket ID`, `sprintStartDate` -> `Sprint Start Date`) for easier analysis by leaders and analysts.
 - **KPI Columns**: Pre-calculated columns include Work Days to Complete, Cycle Time (Days), Sprint Duration (Work Days), Days Since Created, and Agile Maturity Level (1-5 scale).
 - **Manual Enrichment**: Excel exports include blank columns for teams to fill in: Epic ID (Manual), Epic Name (Manual), Is Rework (Manual), Is Bug (Manual), and Team Notes.
 - **CSV Validation**: Client-side validation ensures required columns (issueKey, issueType, issueStatus) are present before export. CSV exports include Epic Key, Epic Title, and Epic Summary when available.
@@ -361,37 +361,37 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 
 ```
 .
-├── server.js                 # Express server and routes
-├── package.json              # Dependencies and scripts
-├── .env.example              # Environment variable template
-├── .gitignore                # Git ignore rules
-├── lib/
-│   ├── jiraClients.js        # Jira client setup
-│   ├── cache.js              # TTL cache implementation
-│   ├── discovery.js          # Board and field discovery
-│   ├── sprints.js            # Sprint fetching and filtering
-│   ├── issues.js             # Issue extraction and filtering
-│   ├── metrics.js            # Metrics calculations
-│   ├── csv.js               # CSV generation utilities
-│   ├── excel.js              # Excel generation utilities
-│   ├── columnMapping.js     # Business-friendly column name mapping
-│   ├── kpiCalculations.js    # KPI calculation functions
-│   └── Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
-├── public/
-│   ├── report.html           # Main UI
-│   ├── report.js             # Frontend logic
-│   └── styles.css           # Styling
-├── tests/
-│   ├── Jira-Reporting-App-E2E-User-Journey-Tests.spec.js
-│   ├── Jira-Reporting-App-API-Integration-Tests.spec.js
-│   ├── Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
-│   ├── Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
-│   ├── Jira-Reporting-App-Excel-Export-Tests.spec.js
-│   ├── Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
-│   ├── Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
-│   └── Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js
-└── scripts/
-    └── Jira-Reporting-App-Test-Orchestration-Runner.js
+|-- server.js                 # Express server and routes
+|-- package.json              # Dependencies and scripts
+|-- .env.example              # Environment variable template
+|-- .gitignore                # Git ignore rules
+|-- lib/
+|   |-- jiraClients.js        # Jira client setup
+|   |-- cache.js              # TTL cache implementation
+|   |-- discovery.js          # Board and field discovery
+|   |-- sprints.js            # Sprint fetching and filtering
+|   |-- issues.js             # Issue extraction and filtering
+|   |-- metrics.js            # Metrics calculations
+|   |-- csv.js                # CSV generation utilities
+|   |-- excel.js              # Excel generation utilities
+|   |-- columnMapping.js      # Business-friendly column name mapping
+|   |-- kpiCalculations.js    # KPI calculation functions
+|   `-- Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
+|-- public/
+|   |-- report.html           # Main UI
+|   |-- report.js             # Frontend logic
+|   `-- styles.css            # Styling
+|-- tests/
+|   |-- Jira-Reporting-App-E2E-User-Journey-Tests.spec.js
+|   |-- Jira-Reporting-App-API-Integration-Tests.spec.js
+|   |-- Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
+|   |-- Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
+|   |-- Jira-Reporting-App-Excel-Export-Tests.spec.js
+|   |-- Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
+|   |-- Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
+|   `-- Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js
+`-- scripts/
+    `-- Jira-Reporting-App-Test-Orchestration-Runner.js
 ```
 
 ## Metric guide and governance
@@ -408,9 +408,9 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
 
 - **Predictability % (committed vs delivered)**  
   **Measures:** How much of the committed scope (at sprint start) was delivered by sprint end.  
-  **Does not measure:** Whether scope change was justified or whether the team “failed.”  
+  **Does not measure:** Whether scope change was justified or whether the team failed.  
   **Can mislead when:** Committed is approximated from creation date; late scope add is treated as failure.  
-  **Do not use for:** Single-sprint “team quality” score; blaming teams for unplanned spillover.
+  **Do not use for:** Single-sprint team quality score; blaming teams for unplanned spillover.
 
 - **Planned carryover vs unplanned spillover**  
   **Measures:** Delivered work that was in plan at sprint start vs added mid-sprint.  
@@ -421,7 +421,7 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
   **Measures:** Proportion of delivered effort that was bugs vs stories.  
   **Does not measure:** Root cause or whether bugs were regression vs new work.  
   **Can mislead when:** Bug definition or SP usage differs across teams.  
-  **Do not use for:** Naming “worst” team; performance review.
+  **Do not use for:** Naming worst team; performance review.
 
 - **Epic TTM (time to market)**  
   **Measures:** Calendar or working days from Epic start to Epic (or story) completion.  
@@ -430,21 +430,21 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
   **Do not use for:** Comparing teams without normalizing for epic size or type.
 
 - **Indexed delivery score**  
-  **Measures:** Current SP per sprint day vs that team’s own rolling average (last 3–6 sprints).  
+  **Measures:** Current SP per sprint day vs that teams own rolling average (last 3-6 sprints).  
   **Does not measure:** Absolute productivity or cross-team comparison.  
   **Can mislead when:** Used to rank teams; baseline period is unrepresentative.  
   **Do not use for:** Ranking teams; performance review.
 
 - **Burndown / remaining SP by day**  
   **Measures:** Context for how remaining scope decreased over the sprint (when completion anchor is resolution date).  
-  **Does not measure:** Effort or “ideal” line accuracy.  
+  **Does not measure:** Effort or ideal line accuracy.  
   **Can mislead when:** Scope changes are not shown; used as a single success criterion.  
   **Do not use for:** Grading the sprint; ignoring scope-change context.
 
 - **Daily completion histogram**  
   **Measures:** Stories (and optionally task movement) completed per calendar day.  
   **Does not measure:** Effort or quality.  
-  **Do not use for:** Inferring “slow” days without scope/blocker context.
+  **Do not use for:** Inferring slow days without scope/blocker context.
 
 - **Observed work window**  
   **Measures:** Earliest and latest issue activity (created/resolution) in the sprint.  
@@ -453,15 +453,15 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
 
 ### Metrics that look good but are not trustworthy
 
-- **Raw SP totals across teams** — Sprint length and scope differ; normalize by sprint days and use indexed delivery for trend, not rank.
-- **Sprint count as productivity** — More sprints do not mean more delivery; use stories/SP per sprint day.
-- **Single-sprint predictability as team quality** — One sprint is noise; use planned vs unplanned breakdown and trends.
-- **Unplanned spillover as failure** — Mid-sprint adds (bugs, support) are reality; show cause (Bug/Support/Feature), not blame.
+- **Raw SP totals across teams** - Sprint length and scope differ; normalize by sprint days and use indexed delivery for trend, not rank.
+- **Sprint count as productivity** - More sprints do not mean more delivery; use stories/SP per sprint day.
+- **Single-sprint predictability as team quality** - One sprint is noise; use planned vs unplanned breakdown and trends.
+- **Unplanned spillover as failure** - Mid-sprint adds (bugs, support) are reality; show cause (Bug/Support/Feature), not blame.
 
 ### Example: misuse vs correct interpretation
 
-- **Misuse:** “Team A has lower predictability % than Team B, so Team A is underperforming.”  
-- **Correct:** “Team A had more unplanned spillover (bugs/support). Check scope-change cause and sprint hygiene before comparing predictability.”
+- **Misuse:** Team A has lower predictability % than Team B, so Team A is underperforming.  
+- **Correct:** Team A had more unplanned spillover (bugs/support). Check scope-change cause and sprint hygiene before comparing predictability.
 
 ## Troubleshooting
 
@@ -548,3 +548,5 @@ MIT
 ## Support
 
 For issues or questions, please check the troubleshooting section above or review the error messages in the application UI.
+
+

@@ -1,7 +1,7 @@
 {
   "name": "voda-agile-board",
   "version": "1.0.0",
-  "description": "Agile reporting for scrum masters and leaders – sprint reports from Jira (MPSA & MAS)",
+  "description": "Agile reporting for scrum masters and leaders - sprint reports from Jira (MPSA & MAS)",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -33,3 +33,4 @@
     "node": ">=20.0.0"
   }
 }
+

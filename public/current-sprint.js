@@ -58,6 +58,19 @@
     }
   }
 
+  function formatDateTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
   function formatDayLabel(iso) {
     if (!iso) return '-';
     const d = new Date(iso);
@@ -253,6 +266,10 @@
       '<strong>' + formatNumber(summary.supportOpsSP || 0, 0) + ' SP</strong>' +
       '</div>';
     html += '<div class="summary-block">' +
+      '<span>Sub-task logged</span>' +
+      '<strong>' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h</strong>' +
+      '</div>';
+    html += '<div class="summary-block">' +
       '<span>Total SP</span>' +
       '<strong>' + formatNumber(summary.totalAllSP != null ? summary.totalAllSP : totalSP, 0) + ' SP</strong>' +
       '</div>';
@@ -429,6 +446,121 @@
     return html;
   }
 
+  function renderSubtaskTracking(data) {
+    const tracking = data.subtaskTracking || {};
+    const summary = tracking.summary || {};
+    const subtasks = tracking.subtasks || [];
+    let html = '<div class="transparency-card" id="subtask-tracking-card">';
+    html += '<h2>Sub-task time tracking</h2>';
+    html += '<p class="meta-row"><span>Estimated:</span> <strong>' + formatNumber(summary.totalEstimateHours || 0, 1) + ' h</strong>' +
+      ' <span>Logged:</span> <strong>' + formatNumber(summary.totalLoggedHours || 0, 1) + ' h</strong>' +
+      ' <span>Missing estimates:</span> <strong>' + (summary.missingEstimate ?? 0) + '</strong>' +
+      ' <span>No logged hours:</span> <strong>' + (summary.missingLogged ?? 0) + '</strong></p>';
+
+    if (!subtasks.length) {
+      html += '<p>No sub-tasks found for this sprint.</p>';
+    } else {
+      html += '<table class="data-table"><thead><tr>' +
+        '<th>Key</th><th>Summary</th><th>Assignee</th><th>Estimate (h)</th><th>Logged (h)</th><th>Remaining (h)</th><th>Parent</th><th>Created</th><th>Updated</th>' +
+        '</tr></thead><tbody>';
+      for (const row of subtasks) {
+        const keyCell = row.issueUrl
+          ? '<a href="' + escapeHtml(row.issueUrl) + '" target="_blank" rel="noopener">' + escapeHtml(row.issueKey || '') + '</a>'
+          : escapeHtml(row.issueKey || '');
+        const parentLabel = row.parentKey
+          ? (row.parentSummary ? (row.parentKey + ' "' + row.parentSummary + '"') : row.parentKey)
+          : '-';
+        const parentCell = row.parentUrl
+          ? '<a href="' + escapeHtml(row.parentUrl) + '" target="_blank" rel="noopener">' + escapeHtml(parentLabel) + '</a>'
+          : escapeHtml(parentLabel);
+        html += '<tr>';
+        html += '<td>' + keyCell + '</td>';
+        html += '<td>' + escapeHtml(row.summary || '') + '</td>';
+        html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+        html += '<td>' + formatNumber(row.estimateHours || 0, 1) + '</td>';
+        html += '<td>' + formatNumber(row.loggedHours || 0, 1) + '</td>';
+        html += '<td>' + formatNumber(row.remainingHours || 0, 1) + '</td>';
+        html += '<td>' + parentCell + '</td>';
+        html += '<td>' + escapeHtml(formatDateTime(row.created)) + '</td>';
+        html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function buildNotificationMessage(data, group) {
+    const sprintName = data?.sprint?.name || 'Current Sprint';
+    const missingEstimate = group?.missingEstimate || [];
+    const missingLogged = group?.missingLogged || [];
+    const recipient = group?.recipient || 'there';
+
+    let message = 'Habari ' + recipient + ',\n';
+    message += 'As part of performance tracking, all Jira Sub-tasks must have both Time Estimates and time tracking (work logged) so we can accurately understand effort and improve forecasting. We are addressing this within the current sprint: ' + sprintName + '.\n\n';
+
+    if (missingEstimate.length > 0) {
+      message += 'Missing Time Estimates:\n';
+      missingEstimate.forEach(item => {
+        const parentLabel = item.parentKey ? (item.parentKey + (item.parentSummary ? ' "' + item.parentSummary + '"' : '')) : '-';
+        message += '  - ' + (item.issueKey || '-') + ' - ' + (item.summary || '-') +
+          ' - Created: ' + formatDateTime(item.created) +
+          '; Updated: ' + formatDateTime(item.updated) +
+          '; Estimate: - ; Logged: ' + formatNumber(item.loggedHours || 0, 1) + 'h; Parent: ' + parentLabel + '.\n';
+      });
+      message += '\n';
+    }
+
+    if (missingLogged.length > 0) {
+      message += 'Already Estimated (please start logging work):\n';
+      missingLogged.forEach(item => {
+        const parentLabel = item.parentKey ? (item.parentKey + (item.parentSummary ? ' "' + item.parentSummary + '"' : '')) : '-';
+        message += '  - ' + (item.issueKey || '-') + ' - ' + (item.summary || '-') +
+          ' - Created: ' + formatDateTime(item.created) +
+          '; Updated: ' + formatDateTime(item.updated) +
+          '; Estimate: ' + formatNumber(item.estimateHours || 0, 1) + 'h; Logged: 0h; Parent: ' + parentLabel + '.\n';
+      });
+      message += '\n';
+    }
+
+    message += 'For missing estimates, add an Original Estimate (total expected hours). For all items above, please use Log Work to record time spent and keep logging as you proceed.\n';
+    message += 'If you already updated these since this snapshot, thanks - no further action needed.\n';
+    message += 'Thanks,\nAlbert\nScrum Master - DMS Squad';
+    return message;
+  }
+
+  function renderNotifications(data) {
+    const notifications = data?.subtaskTracking?.notifications || [];
+    const notificationsByReporter = data?.subtaskTracking?.notificationsByReporter || [];
+    const actionable = notifications.filter(n => (n.missingEstimate || []).length > 0 || (n.missingLogged || []).length > 0);
+    const actionableByReporter = notificationsByReporter.filter(n => (n.missingEstimate || []).length > 0 || (n.missingLogged || []).length > 0);
+    const hasReporterGroups = actionableByReporter.length > 0;
+    const hasAssigneeGroups = actionable.length > 0;
+    let html = '<div class="transparency-card" id="notifications-card">';
+    html += '<h2>Sub-task time tracking notifications</h2>';
+    if (!hasReporterGroups && !hasAssigneeGroups) {
+      html += '<p>No notifications needed right now.</p>';
+    } else {
+      html += '<div class="notifications-controls">';
+      if (hasReporterGroups && hasAssigneeGroups) {
+        html += '<label for="notification-group">Group by</label>';
+        html += '<select id="notification-group">';
+        html += '<option value="assignee">Assignee</option>';
+        html += '<option value="reporter">Reporter</option>';
+        html += '</select>';
+      }
+      html += '<label for="notification-recipient">Recipient</label>';
+      html += '<select id="notification-recipient"></select>';
+      html += '<button class="btn btn-secondary btn-compact" type="button" id="notification-copy">Copy message</button>';
+      html += '<span class="notes-status" id="notification-status"></span>';
+      html += '</div>';
+      html += '<textarea id="notification-message" rows="12" class="notification-message" aria-label="Notification message"></textarea>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function renderNotes(data) {
     const notes = data.notes || { dependencies: [], learnings: [], updatedAt: null };
     const depsText = (notes.dependencies || []).join('\n');
@@ -500,6 +632,8 @@
     html += renderBurndown(data);
     html += renderScopeChanges(data);
     html += renderStories(data);
+    html += renderSubtaskTracking(data);
+    html += renderNotifications(data);
     html += renderStuckCandidates(data);
     html += renderNotes(data);
     html += renderAssumptions(data);
@@ -550,6 +684,78 @@
       saveBtn.addEventListener('click', () => {
         saveNotes(data.board?.id, data.sprint?.id);
       });
+    }
+
+    const groupSelect = document.getElementById('notification-group');
+    const recipientSelect = document.getElementById('notification-recipient');
+    const messageArea = document.getElementById('notification-message');
+    const copyBtn = document.getElementById('notification-copy');
+    const statusEl = document.getElementById('notification-status');
+    const byAssignee = (data?.subtaskTracking?.notifications || [])
+      .filter(n => (n.missingEstimate || []).length > 0 || (n.missingLogged || []).length > 0);
+    const byReporter = (data?.subtaskTracking?.notificationsByReporter || [])
+      .filter(n => (n.missingEstimate || []).length > 0 || (n.missingLogged || []).length > 0);
+
+    function getGroups(type) {
+      return type === 'reporter' ? byReporter : byAssignee;
+    }
+
+    function populateRecipients(type) {
+      if (!recipientSelect) return;
+      recipientSelect.innerHTML = '';
+      const groups = getGroups(type);
+      groups.forEach((item, idx) => {
+        const count = (item.missingEstimate || []).length + (item.missingLogged || []).length;
+        const label = (item.recipient || 'Unassigned') + ' (' + count + ')';
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = label;
+        recipientSelect.appendChild(opt);
+      });
+      if (!groups.length) {
+        messageArea.value = '';
+      } else {
+        messageArea.value = buildNotificationMessage(data, groups[0]);
+      }
+    }
+
+    function updateMessage(type, index) {
+      const groups = getGroups(type);
+      if (!groups.length) {
+        messageArea.value = '';
+        return;
+      }
+      const idx = Number.isNaN(index) ? 0 : Math.max(0, Math.min(index, groups.length - 1));
+      messageArea.value = buildNotificationMessage(data, groups[idx]);
+    }
+
+    if (messageArea && recipientSelect && (byAssignee.length > 0 || byReporter.length > 0)) {
+      const initialGroup = groupSelect ? groupSelect.value : (byAssignee.length > 0 ? 'assignee' : 'reporter');
+      populateRecipients(initialGroup);
+
+      if (groupSelect) {
+        groupSelect.addEventListener('change', (event) => {
+          const type = event.target.value || 'assignee';
+          populateRecipients(type);
+        });
+      }
+
+      recipientSelect.addEventListener('change', (event) => {
+        const type = groupSelect ? groupSelect.value : (byAssignee.length > 0 ? 'assignee' : 'reporter');
+        updateMessage(type, Number(event.target.value || 0));
+      });
+
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(messageArea.value);
+            if (statusEl) statusEl.textContent = 'Copied.';
+            setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+          } catch (err) {
+            if (statusEl) statusEl.textContent = 'Copy failed.';
+          }
+        });
+      }
     }
   }
 
