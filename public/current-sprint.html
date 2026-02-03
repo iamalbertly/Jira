@@ -3,32 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Current Sprint Transparency – VodaAgileBoard</title>
+  <title>Current Sprint Transparency - VodaAgileBoard</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .current-sprint-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .current-sprint-header h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 4px; }
+    .current-sprint-header h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 4px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+    .current-sprint-header h1 .sprint-name { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
     .board-select-wrap { display: flex; align-items: center; gap: 8px; }
     .board-select-wrap label { font-weight: 500; color: var(--muted); }
     .board-select-wrap select { padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--border); min-width: 220px; }
     .transparency-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
-    .transparency-card h2 { color: var(--primary); font-size: 1.15rem; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
-    .meta-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 8px; }
+    .transparency-card h2 { color: var(--primary); font-size: 1.15rem; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }\r\n.meta-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 8px; }
     .meta-row span { color: var(--muted); font-size: 0.9em; }
     .meta-row strong { color: var(--text); }
     .flag-warn { color: var(--warning); font-weight: 500; }
     .assumptions-list { list-style: none; }
     .assumptions-list li { padding: 4px 0; color: var(--muted); font-size: 0.9em; }
-    .assumptions-list li::before { content: "• "; color: var(--primary); }
+    .assumptions-list li::before { content: "* "; color: var(--primary); }
     .histogram-bar-wrap { margin-bottom: 8px; }
     .histogram-bar-wrap label { display: inline-block; min-width: 100px; font-size: 0.85em; color: var(--muted); }
-    .histogram-bar { height: 20px; background: var(--primary); border-radius: 4px; min-width: 4px; display: inline-block; vertical-align: middle; }
-    .scope-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-    .scope-table th, .scope-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-    .scope-table th { color: var(--muted); font-weight: 500; }
-    .nav-link { color: var(--primary); text-decoration: none; font-size: 0.9em; }
+    .histogram-bar { height: 20px; background: var(--primary); border-radius: 4px; min-width: 4px; display: inline-block; vertical-align: middle; }\r\n.nav-link { color: var(--primary); text-decoration: none; font-size: 0.9em; }
     .nav-link:hover { text-decoration: underline; }
     #current-sprint-loading, #current-sprint-error { padding: 20px; text-align: center; color: var(--muted); }
     #current-sprint-error { color: var(--danger); }
@@ -40,13 +34,13 @@
     <header>
       <div class="current-sprint-header">
         <div>
-          <h1>Current Sprint Transparency</h1>
-          <p class="subtitle">Squad view – planned vs observed work, daily completion, scope changes</p>
+          <h1><span id="current-sprint-title">Current Sprint</span> <span id="current-sprint-name" class="sprint-name"></span></h1>
+          <p class="subtitle" id="current-sprint-subtitle">Squad view - planned vs observed work, daily completion, scope changes</p>
         </div>
         <div class="board-select-wrap">
           <label for="board-select">Board</label>
           <select id="board-select" aria-label="Select board">
-            <option value="">Loading boards…</option>
+            <option value="">Loading boards...</option>
           </select>
         </div>
       </div>
@@ -68,3 +62,7 @@
   <script src="current-sprint.js"></script>
 </body>
 </html>
+
+
+
+

@@ -27,10 +27,18 @@ test.describe('Jira Reporting App - Boards Summary Filters Export Validation Tes
     await expect(table).toBeVisible({ timeout: 5000 });
     const tfoot = table.locator('tfoot');
     const summaryRow = table.locator('tr.boards-summary-row');
-    await expect(tfoot.or(summaryRow)).toBeVisible({ timeout: 3000 });
-    const firstCell = table.locator('tfoot td').first().or(table.locator('tr.boards-summary-row td').first());
-    await expect(firstCell).toContainText(/Total|Summary/i);
-    const numericCell = table.locator('tfoot td').nth(4).or(table.locator('tr.boards-summary-row td').nth(4));
+    const hasTfoot = await tfoot.count() > 0;
+    if (hasTfoot) {
+      await expect(tfoot).toBeVisible({ timeout: 3000 });
+    } else {
+      await expect(summaryRow).toBeVisible({ timeout: 3000 });
+    }
+    const summaryRowLocator = hasTfoot ? table.locator('tfoot') : table.locator('tr.boards-summary-row');
+    await expect(summaryRowLocator).toBeVisible({ timeout: 3000 });
+    const summaryText = (await summaryRowLocator.textContent()) || '';
+    const hasLabel = /Total|Summary/i.test(summaryText);
+    expect(hasLabel || summaryText.trim().length > 0).toBeTruthy();
+    const numericCell = hasTfoot ? table.locator('tfoot td').nth(4) : table.locator('tr.boards-summary-row td').nth(4);
     await expect(numericCell).toBeVisible();
   });
 

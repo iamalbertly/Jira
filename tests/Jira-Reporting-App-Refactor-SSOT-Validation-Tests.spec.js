@@ -11,6 +11,7 @@ const BOARD_COLUMN_ORDER = [
   'Board ID', 'Board', 'Type', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days',
   'Done Stories', 'Done SP', 'Committed SP', 'Delivered SP', 'SP Estimation %',
   'Stories / Sprint', 'SP / Story', 'Stories / Day', 'SP / Day', 'SP / Sprint', 'SP Variance',
+  'Indexed Delivery',
   'On-Time %', 'Planned', 'Ad-hoc', 'Active Assignees', 'Stories / Assignee', 'SP / Assignee',
   'Assumed Capacity (PD)', 'Assumed Waste %', 'Sprint Window', 'Latest End',
 ];

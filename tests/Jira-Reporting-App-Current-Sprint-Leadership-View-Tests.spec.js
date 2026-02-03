@@ -36,6 +36,11 @@ test.describe('Jira Reporting App - Current Sprint and Leadership View Tests', (
       const bodyText = await page.locator('body').textContent();
       const hasNoSprintMsg = bodyText && (bodyText.includes('No active') || bodyText.includes('recent closed sprint') || bodyText.includes('no active'));
       expect(contentVisible || hasNoSprintMsg || loadingText?.includes('Select') || (await error.isVisible())).toBeTruthy();
+
+      if (contentVisible && !hasNoSprintMsg) {
+        await expect(page.locator('.sprint-tabs')).toBeVisible();
+        await expect(page.locator('#sprint-summary-card')).toBeVisible();
+      }
     }
   });
 
@@ -72,5 +77,9 @@ test.describe('Jira Reporting App - Current Sprint and Leadership View Tests', (
     const hasContent = contentVisible && (await content.textContent())?.trim().length > 0;
     const hasError = errorVisible && (await error.textContent())?.trim().length > 0;
     expect(hasContent || loadingVisible || hasError || (bodyText && bodyText.length > 0)).toBeTruthy();
+
+    if (hasContent) {
+      await expect(page.locator('text=Velocity (SP/day)')).toBeVisible();
+    }
   });
 });

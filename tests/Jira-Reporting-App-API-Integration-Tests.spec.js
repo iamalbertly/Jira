@@ -307,6 +307,19 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     expect(json.code).toBe('BOARD_NOT_FOUND');
   });
 
+  test('POST /api/current-sprint-notes should require boardId and sprintId', async ({ request }) => {
+    const response = await request.post('/api/current-sprint-notes', {
+      data: { dependencies: 'Blocked by data feed', learnings: 'Sync earlier' },
+    });
+    if (response.status() === 401) {
+      test.skip('Auth required');
+      return;
+    }
+    expect(response.status()).toBe(400);
+    const json = await response.json();
+    expect(json.code).toBe('MISSING_NOTES_KEYS');
+  });
+
   test('GET /current-sprint should serve HTML page', async ({ request }) => {
     const response = await request.get('/current-sprint');
     if (response.status() === 302) {

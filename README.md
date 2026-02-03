@@ -14,7 +14,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Runtime Discovery**: Automatically discovers boards and field IDs from your Jira instance
 - **Error Handling**: Robust error handling with user-friendly messages and retry logic
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
-- **Current Sprint Transparency**: Squad view at `/current-sprint` – planned vs observed work, daily completion histogram, scope changes
+- **Current Sprint Transparency**: Squad view at `/current-sprint` – sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs. Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
 - **Sprint Leadership View**: Normalized trends at `/sprint-leadership` – indexed delivery, predictability, no rankings
 
 ## Prerequisites
@@ -174,7 +174,10 @@ Returns a list of boards for the given projects (for the current-sprint board se
 **Response:** `{ boards: Array<{ id: number, name: string, ... }> }`. Returns 400 with code `NO_PROJECTS` when `projects` is missing or empty.
 
 ### GET /api/current-sprint.json
-Returns the current-sprint transparency payload for a board (snapshot-first; use `live=true` to bypass cache).
+Returns the current-sprint transparency payload for a board (snapshot-first; use `live=true` to bypass cache). Optional `sprintId` loads a specific sprint for tab navigation.
+
+### POST /api/current-sprint-notes
+Saves dependencies/learnings notes for a sprint. Body: `{ boardId, sprintId, dependencies, learnings }`.
 
 **Query Parameters:**
 - `boardId` (required): Jira board ID
@@ -286,6 +289,7 @@ This runs the test orchestration script which:
 12. Runs Boards Summary Filters Export Validation tests
 13. Runs Current Sprint and Leadership View tests
 14. Runs UX Trust Validation tests (report, current-sprint, leadership with console and UI assertions)
+15. Runs Current Sprint UX and SSOT Validation tests (board pre-select, burndown summary, empty states, leadership empty preview)
 15. Terminates on first error
 16. Shows all steps in foreground with live output from each test command
 
@@ -305,6 +309,9 @@ npm run test:current-sprint-leadership
 
 # UX Trust Validation (report, current-sprint, leadership + console/UI assertions)
 npm run test:ux-trust
+
+# Current Sprint UX and SSOT Validation (board pre-select, burndown, empty states, leadership empty preview)
+npm run test:current-sprint-ux-ssot
 ```
 
 ### Test Coverage and Caching Behavior
@@ -333,7 +340,7 @@ npm run test:ux-trust
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
 - Playwright is configured (via `playwright.config.js`) to:
   - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL` for remote runs).
   - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server, e.g. when `BASE_URL` points to a deployed instance).

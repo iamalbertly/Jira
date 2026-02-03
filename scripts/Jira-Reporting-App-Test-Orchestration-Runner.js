@@ -127,6 +127,12 @@ const steps = [
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
     cwd: projectRoot,
   },
+  {
+    name: 'Run Current Sprint UX and SSOT Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
 ];
 
 function runStep(step, stepIndex, envOverrides = {}) {
@@ -152,7 +158,7 @@ function runStep(step, stepIndex, envOverrides = {}) {
         console.error(`${'='.repeat(60)}\n`);
         reject(new Error(`Step ${step.name} failed with exit code ${code}`));
       } else {
-        console.log(`\n✓ Step ${stepIndex + 1} (${step.name}) completed successfully\n`);
+        console.log(`\nOK Step ${stepIndex + 1} (${step.name}) completed successfully\n`);
         resolve();
       }
     });
@@ -204,7 +210,7 @@ async function runAllTests() {
     }
 
     console.log('\n' + '='.repeat(60));
-    console.log('✓ ALL TESTS PASSED');
+    console.log('OK ALL TESTS PASSED');
     console.log('='.repeat(60) + '\n');
     if (manualServer) {
       manualServer.kill();
@@ -212,7 +218,7 @@ async function runAllTests() {
     process.exit(0);
   } catch (error) {
     console.error('\n' + '='.repeat(60));
-    console.error('✗ TEST ORCHESTRATION FAILED');
+    console.error('ERROR TEST ORCHESTRATION FAILED');
     console.error('='.repeat(60));
     console.error(`Error: ${error.message}\n`);
     if (manualServer) {
@@ -234,3 +240,4 @@ process.on('SIGTERM', () => {
 });
 
 runAllTests();
+

@@ -1,7 +1,7 @@
 import express from 'express';
 import session from 'express-session';
 import dotenv from 'dotenv';
-import { mkdir, appendFile } from 'fs/promises';
+import { mkdir, appendFile, readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -53,11 +53,70 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FEEDBACK_DIR = path.join(__dirname, 'data');
 const FEEDBACK_FILE = path.join(__dirname, 'data', 'JiraReporting-Feedback-UserInput-Submission-Log.jsonl');
+const CURRENT_SPRINT_NOTES_FILE = path.join(__dirname, 'data', 'current-sprint-notes.json');
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const APP_LOGIN_USER = process.env.APP_LOGIN_USER;
 const APP_LOGIN_PASSWORD = process.env.APP_LOGIN_PASSWORD;
 const authEnabled = Boolean(SESSION_SECRET && APP_LOGIN_USER && APP_LOGIN_PASSWORD);
+
+function normalizeList(input) {
+  if (Array.isArray(input)) {
+    return input.map(item => String(item || '').trim()).filter(Boolean);
+  }
+  if (typeof input === 'string') {
+    return input
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeNotesPayload(payload) {
+  return {
+    dependencies: normalizeList(payload?.dependencies),
+    learnings: normalizeList(payload?.learnings),
+  };
+}
+
+async function readCurrentSprintNotesFile() {
+  try {
+    const raw = await readFile(CURRENT_SPRINT_NOTES_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { updatedAt: null, items: {} };
+    if (!parsed.items || typeof parsed.items !== 'object') parsed.items = {};
+    return parsed;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { updatedAt: null, items: {} };
+    throw error;
+  }
+}
+
+async function upsertCurrentSprintNotes(boardId, sprintId, payload) {
+  const boardKey = String(boardId || '');
+  const sprintKey = String(sprintId || '');
+  if (!boardKey || !sprintKey) {
+    throw new Error('boardId and sprintId are required');
+  }
+
+  const notes = await readCurrentSprintNotesFile();
+  if (!notes.items[boardKey]) notes.items[boardKey] = {};
+
+  const entry = {
+    dependencies: normalizeList(payload?.dependencies),
+    learnings: normalizeList(payload?.learnings),
+    updatedAt: new Date().toISOString(),
+  };
+
+  notes.items[boardKey][sprintKey] = entry;
+  notes.updatedAt = entry.updatedAt;
+
+  await mkdir(path.dirname(CURRENT_SPRINT_NOTES_FILE), { recursive: true });
+  await writeFile(CURRENT_SPRINT_NOTES_FILE, JSON.stringify(notes, null, 2), 'utf8');
+
+  return entry;
+}
 const SESSION_IDLE_MS = Number(process.env.SESSION_IDLE_MS) || 30 * 60 * 1000; // 30 min default
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
 const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
@@ -245,6 +304,7 @@ app.get('/api/boards.json', requireAuth, async (req, res) => {
 app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
   try {
     const boardIdParam = req.query.boardId;
+    const sprintIdParam = req.query.sprintId;
     const projectsParam = req.query.projects;
     const selectedProjects = projectsParam != null
       ? projectsParam.split(',').map(p => p.trim()).filter(Boolean)
@@ -264,6 +324,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
         message: 'Provide boardId (e.g. boardId=123).',
       });
     }
+    const sprintId = sprintIdParam != null ? Number(sprintIdParam) : null;
 
     const agileClient = createAgileClient();
     const version3Client = createVersion3Client();
@@ -283,7 +344,9 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
 
     const projectKeys = board.location?.projectKey ? [board.location.projectKey] : selectedProjects;
     const forceLive = req.query.live === 'true' || req.query.refresh === 'true';
-    const snapshotKey = `currentSprintSnapshot:${boardId}`;
+    const snapshotKey = sprintId != null && !Number.isNaN(sprintId)
+      ? `currentSprintSnapshot:${boardId}:sprint:${sprintId}`
+      : `currentSprintSnapshot:${boardId}`;
 
     if (!forceLive) {
       const cached = cache.get(snapshotKey);
@@ -312,7 +375,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
         epicLinkFieldId: fields.epicLinkFieldId,
         ebmFieldIds: fields.ebmFieldIds || {},
       },
-      options: { completionAnchor: anchor },
+      options: { completionAnchor: anchor, sprintId },
     });
 
     if (!payload.meta) payload.meta = {};
@@ -332,6 +395,35 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
     res.status(500).json({
       error: 'Failed to generate current sprint data',
       code: 'CURRENT_SPRINT_ERROR',
+      message: error.message || 'An unexpected error occurred.',
+    });
+  }
+});
+
+/**
+ * POST /api/current-sprint-notes - Save dependencies/learnings notes for a sprint (protected when auth enabled)
+ * Body: { boardId, sprintId, dependencies, learnings }
+ */
+app.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
+  try {
+    const boardId = req.body?.boardId != null ? Number(req.body.boardId) : null;
+    const sprintId = req.body?.sprintId != null ? Number(req.body.sprintId) : null;
+    if (boardId == null || Number.isNaN(boardId) || sprintId == null || Number.isNaN(sprintId)) {
+      return res.status(400).json({
+        error: 'boardId and sprintId required',
+        code: 'MISSING_NOTES_KEYS',
+        message: 'Provide boardId and sprintId with dependencies/learnings.',
+      });
+    }
+
+    const payload = normalizeNotesPayload(req.body || {});
+    const saved = await upsertCurrentSprintNotes(boardId, sprintId, payload);
+    res.json({ boardId, sprintId, notes: saved });
+  } catch (error) {
+    logger.error('Error saving current-sprint notes', error);
+    res.status(500).json({
+      error: 'Failed to save notes',
+      code: 'CURRENT_SPRINT_NOTES_ERROR',
       message: error.message || 'An unexpected error occurred.',
     });
   }
