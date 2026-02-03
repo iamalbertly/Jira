@@ -280,6 +280,7 @@
     const summary = data.summary || {};
     const days = data.daysMeta || {};
     const planned = data.plannedWindow || {};
+    const meta = data.meta || {};
     const scopeChanges = data.scopeChanges || [];
     const nextSprint = data.nextSprint || null;
     const previousSprint = data.previousSprint || null;
@@ -309,6 +310,12 @@
       '<a href="#scope-changes-card">Scope changes</a>' +
       (stuckCount > 0 ? '<span>|</span><a href="#stuck-card" class="stuck-prompt">' + stuckCount + ' in progress &gt;24h - Follow up</a>' : '') +
       '</div>';
+    if (meta.fromSnapshot) {
+      const snapshotLabel = meta.snapshotAt ? formatDateTime(meta.snapshotAt) : 'unknown';
+      html += '<div class="snapshot-badge">Snapshot: ' + escapeHtml(snapshotLabel) + '</div>';
+    } else if (meta.snapshotAt == null) {
+      html += '<div class="snapshot-badge snapshot-live">Live</div>';
+    }
     html += '</div>';
 
     html += '<div class="status-chips">';
@@ -459,6 +466,7 @@
       html += '<p>No scope added after sprint start (by created date).</p>';
     } else {
       html += '<p>Summary: Bug ' + (summary.bug || 0) + ', Feature ' + (summary.feature || 0) + ', Support ' + (summary.support || 0) + '</p>';
+      html += '<p class="meta-row"><small>Scope changes are inferred using issue created date after sprint start.</small></p>';
       html += '<table class="data-table"><thead><tr><th>Date</th><th>Key</th><th>Type</th><th>SP</th><th>Classification</th><th>Reporter</th><th>Assignee</th></tr></thead><tbody>';
       for (const row of scopeChanges) {
         const keyCell = row.issueUrl
@@ -517,10 +525,14 @@
     if (stuckCandidates.length === 0) return '';
     let html = '<div class="transparency-card" id="stuck-card">';
     html += '<h2>Stuck (in progress > 24h)</h2>';
+    html += '<p class="meta-row"><small>Based on last status category change (fallback to last update).</small></p>';
     html += '<table class="data-table"><thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Reporter</th><th>Last status change</th></tr></thead><tbody>';
     for (const row of stuckCandidates) {
+      const keyCell = row.issueUrl
+        ? '<a href="' + escapeHtml(row.issueUrl) + '" target="_blank" rel="noopener">' + escapeHtml(row.issueKey || '') + '</a>'
+        : escapeHtml(row.issueKey || '');
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.issueKey || '') + '</td>';
+      html += '<td>' + keyCell + '</td>';
       html += '<td>' + escapeHtml(row.summary || '') + '</td>';
       html += '<td>' + escapeHtml(row.status || '') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';

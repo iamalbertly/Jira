@@ -115,6 +115,11 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const notesVisible = await page.locator('#notes-card').isVisible().catch(() => false);
       expect(summaryVisible).toBeTruthy();
       expect(notesVisible).toBeTruthy();
+      const snapshotBadgeVisible = await page.locator('.snapshot-badge').isVisible().catch(() => false);
+      if (snapshotBadgeVisible) {
+        const badgeText = await page.locator('.snapshot-badge').textContent();
+        expect(badgeText).toMatch(/Snapshot|Live/);
+      }
       const hasStuckCard = await page.locator('#stuck-card').isVisible().catch(() => false);
       const hasStuckPrompt = await page.locator('a.stuck-prompt, a[href="#stuck-card"]').isVisible().catch(() => false);
       if (hasStuckCard || hasStuckPrompt) {

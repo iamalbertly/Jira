@@ -672,6 +672,22 @@ header h1 {
   color: var(--danger);
 }
 
+.snapshot-badge {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  color: #3730a3;
+  font-size: 0.8em;
+  padding: 4px 10px;
+  margin-left: auto;
+}
+
+.snapshot-badge.snapshot-live {
+  background: #ecfdf3;
+  border-color: #b7e6d3;
+  color: #0f7a65;
+}
+
 .summary-next,
 .summary-prev {
   color: var(--muted);

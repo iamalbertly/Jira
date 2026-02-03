@@ -317,7 +317,7 @@ app.get('/api/boards.json', requireAuth, async (req, res) => {
   try {
     const projectsParam = req.query.projects;
     const selectedProjects = projectsParam != null
-      ? projectsParam.split(',').map(p => p.trim()).filter(Boolean)
+      ? Array.from(new Set(projectsParam.split(',').map(p => p.trim()).filter(Boolean)))
       : ['MPSA', 'MAS'];
     if (!selectedProjects.length) {
       return res.status(400).json({ error: 'At least one project required', code: 'NO_PROJECTS' });
@@ -351,7 +351,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
     const sprintIdParam = req.query.sprintId;
     const projectsParam = req.query.projects;
     const selectedProjects = projectsParam != null
-      ? projectsParam.split(',').map(p => p.trim()).filter(Boolean)
+      ? Array.from(new Set(projectsParam.split(',').map(p => p.trim()).filter(Boolean)))
       : ['MPSA', 'MAS'];
     if (!selectedProjects.length) {
       return res.status(400).json({
