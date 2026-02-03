@@ -632,14 +632,27 @@ function getSafeMeta(preview) {
   return safe;
 }
 
-function buildCsvFilename(section, meta, qualifier = '') {
+async function getDateRangeLabel(start, end) {
+  try {
+    const res = await fetch(`/api/format-date-range?start=${encodeURIComponent(start || '')}&end=${encodeURIComponent(end || '')}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.dateRange) return data.dateRange;
+    }
+  } catch (_) {}
+  const s = (start || '').split('T')[0];
+  const e = (end || '').split('T')[0];
+  return s && e ? `${s}_to_${e}` : 'date-range';
+}
+
+function buildCsvFilename(section, meta, qualifier = '', dateRange = null) {
   const projects = (meta?.selectedProjects || []).join('-') || 'Projects';
-  const dateRange = formatDateRangeForFilename(meta?.windowStart || '', meta?.windowEnd || '');
+  const range = dateRange != null ? dateRange : ((meta?.windowStart || '').split('T')[0] && (meta?.windowEnd || '').split('T')[0] ? `${(meta.windowStart || '').split('T')[0]}_to_${(meta.windowEnd || '').split('T')[0]}` : 'date-range');
   const exportDate = new Date().toISOString().split('T')[0];
   const partialSuffix = meta?.partial ? '_PARTIAL' : '';
   const cleanedSection = section.replace(/[^a-z0-9-]/gi, '-');
   const cleanedQualifier = qualifier ? `_${qualifier.replace(/[^a-z0-9-]/gi, '-')}` : '';
-  return `${projects}_${dateRange}_${cleanedSection}${cleanedQualifier}${partialSuffix}_${exportDate}.csv`;
+  return `${projects}_${range}_${cleanedSection}${cleanedQualifier}${partialSuffix}_${exportDate}.csv`;
 }
 
 // Render preview
@@ -842,6 +855,35 @@ function updateDateDisplay() {
 
 document.getElementById('start-date').addEventListener('change', updateDateDisplay);
 document.getElementById('end-date').addEventListener('change', updateDateDisplay);
+
+function formatDateTimeLocalForInput(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
+document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const q = btn.getAttribute('data-quarter');
+    try {
+      const res = await fetch(`/api/date-range?quarter=${encodeURIComponent(q)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.start || !data.end) return;
+      const startDate = new Date(data.start);
+      const endDate = new Date(data.end);
+      const startInput = document.getElementById('start-date');
+      const endInput = document.getElementById('end-date');
+      if (startInput && endInput && !Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime())) {
+        startInput.value = formatDateTimeLocalForInput(startDate);
+        endInput.value = formatDateTimeLocalForInput(endDate);
+        updateDateDisplay();
+      }
+    } catch (_) {}
+  });
+});
 
 function calculateVariance(values) {
   if (!Array.isArray(values) || values.length === 0) {
@@ -2193,7 +2235,8 @@ async function exportCSV(rows, type) {
   }
 
   const meta = getSafeMeta(previewData);
-  const filename = buildCsvFilename('voda-agile-board', meta, type);
+  const dateRange = await getDateRangeLabel(meta?.windowStart || '', meta?.windowEnd || '');
+  const filename = buildCsvFilename('voda-agile-board', meta, type, dateRange);
 
   // Bonus Edge Case 2: Handle very large CSV exports (>10MB) gracefully
   const estimatedSize = JSON.stringify(rows).length; // Rough estimate
@@ -2804,7 +2847,7 @@ async function exportToExcel() {
     
     // Generate filename
     const projects = (meta.selectedProjects || []).join('-');
-    const dateRange = formatDateRangeForFilename(meta.windowStart, meta.windowEnd);
+    const dateRange = await getDateRangeLabel(meta.windowStart, meta.windowEnd);
     const exportDate = new Date().toISOString().split('T')[0];
     a.download = `${projects}_${dateRange}_Sprint-Report_${exportDate}.xlsx`;
     
@@ -2915,7 +2958,7 @@ async function exportToExcelFiltered() {
     const a = document.createElement('a');
     a.href = url;
     const projects = (meta.selectedProjects || []).join('-');
-    const dateRange = formatDateRangeForFilename(meta.windowStart, meta.windowEnd);
+    const dateRange = await getDateRangeLabel(meta.windowStart, meta.windowEnd);
     a.download = `${projects}_${dateRange}_Sprint-Report-filtered_${new Date().toISOString().split('T')[0]}.xlsx`;
     a.style.display = 'none';
     document.body.appendChild(a);
@@ -2963,38 +3006,6 @@ function calculateWorkDaysBetween(startDate, endDate) {
     return count;
   } catch (error) {
     return '';
-  }
-}
-
-// Helper function to format date range for filename
-function formatDateRangeForFilename(startDate, endDate) {
-  try {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    const startMonth = start.getMonth() + 1;
-    const startYear = start.getFullYear();
-    const endMonth = end.getMonth() + 1;
-    const endYear = end.getFullYear();
-    
-    if (startYear === endYear) {
-      // Vodacom quarters: Q1 Apr-Jun, Q2 Jul-Sep, Q3 Oct-Dec, Q4 Jan-Mar
-      if (startMonth >= 4 && startMonth <= 6 && endMonth >= 4 && endMonth <= 6) {
-        return `Q1-${startYear}`;
-      } else if (startMonth >= 7 && startMonth <= 9 && endMonth >= 7 && endMonth <= 9) {
-        return `Q2-${startYear}`;
-      } else if (startMonth >= 10 && startMonth <= 12 && endMonth >= 10 && endMonth <= 12) {
-        return `Q3-${startYear}`;
-      } else if (startMonth >= 1 && startMonth <= 3 && endMonth >= 1 && endMonth <= 3) {
-        return `Q4-${startYear}`;
-      }
-    }
-    
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
-    return `${startStr}_to_${endStr}`;
-  } catch (error) {
-    return `${startDate}_to_${endDate}`;
   }
 }
 
@@ -3058,7 +3069,8 @@ function createSummarySheetRows(metrics, meta, allRows) {
 // Per-section CSV export
 async function exportSectionCSV(sectionName, data, button = null) {
   const meta = getSafeMeta(previewData);
-  const filename = buildCsvFilename(sectionName, meta);
+  const dateRange = await getDateRangeLabel(meta?.windowStart || '', meta?.windowEnd || '');
+  const filename = buildCsvFilename(sectionName, meta, '', dateRange);
   setExportButtonLoading(button, true);
   try {
     if (!previewData) {

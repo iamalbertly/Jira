@@ -13,8 +13,10 @@
     - `lib/csv.js` – CSV column list and escaping (SSOT); CSV streaming for `/export`
     - `lib/cache.js` – TTL cache for preview responses
     - `lib/Jira-Reporting-App-Server-Logging-Utility.js` – structured logging
-  - **Public API:** `GET /api/csv-columns` – returns `{ columns: CSV_COLUMNS }` (SSOT for client CSV column order). `GET /api/boards.json` – list boards for projects (for current-sprint board selector). `GET /api/current-sprint.json` – current-sprint transparency payload per board (snapshot-first; query `boardId`, optional `projects`, `live=true`). Payload includes `stuckCandidates[]` (issues in progress >24h), `previousSprint: { name, id, doneSP, doneStories } | null`.
+  - **Public API:** `GET /api/csv-columns` – returns `{ columns: CSV_COLUMNS }` (SSOT for client CSV column order). `GET /api/boards.json` – list boards for projects (for current-sprint board selector). `GET /api/current-sprint.json` – current-sprint transparency payload per board (snapshot-first; query `boardId`, optional `projects`, `live=true`). Payload includes `stuckCandidates[]` (issues in progress >24h), `previousSprint: { name, id, doneSP, doneStories } | null`. `GET /api/date-range?quarter=Q1|Q2|Q3|Q4` – latest completed Vodacom quarter range `{ start, end }` (UTC). `GET /api/format-date-range?start=...&end=...` – date range label for filenames (Qn-YYYY or start_to_end). `GET /api/default-window` – default report date window `{ start, end }` (SSOT from config).
   - **Routes:** `GET /report`, `GET /current-sprint` (squad transparency), `GET /sprint-leadership` (leadership view).
+  - **Default window SSOT:** `lib/Jira-Reporting-App-Config-DefaultWindow.js` exports `DEFAULT_WINDOW_START`, `DEFAULT_WINDOW_END`; server and `GET /api/default-window` use it.
+  - **Vodacom quarters SSOT:** `lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js` – quarter bounds and `getLatestCompletedQuarter(q)`; `lib/excel.js` uses `getQuarterLabelForRange` for filename labels.
 - **Frontend (`public/report.js`, `public/report.html`, `public/styles.css`, `public/current-sprint.html`, `public/current-sprint.js`, `public/leadership.html`, `public/leadership.js`, `public/Jira-Reporting-App-Public-Boards-Summary.js`)**
   - `report.html` – filters panel, preview header, tabs, and content containers
   - `report.js` – preview flow, client-side validation, tab rendering, CSV exports; imports `buildBoardSummaries` from shared module
@@ -69,6 +71,8 @@
 
 - **Error banner SSOT (per view)**  
   Each view uses a single DOM node for API/validation errors: report `#error`, current-sprint `#current-sprint-error`, leadership `#leadership-error`. Do not show duplicate or overlapping error messages; use one function per view (e.g. `showError`) that writes to that node.
+- **Sprint order contract**  
+  Sprints displayed for filtering (Report Sprints tab, Current Sprint tabs) are ordered **left-to-right from current/latest backwards by sprint end date**. First tab/row = latest end date; each subsequent = same or earlier. Report uses `sortSprintsLatestFirst(sprints)`; Current Sprint uses `resolveRecentSprints` (lib/currentSprint.js) which sorts by `endDate` descending. Automated tests assert this order.
 - **Data alignment**  
   Current-sprint and leadership summary logic must use only server-provided fields. Board summary SSOT: `public/Jira-Reporting-App-Public-Boards-Summary.js` exports `buildBoardSummaries`; report and leadership import it. Canonical shape must match server `sprintsIncluded[]` (sprintWorkDays, sprintCalendarDays, etc.). Do not introduce client-only computed fields that can drift from server.
 - **Client-side date-range validation**

@@ -363,6 +363,22 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   if (projectsSelect) projectsSelect.addEventListener('change', saveFilters);
   if (startInput) startInput.addEventListener('change', saveFilters);
   if (endInput) endInput.addEventListener('change', saveFilters);
+  document.querySelectorAll('.quick-range-btn-leadership[data-quarter]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const q = btn.getAttribute('data-quarter');
+      try {
+        const res = await fetch(`/api/date-range?quarter=${encodeURIComponent(q)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.start || !data.end) return;
+        const startStr = data.start.slice(0, 10);
+        const endStr = data.end.slice(0, 10);
+        if (startInput) startInput.value = startStr;
+        if (endInput) endInput.value = endStr;
+        saveFilters();
+      } catch (_) {}
+    });
+  });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       renderNotificationDock();

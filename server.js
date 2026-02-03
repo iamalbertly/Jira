@@ -19,11 +19,13 @@ import { buildCurrentSprintPayload } from './lib/currentSprint.js';
 import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues } from './lib/issues.js';
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
-import { generateExcelWorkbook, generateExcelFilename, createSummarySheetData } from './lib/excel.js';
+import { generateExcelWorkbook, generateExcelFilename, createSummarySheetData, formatDateRangeForFilename } from './lib/excel.js';
 import { mapColumnsToBusinessNames } from './lib/columnMapping.js';
 import { addKPIColumns, calculateWorkDays } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
+import { getLatestCompletedQuarter } from './lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js';
+import { DEFAULT_WINDOW_START, DEFAULT_WINDOW_END } from './lib/Jira-Reporting-App-Config-DefaultWindow.js';
 
 const DEFAULT_SNAPSHOT_PROJECTS = ['MPSA', 'MAS'];
 const SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -47,8 +49,6 @@ class PreviewError extends Error {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEFAULT_WINDOW_START = '2025-07-01T00:00:00.000Z';
-const DEFAULT_WINDOW_END = '2025-09-30T23:59:59.999Z';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FEEDBACK_DIR = path.join(__dirname, 'data');
@@ -263,6 +263,50 @@ app.get('/sprint-leadership', requireAuth, (req, res) => {
 
 app.get('/api/csv-columns', requireAuth, (req, res) => {
   res.json({ columns: CSV_COLUMNS });
+});
+
+/**
+ * GET /api/date-range?quarter=Q1|Q2|Q3|Q4 - Latest completed Vodacom quarter range (UTC).
+ * Returns { start, end } in ISO format. Never returns a future quarter.
+ */
+app.get('/api/date-range', requireAuth, (req, res) => {
+  const quarterParam = (req.query.quarter || '').toUpperCase().replace(/^Q/, '');
+  const q = quarterParam === '' ? null : parseInt(quarterParam, 10);
+  if (q == null || Number.isNaN(q) || q < 1 || q > 4) {
+    return res.status(400).json({
+      error: 'Invalid quarter',
+      code: 'INVALID_QUARTER',
+      message: 'Provide quarter=Q1, Q2, Q3, or Q4.',
+    });
+  }
+  const range = getLatestCompletedQuarter(q);
+  if (!range) {
+    return res.status(500).json({
+      error: 'Could not compute quarter range',
+      code: 'QUARTER_RANGE_ERROR',
+      message: 'Latest completed quarter could not be determined.',
+    });
+  }
+  res.json({ start: range.startISO, end: range.endISO });
+});
+
+/**
+ * GET /api/format-date-range?start=...&end=... - Format date range for filename (Qn-YYYY or start_to_end).
+ * Uses Vodacom quarter rules. Returns { dateRange: string }.
+ */
+app.get('/api/format-date-range', requireAuth, (req, res) => {
+  const start = req.query.start || '';
+  const end = req.query.end || '';
+  const dateRange = formatDateRangeForFilename(start, end);
+  res.json({ dateRange });
+});
+
+/**
+ * GET /api/default-window - Default report date window (SSOT from config).
+ * Returns { start, end } in ISO format.
+ */
+app.get('/api/default-window', requireAuth, (req, res) => {
+  res.json({ start: DEFAULT_WINDOW_START, end: DEFAULT_WINDOW_END });
 });
 
 /**

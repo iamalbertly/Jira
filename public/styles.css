@@ -204,6 +204,19 @@ header h1 {
   font-size: 0.9em;
 }
 
+.quick-range-hint {
+  margin-bottom: 6px;
+}
+.quick-range-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.quick-range-pills .btn {
+  margin: 0;
+}
+
 .filter-group input[type="datetime-local"] {
   width: 100%;
   padding: 10px 12px;
