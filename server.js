@@ -990,6 +990,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         epicLinkFieldId: fields.epicLinkFieldId,
         ebmFieldIds: fields.ebmFieldIds || {},
       },
+      jiraHost: process.env.JIRA_HOST || '',
       fieldInventory,
       fromCache: false,
       requestedAt,

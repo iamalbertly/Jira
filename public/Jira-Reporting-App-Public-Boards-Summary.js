@@ -32,25 +32,28 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
   const summaries = new Map();
   const boardIds = (boards || []).map((board) => board.id);
   boardIds.forEach((id) => {
-    summaries.set(id, {
-      sprintCount: 0,
-      doneStories: 0,
-      doneSP: 0,
-      committedSP: 0,
-      deliveredSP: 0,
-      earliestStart: null,
-      latestEnd: null,
-      totalSprintDays: 0,
-      validSprintDaysCount: 0,
-      doneBySprintEnd: 0,
-      sprintSpValues: [],
-      epicStories: 0,
-      nonEpicStories: 0,
-      assignees: new Set(),
-      assigneeStoryCounts: new Map(),
-      assigneeSpTotals: new Map(),
+      summaries.set(id, {
+        sprintCount: 0,
+        doneStories: 0,
+        doneSP: 0,
+        committedSP: 0,
+        deliveredSP: 0,
+        earliestStart: null,
+        latestEnd: null,
+        totalSprintDays: 0,
+        validSprintDaysCount: 0,
+        doneBySprintEnd: 0,
+        sprintSpValues: [],
+        epicStories: 0,
+        nonEpicStories: 0,
+        epicSP: 0,
+        nonEpicSP: 0,
+        assignees: new Set(),
+        assigneeStoryCounts: new Map(),
+        assigneeSpTotals: new Map(),
+        nonEpicAssignees: new Set(),
+      });
     });
-  });
 
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
   const sprintSpTotals = new Map();
@@ -70,20 +73,26 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
         sprintSpValues: [],
         epicStories: 0,
         nonEpicStories: 0,
+        epicSP: 0,
+        nonEpicSP: 0,
         assignees: new Set(),
         assigneeStoryCounts: new Map(),
         assigneeSpTotals: new Map(),
+        nonEpicAssignees: new Set(),
       });
     }
     const summary = summaries.get(row.boardId);
     summary.doneStories += 1;
+    const rowSp = spEnabled ? (parseFloat(row.storyPoints) || 0) : 0;
     if (spEnabled) {
-      summary.doneSP += parseFloat(row.storyPoints) || 0;
+      summary.doneSP += rowSp;
     }
     if (row.epicKey) {
       summary.epicStories += 1;
+      if (spEnabled) summary.epicSP += rowSp;
     } else {
       summary.nonEpicStories += 1;
+      if (spEnabled) summary.nonEpicSP += rowSp;
     }
 
     const assigneeName = (row.assigneeDisplayName || '').trim();
@@ -93,8 +102,11 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
       if (spEnabled) {
         summary.assigneeSpTotals.set(
           assigneeName,
-          (summary.assigneeSpTotals.get(assigneeName) || 0) + (parseFloat(row.storyPoints) || 0)
+          (summary.assigneeSpTotals.get(assigneeName) || 0) + rowSp
         );
+      }
+      if (!row.epicKey) {
+        summary.nonEpicAssignees.add(assigneeName);
       }
     }
 
@@ -120,9 +132,12 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
         sprintSpValues: [],
         epicStories: 0,
         nonEpicStories: 0,
+        epicSP: 0,
+        nonEpicSP: 0,
         assignees: new Set(),
         assigneeStoryCounts: new Map(),
         assigneeSpTotals: new Map(),
+        nonEpicAssignees: new Set(),
       });
     }
     const summary = summaries.get(sprint.boardId);

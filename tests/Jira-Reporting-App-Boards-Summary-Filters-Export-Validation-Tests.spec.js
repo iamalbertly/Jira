@@ -42,7 +42,7 @@ test.describe('Jira Reporting App - Boards Summary Filters Export Validation Tes
     await expect(numericCell).toBeVisible();
   });
 
-  test('Tooltip on tap: click trigger shows popover with tooltip text', async ({ page }) => {
+  test('Tooltip on tap: hover header shows popover with tooltip text', async ({ page }) => {
     await page.goto('/report');
     await runDefaultPreview(page);
     await page.click('.tab-btn[data-tab="project-epic-level"]');
@@ -52,9 +52,9 @@ test.describe('Jira Reporting App - Boards Summary Filters Export Validation Tes
       test.skip('No boards table (no boards in window)');
       return;
     }
-    const trigger = page.locator('.tooltip-trigger').first();
+    const trigger = page.locator('th[data-tooltip]').first();
     await expect(trigger).toBeVisible({ timeout: 5000 });
-    await trigger.click();
+    await trigger.hover();
     const popover = page.locator('#tooltip-popover');
     await expect(popover).toBeVisible({ timeout: 3000 });
     await expect(popover).toHaveAttribute('aria-hidden', 'false');
