@@ -14,8 +14,8 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Runtime Discovery**: Automatically discovers boards and field IDs from your Jira instance
 - **Error Handling**: Robust error handling with user-friendly messages and retry logic
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
-- **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, sub-task time tracking (estimate/logged/remaining), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs. Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
-- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings
+- **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (stories, SP, % done), status chips, daily completion (with SP), burndown with ideal line + axis labels, scope changes, stories list with status, sub-task time tracking (estimate/logged/remaining), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks (in progress >24h), previous/next sprint snippet, and sprint tabs (latest to oldest). Board pre-select via `?boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
+- **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings. Remembers the last selected date range in the browser.
 
 ## Prerequisites
 

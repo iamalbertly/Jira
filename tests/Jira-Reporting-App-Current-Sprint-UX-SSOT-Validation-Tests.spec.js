@@ -99,6 +99,11 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const notificationsVisible = await page.locator('#notifications-card').isVisible().catch(() => false);
       expect(subtaskVisible).toBeTruthy();
       expect(notificationsVisible).toBeTruthy();
+      const hasSubtaskTable = await page.locator('#subtask-tracking-card table').isVisible().catch(() => false);
+      if (hasSubtaskTable) {
+        const subtaskHeader = await page.locator('#subtask-tracking-card thead').textContent().catch(() => '');
+        expect(subtaskHeader).toMatch(/Reporter/i);
+      }
       if (notificationsVisible) {
         const noNotifications = await page.locator('#notifications-card').textContent().then(text => /No notifications needed/i.test(text || ''));
         if (!noNotifications) {

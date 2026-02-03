@@ -269,6 +269,14 @@
       '<span>Sub-task logged</span>' +
       '<strong>' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h</strong>' +
       '</div>';
+    const missingEstimate = summary.subtaskMissingEstimate ?? 0;
+    const missingLogged = summary.subtaskMissingLogged ?? 0;
+    const alertsClass = (missingEstimate + missingLogged) > 0 ? ' summary-block-alert' : '';
+    html += '<div class="summary-block' + alertsClass + '">' +
+      '<span>Time tracking alerts</span>' +
+      '<strong>' + missingEstimate + ' missing estimate</strong>' +
+      '<span>' + missingLogged + ' no log yet</span>' +
+      '</div>';
     html += '<div class="summary-block">' +
       '<span>Total SP</span>' +
       '<strong>' + formatNumber(summary.totalAllSP != null ? summary.totalAllSP : totalSP, 0) + ' SP</strong>' +
@@ -461,7 +469,7 @@
       html += '<p>No sub-tasks found for this sprint.</p>';
     } else {
       html += '<table class="data-table"><thead><tr>' +
-        '<th>Key</th><th>Summary</th><th>Assignee</th><th>Estimate (h)</th><th>Logged (h)</th><th>Remaining (h)</th><th>Parent</th><th>Created</th><th>Updated</th>' +
+        '<th>Key</th><th>Summary</th><th>Assignee</th><th>Reporter</th><th>Estimate (h)</th><th>Logged (h)</th><th>Remaining (h)</th><th>Parent</th><th>Created</th><th>Updated</th>' +
         '</tr></thead><tbody>';
       for (const row of subtasks) {
         const keyCell = row.issueUrl
@@ -477,6 +485,7 @@
         html += '<td>' + keyCell + '</td>';
         html += '<td>' + escapeHtml(row.summary || '') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
         html += '<td>' + formatNumber(row.estimateHours || 0, 1) + '</td>';
         html += '<td>' + formatNumber(row.loggedHours || 0, 1) + '</td>';
         html += '<td>' + formatNumber(row.remainingHours || 0, 1) + '</td>';
@@ -537,8 +546,19 @@
     const actionableByReporter = notificationsByReporter.filter(n => (n.missingEstimate || []).length > 0 || (n.missingLogged || []).length > 0);
     const hasReporterGroups = actionableByReporter.length > 0;
     const hasAssigneeGroups = actionable.length > 0;
+    const sprintName = data?.sprint?.name || data?.sprint?.id || '';
+    const boardName = data?.board?.name || '';
+    const totalMissingEstimate = actionable.reduce((sum, item) => sum + (item.missingEstimate || []).length, 0);
+    const totalMissingLogged = actionable.reduce((sum, item) => sum + (item.missingLogged || []).length, 0);
     let html = '<div class="transparency-card" id="notifications-card">';
     html += '<h2>Sub-task time tracking notifications</h2>';
+    if (sprintName || boardName) {
+      html += '<p class="notification-context">Context: <strong>' + escapeHtml(boardName) + '</strong> ' +
+        (sprintName ? ' - <strong>' + escapeHtml(sprintName) + '</strong>' : '') + '</p>';
+    }
+    if (totalMissingEstimate || totalMissingLogged) {
+      html += '<p class="notification-summary">Alerts: ' + totalMissingEstimate + ' missing estimates, ' + totalMissingLogged + ' with no logged time.</p>';
+    }
     if (!hasReporterGroups && !hasAssigneeGroups) {
       html += '<p>No notifications needed right now.</p>';
     } else {
@@ -627,13 +647,13 @@
     let html = '';
     html += renderSprintTabs(data);
     html += renderSummaryCard(data);
+    html += renderNotifications(data);
+    html += renderSubtaskTracking(data);
     html += renderSprintWindows(data);
     html += renderDailyCompletion(data);
     html += renderBurndown(data);
     html += renderScopeChanges(data);
     html += renderStories(data);
-    html += renderSubtaskTracking(data);
-    html += renderNotifications(data);
     html += renderStuckCandidates(data);
     html += renderNotes(data);
     html += renderAssumptions(data);
@@ -730,7 +750,12 @@
     }
 
     if (messageArea && recipientSelect && (byAssignee.length > 0 || byReporter.length > 0)) {
-      const initialGroup = groupSelect ? groupSelect.value : (byAssignee.length > 0 ? 'assignee' : 'reporter');
+      let initialGroup = byReporter.length > 0 ? 'reporter' : 'assignee';
+      if (groupSelect) {
+        groupSelect.value = initialGroup;
+      } else {
+        initialGroup = byAssignee.length > 0 ? 'assignee' : 'reporter';
+      }
       populateRecipients(initialGroup);
 
       if (groupSelect) {

@@ -640,6 +640,19 @@ header h1 {
   font-size: 1.05em;
 }
 
+.summary-block-alert {
+  border-color: #f0c36d;
+  background: #fff7e6;
+}
+
+.summary-block-alert strong {
+  color: var(--warning);
+}
+
+.summary-block-alert span:last-child {
+  margin-top: 4px;
+}
+
 .days-remaining.critical {
   color: var(--danger);
 }
@@ -771,6 +784,17 @@ header h1 {
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.notification-context,
+.notification-summary {
+  color: var(--muted);
+  font-size: 0.9em;
+  margin-bottom: 8px;
+}
+
+.notification-summary {
+  font-weight: 600;
 }
 
 .notifications-controls label {

@@ -465,7 +465,7 @@ previewBtn.addEventListener('click', async () => {
     const boards = previewData.boards || [];
     const sprintsIncluded = previewData.sprintsIncluded || [];
     visibleBoardRows = [...boards];
-    visibleSprintRows = [...sprintsIncluded];
+    visibleSprintRows = sortSprintsLatestFirst(sprintsIncluded);
     previewHasRows = previewRows.length > 0;
 
     updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
@@ -871,6 +871,15 @@ function formatDateForDisplay(value) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function sortSprintsLatestFirst(sprints) {
+  if (!Array.isArray(sprints)) return [];
+  return [...sprints].sort((a, b) => {
+    const aTime = new Date(a.endDate || a.startDate || 0).getTime();
+    const bTime = new Date(b.endDate || b.startDate || 0).getTime();
+    return bTime - aTime;
   });
 }
 
@@ -1893,10 +1902,11 @@ function applyBoardsFilters() {
 function applySprintsFilters() {
   const searchText = document.getElementById('sprints-search-box')?.value || '';
   const activePills = Array.from(document.querySelectorAll('#sprints-project-pills .pill.active')).map(p => p.dataset.project);
-  visibleSprintRows = applyTabFilter(previewData?.sprintsIncluded || [], searchText, activePills, {
+  const filtered = applyTabFilter(previewData?.sprintsIncluded || [], searchText, activePills, {
     getSearchText: (s) => s.name || '',
     matchesPills: (s, pills) => !(s.projectKeys && s.projectKeys.length) || (s.projectKeys || []).some(p => pills.includes(p)),
   });
+  visibleSprintRows = sortSprintsLatestFirst(filtered);
   renderSprintsTab(visibleSprintRows, previewData?.metrics);
   updateExportFilteredState();
 }

@@ -13,6 +13,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   const loadingEl = document.getElementById('leadership-loading');
   const errorEl = document.getElementById('leadership-error');
   const contentEl = document.getElementById('leadership-content');
+  const STORAGE_KEY = 'leadership_filters_v1';
 
   function setDefaultDates() {
     const end = new Date();
@@ -20,6 +21,37 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     start.setMonth(start.getMonth() - 3);
     startInput.value = start.toISOString().slice(0, 10);
     endInput.value = end.toISOString().slice(0, 10);
+  }
+
+  function loadSavedFilters() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      if (saved?.projects && projectsSelect) {
+        projectsSelect.value = saved.projects;
+      }
+      if (saved?.start && startInput) {
+        startInput.value = saved.start;
+      }
+      if (saved?.end && endInput) {
+        endInput.value = saved.end;
+      }
+      return Boolean(saved?.start || saved?.end || saved?.projects);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function saveFilters() {
+    try {
+      const payload = {
+        projects: projectsSelect?.value || '',
+        start: startInput?.value || '',
+        end: endInput?.value || '',
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
   }
 
   function showLoading(msg) {
@@ -210,12 +242,31 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     html += '</tbody></table></div>';
 
     if (Object.keys(perSprint).length > 0) {
+      const sprintIndex = new Map();
+      for (const sprint of sprintsIncluded) {
+        if (sprint?.id != null) sprintIndex.set(sprint.id, sprint);
+      }
+      const perSprintRows = Object.values(perSprint)
+        .filter(Boolean)
+        .map(row => {
+          const sprint = sprintIndex.get(row.sprintId);
+          return {
+            ...row,
+            endDate: sprint?.endDate || row.sprintEndDate || '',
+            startDate: sprint?.startDate || row.sprintStartDate || '',
+          };
+        })
+        .sort((a, b) => {
+          const aTime = new Date(a.endDate || a.startDate || 0).getTime();
+          const bTime = new Date(b.endDate || b.startDate || 0).getTime();
+          return bTime - aTime;
+        });
+
       html += '<div class="leadership-card">';
       html += '<h2>Predictability by sprint (committed vs delivered)</h2>';
       html += '<p class="metrics-hint">Planned = created before sprint start; unplanned = added after. Detection assumptions apply.</p>';
       html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Delivered Stories</th><th>Committed SP</th><th>Delivered SP</th><th>Stories %</th><th>SP %</th></tr></thead><tbody>';
-      for (const row of Object.values(perSprint)) {
-        if (!row) continue;
+      for (const row of perSprintRows) {
         html += '<tr>';
         html += '<td>' + escapeHtml(row.sprintName) + '</td>';
         html += '<td>' + (row.committedStories ?? '-') + '</td>';
@@ -234,6 +285,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
 
   function loadPreview() {
     const url = buildPreviewUrl();
+    saveFilters();
     showLoading('Loading preview...');
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(async r => {
@@ -264,9 +316,18 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   }
 
   if (previewBtn) previewBtn.addEventListener('click', loadPreview);
+  if (projectsSelect) projectsSelect.addEventListener('change', saveFilters);
+  if (startInput) startInput.addEventListener('change', saveFilters);
+  if (endInput) endInput.addEventListener('change', saveFilters);
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { setDefaultDates(); });
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!loadSavedFilters()) {
+        setDefaultDates();
+      }
+    });
   } else {
-    setDefaultDates();
+    if (!loadSavedFilters()) {
+      setDefaultDates();
+    }
   }
 })();
