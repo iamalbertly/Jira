@@ -22,6 +22,8 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       test.skip(true, 'Redirected to login; auth may be required');
       return;
     }
+    await expect(page.locator('#current-sprint-projects')).toBeVisible();
+    await expect(page.locator('#current-sprint-projects')).toHaveValue('MPSA,MAS');
     await page.waitForSelector('#board-select', { state: 'visible', timeout: 15000 }).catch(() => null);
     expect(boardsRequestUrl).toContain('projects=');
     expect(boardsRequestUrl).toMatch(/projects=MPSA%2CMAS|projects=MPSA,MAS/);
@@ -39,6 +41,7 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     }
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
+    await expect(page.locator('#current-sprint-projects')).toBeVisible();
     await expect(page.locator('#board-select')).toBeVisible();
     await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
     await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');

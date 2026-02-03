@@ -5,7 +5,11 @@
 
 (function () {
   const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
+  const projectsSelect = document.getElementById('current-sprint-projects');
   function getProjectsParam() {
+    if (projectsSelect && projectsSelect.value) {
+      return String(projectsSelect.value || '').trim() || 'MPSA,MAS';
+    }
     try {
       const s = localStorage.getItem(PROJECTS_SSOT_KEY);
       return (s && String(s).trim()) ? String(s).trim() : 'MPSA,MAS';
@@ -303,7 +307,7 @@
       '<a href="#stories-card">Stories</a>' +
       '<span>|</span>' +
       '<a href="#scope-changes-card">Scope changes</a>' +
-      (stuckCount > 0 ? '<span>|</span><a href="#stuck-card" class="stuck-prompt">' + stuckCount + ' in progress &gt;24h – Follow up</a>' : '') +
+      (stuckCount > 0 ? '<span>|</span><a href="#stuck-card" class="stuck-prompt">' + stuckCount + ' in progress &gt;24h - Follow up</a>' : '') +
       '</div>';
     html += '</div>';
 
@@ -315,8 +319,8 @@
 
     html += '<div class="summary-grid">';
     html += '<div class="summary-block">' +
-      '<span>Sprint end</span>' +
-      '<strong>' + formatDate(sprint.endDate) + '</strong>' +
+      '<span>Sprint window</span>' +
+      '<strong>' + formatDate(planned.start || sprint.startDate) + ' - ' + formatDate(planned.end || sprint.endDate) + '</strong>' +
       '</div>';
     html += '<div class="summary-block">' +
       '<span>Days remaining</span>' +
@@ -332,9 +336,11 @@
       '</div>';
     const missingEstimate = summary.subtaskMissingEstimate ?? 0;
     const missingLogged = summary.subtaskMissingLogged ?? 0;
+    const subtaskStuck = summary.subtaskStuckOver24h ?? 0;
     html += '<div class="summary-block summary-block-subtask-link">' +
       '<span>Sub-task</span>' +
-      '<a href="#subtask-tracking-card">' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h logged; ' + missingEstimate + ' missing estimate, ' + missingLogged + ' no log yet</a>' +
+      '<a href="#subtask-tracking-card">' + formatNumber(summary.subtaskLoggedHours || 0, 1) + ' h logged; ' + missingEstimate + ' missing estimate, ' + missingLogged + ' no log yet' +
+      (subtaskStuck > 0 ? '; ' + subtaskStuck + ' stuck >24h' : '') + '</a>' +
       '</div>';
     html += '<div class="summary-block">' +
       '<span>Total SP</span>' +
@@ -453,14 +459,19 @@
       html += '<p>No scope added after sprint start (by created date).</p>';
     } else {
       html += '<p>Summary: Bug ' + (summary.bug || 0) + ', Feature ' + (summary.feature || 0) + ', Support ' + (summary.support || 0) + '</p>';
-      html += '<table class="data-table"><thead><tr><th>Date</th><th>Key</th><th>Type</th><th>SP</th><th>Classification</th></tr></thead><tbody>';
+      html += '<table class="data-table"><thead><tr><th>Date</th><th>Key</th><th>Type</th><th>SP</th><th>Classification</th><th>Reporter</th><th>Assignee</th></tr></thead><tbody>';
       for (const row of scopeChanges) {
+        const keyCell = row.issueUrl
+          ? '<a href="' + escapeHtml(row.issueUrl) + '" target="_blank" rel="noopener">' + escapeHtml(row.issueKey || '') + '</a>'
+          : escapeHtml(row.issueKey || '');
         html += '<tr>';
         html += '<td>' + escapeHtml(formatDate(row.date)) + '</td>';
-        html += '<td>' + escapeHtml(row.issueKey || '') + '</td>';
+        html += '<td>' + keyCell + '</td>';
         html += '<td>' + escapeHtml(row.issueType || '') + '</td>';
         html += '<td>' + (row.storyPoints ?? '') + '</td>';
         html += '<td>' + escapeHtml(row.classification || '') + '</td>';
+        html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -475,7 +486,7 @@
     let html = '<div class="transparency-card" id="stories-card">';
     html += '<h2>Stories in sprint</h2>';
     if (planned.start || planned.end) {
-      html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' – ' + formatDate(planned.end) + '</strong></p>';
+      html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</strong></p>';
     }
     if (!stories.length) {
       html += '<p>No stories found for this sprint.</p>';
@@ -506,12 +517,14 @@
     if (stuckCandidates.length === 0) return '';
     let html = '<div class="transparency-card" id="stuck-card">';
     html += '<h2>Stuck (in progress > 24h)</h2>';
-    html += '<table class="data-table"><thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Updated</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Reporter</th><th>Last status change</th></tr></thead><tbody>';
     for (const row of stuckCandidates) {
       html += '<tr>';
       html += '<td>' + escapeHtml(row.issueKey || '') + '</td>';
       html += '<td>' + escapeHtml(row.summary || '') + '</td>';
       html += '<td>' + escapeHtml(row.status || '') + '</td>';
+      html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
       html += '<td>' + escapeHtml(formatDate(row.updated)) + '</td>';
       html += '</tr>';
     }
@@ -528,13 +541,15 @@
     html += '<p class="meta-row"><span>Estimated:</span> <strong>' + formatNumber(summary.totalEstimateHours || 0, 1) + ' h</strong>' +
       ' <span>Logged:</span> <strong>' + formatNumber(summary.totalLoggedHours || 0, 1) + ' h</strong>' +
       ' <span>Missing estimates:</span> <strong>' + (summary.missingEstimate ?? 0) + '</strong>' +
-      ' <span>No logged hours:</span> <strong>' + (summary.missingLogged ?? 0) + '</strong></p>';
+      ' <span>No logged hours:</span> <strong>' + (summary.missingLogged ?? 0) + '</strong>' +
+      (summary.stuckOver24hCount ? ' <span>Stuck &gt;24h:</span> <strong>' + summary.stuckOver24hCount + '</strong>' : '') +
+      '</p>';
 
     if (!subtasks.length) {
       html += '<p>No sub-tasks found for this sprint.</p>';
     } else {
       html += '<table class="data-table"><thead><tr>' +
-        '<th>Key</th><th>Summary</th><th>Assignee</th><th>Reporter</th><th>Estimate (h)</th><th>Logged (h)</th><th>Remaining (h)</th><th>Parent</th><th>Created</th><th>Updated</th>' +
+        '<th>Key</th><th>Summary</th><th>Status</th><th>Age (h)</th><th>Assignee</th><th>Reporter</th><th>Estimate (h)</th><th>Logged (h)</th><th>Remaining (h)</th><th>Parent</th><th>Created</th><th>Updated</th>' +
         '</tr></thead><tbody>';
       for (const row of subtasks) {
         const keyCell = row.issueUrl
@@ -546,9 +561,14 @@
         const parentCell = row.parentUrl
           ? '<a href="' + escapeHtml(row.parentUrl) + '" target="_blank" rel="noopener">' + escapeHtml(parentLabel) + '</a>'
           : escapeHtml(parentLabel);
+        const ageCell = row.hoursInStatus != null
+          ? (row.hoursInStatus >= 24 ? '<span class="flag-warn">' + formatNumber(row.hoursInStatus, 1) + '</span>' : formatNumber(row.hoursInStatus, 1))
+          : '-';
         html += '<tr>';
         html += '<td>' + keyCell + '</td>';
         html += '<td>' + escapeHtml(row.summary || '') + '</td>';
+        html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+        html += '<td>' + ageCell + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
         html += '<td>' + formatNumber(row.estimateHours || 0, 1) + '</td>';
@@ -724,6 +744,33 @@
     html += renderAssumptions(data);
 
     return html;
+  }
+
+  function getStoredProjects() {
+    try {
+      const s = localStorage.getItem(PROJECTS_SSOT_KEY);
+      return (s && String(s).trim()) ? String(s).trim() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function syncProjectsSelect(value) {
+    if (!projectsSelect) return;
+    const target = (value || '').trim();
+    if (!target) return;
+    const hasOption = Array.from(projectsSelect.options).some(o => o.value === target);
+    if (hasOption) {
+      projectsSelect.value = target;
+    }
+  }
+
+  function persistProjectsSelection(value) {
+    const cleaned = (value || '').trim();
+    if (!cleaned) return;
+    try {
+      localStorage.setItem(PROJECTS_SSOT_KEY, cleaned);
+    } catch (_) {}
   }
 
   function getPreferredBoardId() {
@@ -920,6 +967,55 @@
       });
   }
 
+  function refreshBoards(preferredId, preferredSprintId) {
+    showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
+    return loadBoards()
+      .then(function (res) {
+        const boards = res.boards || [];
+        boardSelect.innerHTML = '';
+        boardSelect.appendChild(document.createElement('option'));
+        const opt0 = boardSelect.querySelector('option');
+        opt0.value = '';
+        opt0.textContent = '- Select board -';
+        boards.forEach(function (b) {
+          const opt = document.createElement('option');
+          opt.value = String(b.id);
+          opt.textContent = (b.name || 'Board ' + b.id) + (b.projectKey ? ' (' + b.projectKey + ')' : '');
+          boardSelect.appendChild(opt);
+        });
+        if (boards.length > 0) {
+          const boardIds = boards.map(function (b) { return String(b.id); });
+          const idToSelect = preferredId && boardIds.indexOf(preferredId) !== -1 ? preferredId : boardIds[0];
+          boardSelect.value = idToSelect;
+          currentBoardId = idToSelect;
+          showLoading('Loading current sprint...');
+          return loadCurrentSprint(idToSelect, preferredSprintId)
+            .then(function (data) {
+              currentSprintId = data?.sprint?.id || null;
+              persistSelection(currentBoardId, currentSprintId);
+              showContent(render(data), data);
+            });
+        }
+        showError('No boards found for the selected projects. Check Jira access or try different projects.');
+        return null;
+      })
+      .catch(function (err) {
+        const msg = err.message || 'Failed to load boards.';
+        showError(msg);
+        if ((msg || '').indexOf('Session expired') !== -1 && errorEl) {
+          addLoginLink();
+        }
+        return null;
+      });
+  }
+
+  function onProjectsChange() {
+    persistProjectsSelection(getProjectsParam());
+    currentBoardId = null;
+    currentSprintId = null;
+    return refreshBoards(getPreferredBoardId(), getPreferredSprintId());
+  }
+
   function onSprintTabClick(event) {
     const target = event.target.closest('[data-sprint-id]');
     if (!target || !currentBoardId) return;
@@ -940,50 +1036,23 @@
   function init() {
     const preferredId = getPreferredBoardId();
     const preferredSprintId = getPreferredSprintId();
-    showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
-    loadBoards()
-      .then(function (res) {
-        const boards = res.boards || [];
-        boardSelect.innerHTML = '';
-        boardSelect.appendChild(document.createElement('option'));
-        const opt0 = boardSelect.querySelector('option');
-        opt0.value = '';
-        opt0.textContent = '- Select board -';
-        boards.forEach(function (b) {
-          const opt = document.createElement('option');
-          opt.value = String(b.id);
-          opt.textContent = (b.name || 'Board ' + b.id) + (b.projectKey ? ' (' + b.projectKey + ')' : '');
-          boardSelect.appendChild(opt);
-        });
-        if (boards.length > 0) {
-          const boardIds = boards.map(function (b) { return String(b.id); });
-          const idToSelect = preferredId && boardIds.indexOf(preferredId) !== -1 ? preferredId : boardIds[0];
-          boardSelect.value = idToSelect;
-          currentBoardId = idToSelect;
-          showLoading('Loading current sprint...');
-          loadCurrentSprint(idToSelect, preferredSprintId)
-            .then(function (data) {
-              currentSprintId = data?.sprint?.id || null;
-              persistSelection(currentBoardId, currentSprintId);
-              showContent(render(data), data);
-            })
-            .catch(function (err) {
-              showError(err.message || 'Failed to load current sprint.');
-            });
-        } else {
-          showError('No boards found for the selected projects. Check Jira access or try different projects.');
-        }
-      })
+    syncProjectsSelect(getStoredProjects());
+    refreshBoards(preferredId, preferredSprintId)
       .catch(function (err) {
-        const msg = err.message || 'Failed to load boards.';
-        showError(msg);
-        if ((msg || '').indexOf('Session expired') !== -1 && errorEl) {
-          addLoginLink();
-        }
+        showError(err.message || 'Failed to load current sprint.');
       });
 
     boardSelect.addEventListener('change', onBoardChange);
     contentEl.addEventListener('click', onSprintTabClick);
+    if (projectsSelect) {
+      projectsSelect.addEventListener('change', onProjectsChange);
+    }
+    window.addEventListener('storage', function (event) {
+      if (event.key === PROJECTS_SSOT_KEY) {
+        syncProjectsSelect(event.newValue || '');
+        onProjectsChange();
+      }
+    });
   }
 
   if (document.readyState === 'loading') {

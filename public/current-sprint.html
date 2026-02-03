@@ -9,7 +9,7 @@
     .current-sprint-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .current-sprint-header h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 4px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
     .current-sprint-header h1 .sprint-name { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
-    .board-select-wrap { display: flex; align-items: center; gap: 8px; }
+    .board-select-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .board-select-wrap label { font-weight: 500; color: var(--muted); }
     .board-select-wrap select { padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--border); min-width: 220px; }
     .transparency-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
@@ -38,6 +38,12 @@
           <p class="subtitle" id="current-sprint-subtitle">Squad view - planned vs observed work, daily completion, scope changes</p>
         </div>
         <div class="board-select-wrap">
+          <label for="current-sprint-projects">Projects</label>
+          <select id="current-sprint-projects" aria-label="Select projects">
+            <option value="MPSA,MAS">MPSA, MAS</option>
+            <option value="MPSA">MPSA</option>
+            <option value="MAS">MAS</option>
+          </select>
           <label for="board-select">Board</label>
           <select id="board-select" aria-label="Select board">
             <option value="">Loading boards...</option>
