@@ -193,4 +193,29 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     expect(telemetry.pageErrors).toEqual([]);
     expect(telemetry.failedRequests).toEqual([]);
   });
+
+  test('app-wide notification dock renders from stored summary', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('appNotificationsV1', JSON.stringify({
+        total: 3,
+        missingEstimate: 1,
+        missingLogged: 2,
+        boardName: 'MPSA board',
+        sprintName: 'Sprint 1',
+      }));
+    });
+    await page.goto('/report');
+
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+
+    await expect(page.locator('#app-notification-dock')).toBeVisible();
+    await expect(page.locator('#app-notification-dock')).toContainText('3');
+
+    expect(telemetry.consoleErrors).toEqual([]);
+    expect(telemetry.pageErrors).toEqual([]);
+  });
 });

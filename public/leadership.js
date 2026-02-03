@@ -14,6 +14,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   const errorEl = document.getElementById('leadership-error');
   const contentEl = document.getElementById('leadership-content');
   const STORAGE_KEY = 'leadership_filters_v1';
+  const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
 
   function setDefaultDates() {
     const end = new Date();
@@ -89,6 +90,13 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     return Number(n).toFixed(d);
   }
 
+  function formatDateShort(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+  }
+
   function parseISO(value) {
     if (!value) return null;
     const d = new Date(value);
@@ -156,6 +164,40 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
       includeEpicTTM: 'true',
     });
     return '/preview.json?' + params.toString();
+  }
+
+  function readNotificationSummary() {
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_STORE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return null;
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderNotificationDock() {
+    const summary = readNotificationSummary();
+    const existing = document.getElementById('app-notification-dock');
+    if (!summary || summary.total <= 0) {
+      if (existing) existing.remove();
+      return;
+    }
+    const dock = existing || document.createElement('div');
+    dock.id = 'app-notification-dock';
+    dock.className = 'app-notification-dock';
+    dock.innerHTML = `
+      <div class="app-notification-title">
+        <span class="app-notification-badge">${summary.total}</span>
+        Time tracking alerts
+      </div>
+      <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
+      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} - No log: ${summary.missingLogged}</div>
+      <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
+    `;
+    if (!existing) document.body.appendChild(dock);
   }
 
   function render(data) {
@@ -265,10 +307,12 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
       html += '<div class="leadership-card">';
       html += '<h2>Predictability by sprint (committed vs delivered)</h2>';
       html += '<p class="metrics-hint">Planned = created before sprint start; unplanned = added after. Detection assumptions apply.</p>';
-      html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Committed Stories</th><th>Delivered Stories</th><th>Committed SP</th><th>Delivered SP</th><th>Stories %</th><th>SP %</th></tr></thead><tbody>';
+      html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Start</th><th>End</th><th>Committed Stories</th><th>Delivered Stories</th><th>Committed SP</th><th>Delivered SP</th><th>Stories %</th><th>SP %</th></tr></thead><tbody>';
       for (const row of perSprintRows) {
         html += '<tr>';
         html += '<td>' + escapeHtml(row.sprintName) + '</td>';
+        html += '<td>' + escapeHtml(formatDateShort(row.startDate)) + '</td>';
+        html += '<td>' + escapeHtml(formatDateShort(row.endDate)) + '</td>';
         html += '<td>' + (row.committedStories ?? '-') + '</td>';
         html += '<td>' + (row.deliveredStories ?? '-') + '</td>';
         html += '<td>' + (row.committedSP ?? '-') + '</td>';
@@ -321,11 +365,13 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   if (endInput) endInput.addEventListener('change', saveFilters);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      renderNotificationDock();
       if (!loadSavedFilters()) {
         setDefaultDates();
       }
     });
   } else {
+    renderNotificationDock();
     if (!loadSavedFilters()) {
       setDefaultDates();
     }

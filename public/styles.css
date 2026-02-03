@@ -797,6 +797,59 @@ header h1 {
   font-weight: 600;
 }
 
+.app-notification-dock {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.app-notification-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.app-notification-badge {
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.8em;
+}
+
+.app-notification-body {
+  color: var(--text);
+  font-size: 0.9em;
+  margin-bottom: 4px;
+}
+
+.app-notification-sub {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
+.app-notification-link {
+  color: var(--primary);
+  font-size: 0.85em;
+  text-decoration: none;
+}
+
+.app-notification-link:hover {
+  text-decoration: underline;
+}
+
 .notifications-controls label {
   color: var(--muted);
   font-size: 0.85em;

@@ -15,6 +15,7 @@
 
   const STORAGE_KEY = 'vodaAgileBoard_lastBoardId';
   const STORAGE_SPRINT_KEY = 'vodaAgileBoard_lastSprintId';
+  const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
 
   let currentBoardId = null;
   let currentSprintId = null;
@@ -38,7 +39,58 @@
     errorEl.style.display = 'none';
     contentEl.innerHTML = html;
     contentEl.style.display = 'block';
+    const summary = updateNotificationStore(data);
+    renderNotificationDock(summary);
     wireDynamicHandlers(data);
+  }
+
+  function buildNotificationSummary(data) {
+    if (!data?.sprint) return null;
+    const tracking = data.subtaskTracking?.summary || {};
+    const missingEstimate = tracking.missingEstimate ?? 0;
+    const missingLogged = tracking.missingLogged ?? 0;
+    const total = missingEstimate + missingLogged;
+    return {
+      total,
+      missingEstimate,
+      missingLogged,
+      boardId: data.board?.id || '',
+      boardName: data.board?.name || '',
+      sprintId: data.sprint?.id || '',
+      sprintName: data.sprint?.name || '',
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function updateNotificationStore(data) {
+    const summary = buildNotificationSummary(data);
+    try {
+      if (summary) {
+        localStorage.setItem(NOTIFICATION_STORE_KEY, JSON.stringify(summary));
+      }
+    } catch (_) {}
+    return summary;
+  }
+
+  function renderNotificationDock(summary) {
+    const existing = document.getElementById('app-notification-dock');
+    if (!summary || summary.total <= 0) {
+      if (existing) existing.remove();
+      return;
+    }
+    const dock = existing || document.createElement('div');
+    dock.id = 'app-notification-dock';
+    dock.className = 'app-notification-dock';
+    dock.innerHTML = `
+      <div class="app-notification-title">
+        <span class="app-notification-badge">${summary.total}</span>
+        Time tracking alerts
+      </div>
+      <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
+      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} - No log: ${summary.missingLogged}</div>
+      <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
+    `;
+    if (!existing) document.body.appendChild(dock);
   }
 
   function escapeHtml(value) {
@@ -201,7 +253,10 @@
       const isActive = data.sprint && sprint.id === data.sprint.id;
       const sprintName = sprint.name || ('Sprint ' + sprint.id);
       const label = (sprint.state || '').toLowerCase() === 'active' ? 'Current - ' + sprintName : sprintName;
-      html += '<button class="sprint-tab' + (isActive ? ' active' : '') + '" type="button" data-sprint-id="' + sprint.id + '" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '">' + escapeHtml(label) + '</button>';
+      const startLabel = sprint.startDate ? formatDate(sprint.startDate) : '-';
+      const endLabel = sprint.endDate ? formatDate(sprint.endDate) : '-';
+      const title = 'Start: ' + startLabel + ' - End: ' + endLabel;
+      html += '<button class="sprint-tab' + (isActive ? ' active' : '') + '" type="button" data-sprint-id="' + sprint.id + '" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" title="' + escapeHtml(title) + '">' + escapeHtml(label) + '</button>';
     }
     html += '<a class="sprint-tab-link" href="/sprint-leadership">Dashboard</a>';
     html += '</div>';

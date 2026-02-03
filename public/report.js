@@ -93,6 +93,8 @@ let previewRows = [];
 let visibleRows = [];
 let visibleBoardRows = [];
 let visibleSprintRows = [];
+
+const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
 let previewHasRows = false;
 
 // DOM Elements
@@ -714,12 +716,17 @@ function renderPreview() {
     : '';
   
   const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
+  const sampleRow = previewRows && previewRows.length > 0 ? previewRows[0] : null;
+  const sampleLabel = sampleRow
+    ? `${escapeHtml(sampleRow.issueKey || '')} - ${escapeHtml(sampleRow.issueSummary || '')}`
+    : 'None';
   previewMeta.innerHTML = `
     <div class="meta-info">
       <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
       <strong>Date Window (Local):</strong> ${escapeHtml(windowStartLocal)} to ${escapeHtml(windowEndLocal)}<br>
       <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
       <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
+      <strong>Example story:</strong> ${sampleLabel}<br>
       <strong>Details:</strong> ${escapeHtml(detailsLines.join(' - '))}
       ${partialNotice}
     </div>
@@ -727,7 +734,7 @@ function renderPreview() {
 
   const stickyEl = document.getElementById('preview-summary-sticky');
   if (stickyEl) {
-    stickyEl.textContent = `Preview: ${selectedProjectsLabel} · ${windowStartLocal} – ${windowEndLocal}`;
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} - ${windowStartLocal} to ${windowEndLocal}`;
     stickyEl.setAttribute('aria-hidden', 'false');
   }
 
@@ -883,6 +890,40 @@ function sortSprintsLatestFirst(sprints) {
   });
 }
 
+function readNotificationSummary() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATION_STORE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function renderNotificationDock() {
+  const summary = readNotificationSummary();
+  const existing = document.getElementById('app-notification-dock');
+  if (!summary || summary.total <= 0) {
+    if (existing) existing.remove();
+    return;
+  }
+  const dock = existing || document.createElement('div');
+  dock.id = 'app-notification-dock';
+  dock.className = 'app-notification-dock';
+  dock.innerHTML = `
+    <div class="app-notification-title">
+      <span class="app-notification-badge">${summary.total}</span>
+      Time tracking alerts
+    </div>
+    <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
+    <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} - No log: ${summary.missingLogged}</div>
+    <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
+  `;
+  if (!existing) document.body.appendChild(dock);
+}
+
 function buildPredictabilityTableHeaderHtml() {
   return '<table class="data-table"><thead><tr>' +
     '<th title="Sprint name.">Sprint</th>' +
@@ -937,23 +978,23 @@ const BOARD_TABLE_HEADER_TOOLTIPS = {
   'SP / Day': 'Done SP / Sprint Days. Normalized delivery rate (Time-to-Market proxy).',
   'SP / Sprint': 'Done SP / Sprints. Average SP delivered per sprint.',
   'SP Variance': 'Variance of SP delivered per sprint. High variance = delivery swings and weaker predictability.',
-  'Indexed Delivery': 'Current SP/day ÷ rolling avg SP/day (last 3–6 sprints). 1.0 = at own norm; above = above norm. Baseline: last 6 closed sprints. Do not use to rank teams.',
+  'Indexed Delivery': 'Current SP/day -- rolling avg SP/day (last 3---6 sprints). 1.0 = at own norm; above = above norm. Baseline: last 6 closed sprints. Do not use to rank teams.',
   'On-Time %': 'Stories resolved by sprint end / Done Stories. Higher means more work finished on time vs carried over.',
   'Planned': 'Stories linked to an Epic (planned scope).',
   'Ad-hoc': 'Stories without an Epic (often unplanned work). High values can signal scope churn.',
   'Active Assignees': 'Unique assignees with done work in the window. Proxy for active team size.',
   'Stories / Assignee': 'Done Stories / Active Assignees. Proxy for work load per person.',
   'SP / Assignee': 'Done SP / Active Assignees. Proxy for delivery per person when SP is available.',
-  'Assumed Capacity (PD)': 'Assumed capacity in person-days (Active Assignees × 18 days per month × months in window). Coarse proxy only.',
+  'Assumed Capacity (PD)': 'Assumed capacity in person-days (Active Assignees -- 18 days per month -- months in window). Coarse proxy only.',
   'Assumed Waste %': 'Assumed unused capacity % based on sprint coverage vs assumed capacity. Does not account for PTO, part-time, or non-sprint work.',
   'Sprint Window': 'Earliest sprint start to latest sprint end in the window (local display).',
   'Latest End': 'Latest sprint end date in the window (local display).',
 };
 const BOARD_SUMMARY_TOOLTIPS = {
-  'Board ID': '—',
+  'Board ID': '---',
   'Board': 'Summary row: aggregate across all boards in this view.',
-  'Type': '—',
-  'Projects': '—',
+  'Type': '---',
+  'Projects': '---',
   'Sprints': 'Sum of sprint count across all boards.',
   'Sprint Days': 'Sum of sprint days across all boards.',
   'Avg Sprint Days': 'Average of Avg Sprint Days across boards.',
@@ -968,7 +1009,7 @@ const BOARD_SUMMARY_TOOLTIPS = {
   'SP / Day': 'Average of SP / Day across boards.',
   'SP / Sprint': 'Average of SP / Sprint across boards.',
   'SP Variance': 'Average of SP Variance across boards.',
-  'Indexed Delivery': '—',
+  'Indexed Delivery': '---',
   'On-Time %': 'Average of On-Time % across boards.',
   'Planned': 'Sum of Planned (epic-linked) stories across all boards.',
   'Ad-hoc': 'Sum of Ad-hoc stories across all boards.',
@@ -1006,7 +1047,7 @@ function computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredicta
   const idx = board.indexedDelivery;
   const indexedDeliveryStr = idx != null && idx.index != null
     ? formatNumber(idx.index, 2) + ' (vs own baseline)'
-    : '—';
+    : '---';
   return {
     'Board ID': board.id,
     'Board': board.name,
@@ -1099,14 +1140,14 @@ function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPre
 
   const n = boards.length;
   const avg = (arr) => (arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length);
-  const sprintWindow = earliestStart && latestEnd ? `${formatDateForDisplay(earliestStart)} to ${formatDateForDisplay(latestEnd)}` : '—';
-  const latestEndStr = latestEnd ? formatDateForDisplay(latestEnd) : '—';
+  const sprintWindow = earliestStart && latestEnd ? `${formatDateForDisplay(earliestStart)} to ${formatDateForDisplay(latestEnd)}` : '---';
+  const latestEndStr = latestEnd ? formatDateForDisplay(latestEnd) : '---';
 
   return {
-    'Board ID': '—',
+    'Board ID': '---',
     'Board': 'Total',
-    'Type': '—',
-    'Projects': '—',
+    'Type': '---',
+    'Projects': '---',
     'Sprints': sumSprints,
     'Sprint Days': sumSprintDays,
     'Avg Sprint Days': formatNumber(avg(avgSprintDaysArr)),
@@ -1121,7 +1162,7 @@ function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPre
     'SP / Day': formatNumber(avg(spPerDayArr)),
     'SP / Sprint': formatNumber(avg(spPerSprintArr)),
     'SP Variance': formatNumber(avg(spVarianceArr)),
-    'Indexed Delivery': '—',
+    'Indexed Delivery': '---',
     'On-Time %': formatPercent(avg(onTimeArr)),
     'Planned': sumPlanned,
     'Ad-hoc': sumAdhoc,
@@ -1214,7 +1255,7 @@ function renderProjectEpicLevelTab(boards, metrics) {
       html += '<tfoot><tr class="boards-summary-row">';
       for (const key of BOARD_TABLE_COLUMN_ORDER) {
         const tip = BOARD_SUMMARY_TOOLTIPS[key] || '';
-        html += '<td title="' + escapeHtml(tip) + '">' + escapeHtml(String(summaryRow[key] ?? '—')) + ' <span class="tooltip-trigger" aria-label="Show definition" data-tooltip="' + escapeHtml(tip) + '" tabindex="0" role="button">&#9432;</span></td>';
+        html += '<td title="' + escapeHtml(tip) + '">' + escapeHtml(String(summaryRow[key] ?? '---')) + ' <span class="tooltip-trigger" aria-label="Show definition" data-tooltip="' + escapeHtml(tip) + '" tabindex="0" role="button">&#9432;</span></td>';
       }
       html += '</tr></tfoot>';
     }
@@ -1265,11 +1306,11 @@ function renderProjectEpicLevelTab(boards, metrics) {
       for (const data of Object.values(predictPerSprint)) {
         if (!data) continue;
       const plannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.plannedCarryoverPct == null)
-        ? '—'
-        : (data.plannedCarryoverStories ?? '—') + ' (' + formatPercent(data.plannedCarryoverPct) + '%)';
+        ? '---'
+        : (data.plannedCarryoverStories ?? '---') + ' (' + formatPercent(data.plannedCarryoverPct) + '%)';
       const unplannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.unplannedSpilloverPct == null)
-        ? '—'
-        : (data.unplannedSpilloverStories ?? '—') + ' (' + formatPercent(data.unplannedSpilloverPct) + '%)';
+        ? '---'
+        : (data.unplannedSpilloverStories ?? '---') + ' (' + formatPercent(data.unplannedSpilloverPct) + '%)';
       html += `<tr>
           <td>${escapeHtml(data.sprintName)}</td>
           <td>${data.committedStories}</td>
@@ -1331,8 +1372,9 @@ function renderSprintsTab(sprints, metrics) {
   const content = document.getElementById('sprints-content');
   const meta = getSafeMeta(previewData);
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
+  const orderedSprints = sortSprintsLatestFirst(sprints);
 
-  if (!sprints || sprints.length === 0) {
+  if (!orderedSprints || orderedSprints.length === 0) {
     const windowInfo = meta ?
       `${new Date(meta.windowStart).toLocaleDateString()} to ${new Date(meta.windowEnd).toLocaleDateString()}` :
       'selected date range';
@@ -1410,7 +1452,7 @@ function renderSprintsTab(sprints, metrics) {
   
   html += '</tr></thead><tbody>';
   
-  for (const sprint of sprints) {
+  for (const sprint of orderedSprints) {
     const throughputData = throughputMap.get(sprint.id);
     const timeData = timeTotals.get(sprint.id) || {
       estimateHours: 0,
@@ -1479,9 +1521,9 @@ function renderSprintsTab(sprints, metrics) {
   }
   
   // Totals row
-  const totalDoneStoriesNow = sprints.reduce((sum, sprint) => sum + (sprint.doneStoriesNow || 0), 0);
-  const totalDoneByEnd = sprints.reduce((sum, sprint) => sum + (sprint.doneStoriesBySprintEnd || 0), 0);
-  const totalDoneSP = sprints.reduce((sum, sprint) => sum + (sprint.doneSP || 0), 0);
+  const totalDoneStoriesNow = orderedSprints.reduce((sum, sprint) => sum + (sprint.doneStoriesNow || 0), 0);
+  const totalDoneByEnd = orderedSprints.reduce((sum, sprint) => sum + (sprint.doneStoriesBySprintEnd || 0), 0);
+  const totalDoneSP = orderedSprints.reduce((sum, sprint) => sum + (sprint.doneSP || 0), 0);
   const totalThroughputSP = metrics?.throughput?.perSprint
     ? Object.values(metrics.throughput.perSprint).reduce((sum, data) => sum + (data.totalSP || 0), 0)
     : 0;
@@ -1548,6 +1590,12 @@ function renderSprintsTab(sprints, metrics) {
   
   html += '</tbody></table>';
   content.innerHTML = html;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderNotificationDock);
+} else {
+  renderNotificationDock();
 }
 
 // Render Done Stories tab
@@ -2092,7 +2140,7 @@ function setExportButtonLoading(btn, loading) {
     btn.dataset.exportOriginalText = btn.textContent;
     btn.dataset.exportOriginalDisabled = btn.disabled;
     btn.disabled = true;
-    btn.textContent = 'Exporting…';
+    btn.textContent = 'Exporting---';
   } else {
     btn.disabled = btn.dataset.exportOriginalDisabled === 'true';
     btn.textContent = btn.dataset.exportOriginalText || 'Export CSV';
@@ -2196,7 +2244,7 @@ async function exportCSV(rows, type) {
       const successMsg = document.createElement('div');
       successMsg.className = 'export-success';
       successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-      successMsg.textContent = `✓ CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
+      successMsg.textContent = `--- CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
       document.body.appendChild(successMsg);
       setTimeout(() => {
         if (successMsg.parentNode) {
@@ -2239,7 +2287,7 @@ function downloadCSV(csv, filename) {
     const successMsg = document.createElement('div');
     successMsg.className = 'export-success';
     successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-    successMsg.textContent = `✓ CSV exported: ${filename}`;
+    successMsg.textContent = `--- CSV exported: ${filename}`;
     document.body.appendChild(successMsg);
     setTimeout(() => {
       if (successMsg.parentNode) {
@@ -2772,7 +2820,7 @@ async function exportToExcel() {
     const successMsg = document.createElement('div');
     successMsg.className = 'export-success';
     successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-    successMsg.textContent = `✓ Excel exported: ${a.download} (${(blob.size / 1024).toFixed(0)}KB)`;
+    successMsg.textContent = `--- Excel exported: ${a.download} (${(blob.size / 1024).toFixed(0)}KB)`;
     document.body.appendChild(successMsg);
     setTimeout(() => {
       if (successMsg.parentNode) {
@@ -3357,7 +3405,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
       try {
         // Show progress indicator for large exports
         if (button) {
-          button.textContent = `Exporting ${rows.length.toLocaleString()} rows…`;
+          button.textContent = `Exporting ${rows.length.toLocaleString()} rows---`;
         }
         
         const response = await fetch('/export', {
@@ -3398,7 +3446,7 @@ async function exportSectionCSV(sectionName, data, button = null) {
         const successMsg = document.createElement('div');
         successMsg.className = 'export-success';
         successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4caf50; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-        successMsg.textContent = `✓ CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
+        successMsg.textContent = `--- CSV exported: ${filename} (${(blob.size / 1024).toFixed(0)}KB)`;
         document.body.appendChild(successMsg);
         setTimeout(() => {
           if (successMsg.parentNode) {
@@ -3652,3 +3700,5 @@ function renderUnusableSprintsTab(unusable) {
   html += '</tbody></table>';
   content.innerHTML = html;
 }
+
+
