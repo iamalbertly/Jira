@@ -130,6 +130,9 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
       return;
     }
 
+    await expect(page.locator('h1')).toContainText('Current Sprint');
+    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
+
     const alertsCard = page.locator('#notifications-card, [id*="notification"]');
     const hasAlerts = await alertsCard.isVisible().catch(() => false);
     if (hasAlerts) {

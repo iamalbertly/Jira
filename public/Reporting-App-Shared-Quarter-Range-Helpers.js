@@ -154,6 +154,9 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
   const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
   if (!container || !startInput || !endInput) return;
 
+  container.innerHTML = '<span class="quarter-strip-loading" aria-live="polite">Loading quarters…</span>';
+  container.style.minHeight = '2.5em';
+
   const clearSelection = () => {
     container.querySelectorAll('.quarter-pill').forEach((b) => {
       b.classList.remove('is-active');
@@ -183,12 +186,21 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
     .catch(() => ({ quarters: [] }))
     .then((data) => {
       const quarters = data.quarters || [];
+      container.innerHTML = '';
       container.style.overflowX = 'auto';
       container.style.display = 'flex';
       container.style.gap = '6px';
       container.style.flexWrap = 'nowrap';
       container.setAttribute('role', 'group');
       container.setAttribute('aria-label', 'Vodacom quarters');
+      if (quarters.length === 0) {
+        const fallback = document.createElement('span');
+        fallback.className = 'quarter-strip-fallback';
+        fallback.setAttribute('aria-live', 'polite');
+        fallback.textContent = 'Enter dates manually.';
+        container.appendChild(fallback);
+        return;
+      }
       quarters.forEach((q) => {
         const btn = document.createElement('button');
         btn.type = 'button';

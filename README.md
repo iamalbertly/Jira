@@ -73,7 +73,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 
 1. Get the live VodaAgileBoard URL from your admin (for example, `https://voda-agile-board.onrender.com`).
 2. Sign in with the credentials shared by your admin.
-3. On the Sprint Report screen, keep both MPSA and MAS selected for a combined view, or choose a single project for a focused view.
+3. On the General Performance (Report) screen, keep both MPSA and MAS selected for a combined view, or choose a single project for a focused view.
 4. Leave the default quarter dates or adjust them to your sprint window, then click **Preview**.
 5. Use **Export to Excel - All Data** to download a workbook you can slice and share in your own tooling.
 
@@ -84,7 +84,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 1. **Select Projects**: Check MPSA and/or MAS (at least one required)
 
 2. **Set Date Window**: 
-  - **Quick range (Vodacom quarters):** Buttons show fiscal-year labels (e.g. "FY26 Q2") plus the exact period under the label. Buttons are ordered by the actual quarter end date (oldest → newest) so the calendar flow is always forward. Clicking a quarter sets the range and **automatically runs the report** so results appear without a second click.
+  - **Quick range (Vodacom quarters):** A scrollable strip of quarter pills (at least 5 quarters up to current) shows fiscal labels (e.g. "FY26 Q2"); clicking a pill sets the range and can auto-run the report. Select a quarter or enter dates manually.
    - Default is Q2 2025 (July 1 - September 30, 2025)
    - Adjust start and end dates as needed
    - Dates are in UTC
@@ -98,7 +98,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-  - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Includes capacity proxies (Active Assignees, Stories/SP per Assignee, Assumed Capacity, Assumed Waste %) with clear assumptions. Epic Time-To-Market shows Epic Name, story IDs as Jira links with hover summaries, **Subtask Spent (Hrs)** for the epic, and includes a **{Board}-AD-HOC** row per board for stories not linked to any epic. Missing epic titles are surfaced with a warning for trust. Throughput remains available by issue type, along with rework ratio and predictability. Includes per-section CSV export button.
+  - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, **Done Stories**, **Registered Work Hours**, **Estimated Work Hours**, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Includes capacity proxies (Active Assignees, Stories/SP per Assignee, Assumed Capacity, Assumed Waste %) with clear assumptions. Epic Time-To-Market shows Epic Name, story IDs as Jira links with hover summaries, **Subtask Spent (Hrs)** for the epic, and includes a **{Board}-AD-HOC** row per board for stories not linked to any epic. Missing epic titles are surfaced with a warning for trust. Throughput remains available by issue type, along with rework ratio and predictability. Includes per-section CSV export button.
    - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. When subtask tracking exists, adds Subtask Est/Spent/Remaining/Variance columns. Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Dates render in local-friendly format with raw ISO on hover. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
@@ -384,11 +384,10 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 |   |-- kpiCalculations.js    # KPI calculation functions
 |   `-- Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
 |-- public/
-|   |-- report.html           # Main report UI (modular entrypoint)
+|   |-- report.html           # General Performance report UI (modular entrypoint)
 |   |-- Reporting-App-Report-Page-Init-Controller.js  # Report page init/controller (SSOT)
-|   |-- Reporting-App-Report-Page-*.js                # Report page modules (state, filters, preview, renderers, exports)
+|   |-- Reporting-App-Report-Page-*.js               # Report page modules (state, filters, preview, renderers, exports)
 |   |-- Reporting-App-Shared-*.js                     # Shared helpers (DOM escape, formatting, boards summary, notifications, quarters)
-|   |-- DeleteThisFile_Jira-Reporting-App-Report-Legacy-Monolith.js  # Legacy monolithic report controller (kept temporarily for reference)
 |   `-- styles.css            # Styling
 |-- tests/
 |   |-- Jira-Reporting-App-E2E-User-Journey-Tests.spec.js

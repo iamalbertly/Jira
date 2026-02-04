@@ -8,7 +8,7 @@ import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 
 function setQuickRangeButtonsDisabled(disabled) {
-  document.querySelectorAll('.quick-range-btn[data-quarter]').forEach((button) => {
+  document.querySelectorAll('.quick-range-btn[data-quarter], .quarter-pill').forEach((button) => {
     button.disabled = disabled;
   });
 }
@@ -92,9 +92,11 @@ export function initPreviewFlow() {
       if (errorEl) {
         errorEl.style.display = 'block';
         errorEl.innerHTML = `
-          <strong>Error:</strong> ${escapeHtml(error.message)}
-          <br><small>Please fix the filters above and try again.</small>
-          <button type="button" class="error-close" aria-label="Dismiss">x</button>
+          <div role="alert">
+            <strong>Error:</strong> ${escapeHtml(error.message)}
+            <br><small>Please fix the filters above and try again.</small>
+            <button type="button" class="error-close" aria-label="Dismiss">x</button>
+          </div>
         `;
       }
       previewBtn.disabled = false;
@@ -211,9 +213,11 @@ export function initPreviewFlow() {
 
       if (errorEl) {
         errorEl.innerHTML = `
-          <strong>Error:</strong> ${escapeHtml(errorMsg)}
-          <br><small>If this problem persists, please check your Jira connection and try again.</small>
-          <button type="button" class="error-close" aria-label="Dismiss">x</button>
+          <div role="alert">
+            <strong>Error:</strong> ${escapeHtml(errorMsg)}
+            <br><small>If this problem persists, please check your Jira connection and try again.</small>
+            <button type="button" class="error-close" aria-label="Dismiss">x</button>
+          </div>
         `;
       }
       if (statusEl) {
