@@ -1,0 +1,187 @@
+import { reportDom } from './Reporting-App-Report-Page-Context.js';
+import { reportState } from './Reporting-App-Report-Page-State.js';
+import { formatDateForDisplay, formatNumber, formatPercent } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
+import { scheduleRender } from './Reporting-App-Report-Page-Loading-Steps.js';
+import { updateDateDisplay } from './Reporting-App-Report-Page-DateRange-Controller.js';
+import {
+  populateBoardsPills,
+  populateSprintsPills,
+  renderProjectEpicLevelTab,
+  renderSprintsTab,
+  renderDoneStoriesTab,
+  renderUnusableSprintsTab,
+  updateExportFilteredState,
+} from './Reporting-App-Report-Page-Render-Registry.js';
+
+export function renderPreview() {
+  const { previewData, previewRows, visibleRows, visibleBoardRows, visibleSprintRows } = reportState;
+  const { errorEl, previewContent, previewMeta, exportExcelBtn, exportDropdownTrigger } = reportDom;
+  if (!previewData) return;
+
+  const meta = getSafeMeta(previewData);
+  if (!meta) {
+    if (errorEl) {
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = `
+        <strong>Error:</strong> Preview metadata is missing or invalid.
+        <br><small>Please refresh the page, run the preview again, or contact an administrator if the problem persists.</small>
+        <button type="button" class="error-close" aria-label="Dismiss">x</button>
+      `;
+    }
+    if (previewContent) previewContent.style.display = 'none';
+    if (exportExcelBtn) exportExcelBtn.disabled = true;
+    if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
+    return;
+  }
+
+  const boardsCount = previewData.boards?.length || 0;
+  const sprintsCount = previewData.sprintsIncluded?.length || 0;
+  const rowsCount = (previewData.rows || []).length;
+  const unusableCount = previewData.sprintsUnusable?.length || 0;
+  const startDate = new Date(meta.windowStart);
+  const endDate = new Date(meta.windowEnd);
+  const windowStartLocal = formatDateForDisplay(meta.windowStart);
+  const windowEndLocal = formatDateForDisplay(meta.windowEnd);
+  const windowStartUtc = startDate && !Number.isNaN(startDate.getTime()) ? startDate.toUTCString() : '';
+  const windowEndUtc = endDate && !Number.isNaN(endDate.getTime()) ? endDate.toUTCString() : '';
+  const fromCache = meta.fromCache === true;
+  const partial = meta.partial === true;
+  const partialReason = meta.partialReason || '';
+  const elapsedMs = typeof meta.elapsedMs === 'number' ? meta.elapsedMs : null;
+  const cachedElapsedMs = typeof meta.cachedElapsedMs === 'number' ? meta.cachedElapsedMs : null;
+
+  const detailsLines = [];
+  if (elapsedMs != null) {
+    const seconds = Math.round(elapsedMs / 1000);
+    detailsLines.push(`Generated in ~${seconds}s`);
+  }
+  if (meta.generatedAt) {
+    detailsLines.push(`Generated At: ${new Date(meta.generatedAt).toLocaleString()}`);
+  }
+  if (meta.requestedAt) {
+    detailsLines.push(`Request Time: ${new Date(meta.requestedAt).toLocaleString()}`);
+  }
+  if (fromCache) {
+    detailsLines.push('Source: Cache');
+    if (meta.cacheAgeMinutes !== undefined) {
+      detailsLines.push(`Cache age: ${meta.cacheAgeMinutes} minutes`);
+    }
+    if (cachedElapsedMs != null) {
+      const cachedSeconds = Math.round(cachedElapsedMs / 1000);
+      detailsLines.push(`Original generation: ~${cachedSeconds}s`);
+    }
+  } else {
+    detailsLines.push('Source: Jira (live request)');
+  }
+  if (meta.fieldInventory) {
+    const foundCount = Array.isArray(meta.fieldInventory.ebmFieldsFound) ? meta.fieldInventory.ebmFieldsFound.length : 0;
+    const missingCount = Array.isArray(meta.fieldInventory.ebmFieldsMissing) ? meta.fieldInventory.ebmFieldsMissing.length : 0;
+    detailsLines.push(`EBM fields found: ${foundCount}, missing: ${missingCount}`);
+  }
+  if (!meta.discoveredFields?.storyPointsFieldId) {
+    detailsLines.push('Story Points: not configured (SP metrics show N/A)');
+  }
+  if (!meta.discoveredFields?.epicLinkFieldId) {
+    detailsLines.push('Epic Links: not configured (Epic rollups limited)');
+  }
+
+  const partialNotice = partial
+    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em> because: ${partialReason || 'time budget exceeded or limits reached.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
+    : '';
+
+  const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
+  const sampleRow = previewRows && previewRows.length > 0 ? previewRows[0] : null;
+  const sampleLabel = sampleRow
+    ? `${escapeHtml(sampleRow.issueKey || '')} - ${escapeHtml(sampleRow.issueSummary || '')}`
+    : 'None';
+
+  if (previewMeta) {
+    previewMeta.innerHTML = `
+      <div class="meta-info">
+        <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
+        <strong>Date Window (Local):</strong> ${escapeHtml(windowStartLocal)} to ${escapeHtml(windowEndLocal)}<br>
+        <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
+        <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
+        <strong>Example story:</strong> ${sampleLabel}<br>
+        <strong>Details:</strong> ${escapeHtml(detailsLines.join(' • '))}
+        ${partialNotice}
+      </div>
+    `;
+  }
+
+  const stickyEl = document.getElementById('preview-summary-sticky');
+  if (stickyEl) {
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} • ${windowStartLocal} to ${windowEndLocal}`;
+    stickyEl.setAttribute('aria-hidden', 'false');
+  }
+
+  const statusEl = document.getElementById('preview-status');
+  if (statusEl) {
+    if (partial) {
+      statusEl.innerHTML = `
+        <div class="status-banner warning">
+          Preview is partial: ${partialReason || 'time budget or pagination limits reached.'}
+          <br><small>Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.</small>
+          <button type="button" class="status-close" aria-label="Dismiss">x</button>
+        </div>
+      `;
+      statusEl.style.display = 'block';
+    } else {
+      statusEl.innerHTML = '';
+      statusEl.style.display = 'none';
+    }
+  }
+
+  const hasRows = rowsCount > 0;
+  if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
+  if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;
+
+  const exportHint = document.getElementById('export-hint');
+  if (exportHint) {
+    if (!hasRows) {
+      exportHint.innerHTML = `
+        <small>Generate a report with data to enable export. Use the main Excel button for the full workbook, or per-tab Export CSV for focused slices.</small>
+      `;
+    } else if (partial) {
+      exportHint.innerHTML = `
+        <small>Note: Preview is partial; CSV exports will only contain currently loaded data.</small>
+      `;
+    } else {
+      exportHint.innerHTML = '';
+    }
+  }
+
+  updateDateDisplay();
+
+  scheduleRender(() => {
+    populateBoardsPills();
+    populateSprintsPills();
+    renderProjectEpicLevelTab(visibleBoardRows, previewData.metrics);
+    renderSprintsTab(visibleSprintRows, previewData.metrics);
+    renderDoneStoriesTab(visibleRows);
+    renderUnusableSprintsTab(previewData.sprintsUnusable);
+
+    requestAnimationFrame(() => {
+      const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');
+      if (projectEpicLevelBtn && projectEpicLevelBtn.parentElement) {
+        const hasBoards = previewData.boards && previewData.boards.length > 0;
+        const hasMetrics = previewData.metrics && Object.keys(previewData.metrics).length > 0;
+        projectEpicLevelBtn.style.display = (hasBoards || hasMetrics) ? 'inline-block' : 'none';
+      }
+
+      const sprintsBtn = document.querySelector('.export-section-btn[data-section="sprints"]');
+      if (sprintsBtn && sprintsBtn.parentElement) {
+        sprintsBtn.style.display = (previewData.sprintsIncluded && previewData.sprintsIncluded.length > 0) ? 'inline-block' : 'none';
+      }
+
+      const doneStoriesBtn = document.querySelector('.export-section-btn[data-section="done-stories"]');
+      if (doneStoriesBtn && doneStoriesBtn.parentElement) {
+        doneStoriesBtn.style.display = (visibleRows.length > 0 || previewRows.length > 0) ? 'inline-block' : 'none';
+      }
+    });
+
+    updateExportFilteredState();
+  });
+}

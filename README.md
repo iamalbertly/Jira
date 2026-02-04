@@ -381,8 +381,11 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 |   |-- kpiCalculations.js    # KPI calculation functions
 |   `-- Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
 |-- public/
-|   |-- report.html           # Main UI
-|   |-- report.js             # Frontend logic
+|   |-- report.html           # Main report UI (modular entrypoint)
+|   |-- Reporting-App-Report-Page-Init-Controller.js  # Report page init/controller (SSOT)
+|   |-- Reporting-App-Report-Page-*.js                # Report page modules (state, filters, preview, renderers, exports)
+|   |-- Reporting-App-Shared-*.js                     # Shared helpers (DOM escape, formatting, boards summary, notifications, quarters)
+|   |-- DeleteThisFile_Jira-Reporting-App-Report-Legacy-Monolith.js  # Legacy monolithic report controller (kept temporarily for reference)
 |   `-- styles.css            # Styling
 |-- tests/
 |   |-- Jira-Reporting-App-E2E-User-Journey-Tests.spec.js

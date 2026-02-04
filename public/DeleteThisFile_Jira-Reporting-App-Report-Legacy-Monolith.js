@@ -1,8 +1,4 @@
-// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid
-// introducing additional bundling or script loading complexity. Behaviour is cohesive
-// around preview, tabs, and exports; future work can further split if a bundler is added.
-
-import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.js';
+import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 
 // CSV column order: SSOT is server GET /api/csv-columns; fallback for offline/API failure
 const FALLBACK_CSV_COLUMNS = [
@@ -93,11 +89,11 @@ let previewRows = [];
 let visibleRows = [];
 let visibleBoardRows = [];
 let visibleSprintRows = [];
+let previewHasRows = false;
 
 const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
 const NOTIFICATION_DOCK_STATE_KEY = 'appNotificationsDockStateV1';
 const NOTIFICATION_TOGGLE_ID = 'app-notification-toggle';
-let previewHasRows = false;
 
 // DOM Elements
 const previewBtn = document.getElementById('preview-btn');
@@ -4112,3 +4108,5 @@ function renderUnusableSprintsTab(unusable) {
   html += '</tbody></table>';
   content.innerHTML = html;
 }
+
+

@@ -1,0 +1,18 @@
+export const reportDom = {
+  previewBtn: document.getElementById('preview-btn'),
+  exportExcelBtn: document.getElementById('export-excel-btn'),
+  exportDropdownTrigger: document.getElementById('export-dropdown-trigger'),
+  exportDropdownMenu: document.getElementById('export-dropdown-menu'),
+  loadingEl: document.getElementById('loading'),
+  errorEl: document.getElementById('error'),
+  previewContent: document.getElementById('preview-content'),
+  previewMeta: document.getElementById('preview-meta'),
+  previewStatus: document.getElementById('preview-status'),
+  feedbackToggle: document.getElementById('feedback-toggle'),
+  feedbackPanel: document.getElementById('feedback-panel'),
+  feedbackEmail: document.getElementById('feedback-email'),
+  feedbackMessage: document.getElementById('feedback-message'),
+  feedbackSubmit: document.getElementById('feedback-submit'),
+  feedbackCancel: document.getElementById('feedback-cancel'),
+  feedbackStatus: document.getElementById('feedback-status'),
+};

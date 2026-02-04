@@ -170,7 +170,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
       // Loading may resolve too quickly (cache or fast response). Proceed without failing.
     }
     if (loadingVisible) {
-      // If loading stays visible, preview should be disabled. If loading resolves quickly, skip.
+      // If loading stays visible, preview should be disabled. If loading resolves quickly or the overlay is already hidden, skip this assertion.
       await page.waitForTimeout(200);
       const stillLoading = await page.locator('#loading').isVisible().catch(() => false);
       if (stillLoading) {
@@ -244,6 +244,10 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     await page.waitForSelector('#error', { state: 'visible', timeout: 10000 });
     const errorText = await page.locator('#error').innerText();
     expect(errorText.toLowerCase()).toContain('start date must be before end date');
+
+    await page.click('#error .error-close');
+    await expect(page.locator('#error')).toBeHidden();
+    await expect(page.locator('#preview-btn')).toBeFocused();
   });
 
   test('Require Resolved by Sprint End empty state explains the filter when applicable', async ({ page }) => {

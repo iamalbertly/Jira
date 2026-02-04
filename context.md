@@ -132,9 +132,9 @@
 - `server.js`
   - Marker: `// SIZE-EXEMPT: Cohesive Express server entry and preview/export orchestration kept together for operational transparency, logging, and simpler deployment without introducing additional routing layers or indirection.`
   - Rationale: Keeping startup, routing, and preview/export orchestration in one place simplifies operational debugging and avoids scattering core HTTP entry behaviour across multiple files.
-- `public/report.js`
-  - Marker: `// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid introducing additional bundling or script loading complexity. Behaviour is cohesive around preview, tabs, and exports; future work can further split if a bundler is added.`
-  - Rationale: The script is loaded directly in the browser without a bundler; splitting it into multiple files would complicate loading and ordering. Logic remains cohesive around the main report screen.
+- `DeleteThisFile_Jira-Reporting-App-Report-Legacy-Monolith.js` (formerly `public/report.js`, now unused)
+  - Marker (legacy): `// SIZE-EXEMPT: Legacy report UI controller kept as a single browser module to avoid introducing additional bundling or script loading complexity. Behaviour is cohesive around preview, tabs, and exports; future work can further split if a bundler is added.`
+  - Rationale update: The active report UI now uses the modular `Reporting-App-Report-Page-*` files as SSOT. The legacy monolith is renamed with `DeleteThisFile_` and retained temporarily only for historical diff/reference; it is no longer loaded by `report.html` or tests and can be deleted once downstream deployments are fully migrated.
 - `lib/metrics.js`
   - Marker: `// SIZE-EXEMPT: Cohesive metrics domain logic (throughput, done comparison, rework, predictability, epic TTM) is kept in a single module to avoid scattering cross-related calculations and increasing coordination bugs.`
   - Rationale: Metrics functions are tightly related and operate over the same row data; keeping them together avoids duplicated calculations and subtle drift between separate metric modules.
