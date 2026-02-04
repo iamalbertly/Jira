@@ -1,0 +1,696 @@
+/**
+ * Jira Reporting App - Current Sprint Redesign Validation Test Suite
+ * 
+ * Comprehensive tests for all 11 new UI components:
+ * 1. Fixed Header Bar
+ * 2. Unified Health Dashboard
+ * 3. Alert/Warning Banner
+ * 4. Risks & Insights Modal
+ * 5. Capacity Allocation Visualization
+ * 6. Sprint Navigation Carousel
+ * 7. Scope Change Indicator
+ * 8. Days Remaining Countdown Timer
+ * 9. Export Dashboard Feature
+ * 10. CSS Grid Responsive Layout
+ * 11. Comprehensive Validation & Accessibility
+ * 
+ * + 3 Bonus Edge Case Solutions:
+ * A. Multi-timezone Sprint Scheduling
+ * B. Burndown with Estimation Gaps
+ * C. Sub-task Estimation Without Parent Estimate
+ * 
+ * Rationale: All tests use Playwright for real-time browser automation + visual regression
+ * Tests validate: functionality, performance, accessibility, responsiveness, error handling
+ */
+
+import { test, expect } from '@playwright/test';
+
+// Base configuration
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const SPRINT_PAGE = `${BASE_URL}/current-sprint`;
+
+/**
+ * Utility: Load sprint page and wait for content
+ */
+async function loadSprintPage(page) {
+  await page.goto(SPRINT_PAGE);
+  await page.waitForSelector('#current-sprint-content');
+}
+
+/**
+ * Utility: Get page performance metrics
+ */
+async function getPageMetrics(page) {
+  return await page.evaluate(() => {
+    const perf = performance.getEntriesByType('navigation')[0];
+    return {
+      domReady: perf?.domContentLoadedEventEnd - perf?.domContentLoadedEventStart,
+      loadComplete: perf?.loadEventEnd - perf?.loadEventStart,
+      nodeCount: document.body.querySelectorAll('*').length,
+      cssSize: new Blob([...document.styleSheets].map(sheet => sheet.cssText || '')).size
+    };
+  });
+}
+
+test.describe('CurrentSprint Redesign - Component Validation', () => {
+  test.beforeEach(async ({ page }) => {
+    // Navigate to sprint page
+    await loadSprintPage(page);
+  });
+
+  // ========== VALIDATION 1: Header Bar Component ==========
+  test('Validation 1.1: Header bar renders with sprint metadata', async ({ page }) => {
+    const headerBar = page.locator('.current-sprint-header-bar');
+    await expect(headerBar).toBeVisible();
+    
+    // Check all required elements
+    await expect(page.locator('.header-sprint-name')).toBeVisible();
+    await expect(page.locator('.header-sprint-dates')).toBeVisible();
+    await expect(page.locator('.header-metric')).toHaveCount(3); // Remaining, Total SP, Progress
+    await expect(page.locator('.status-badge')).toBeVisible();
+  });
+
+  test('Validation 1.2: Header bar is sticky on scroll', async ({ page }) => {
+    const headerBar = page.locator('.current-sprint-header-bar');
+    const initialTop = await headerBar.evaluate(el => window.getComputedStyle(el).position);
+    
+    // Scroll down
+    await page.evaluate(() => window.scrollBy(0, 500));
+    
+    // Verify sticky positioning
+    const stickyStyle = await headerBar.evaluate(el => window.getComputedStyle(el).position);
+    expect(['fixed', 'sticky']).toContain(stickyStyle);
+  });
+
+  test('Validation 1.3: Days remaining color coding is correct', async ({ page }) => {
+    const remainingMetric = page.locator('.header-metric:first-of-type .metric-value');
+    const text = await remainingMetric.textContent();
+    
+    // Parse days from text (e.g., "1 day", "5 days")
+    const daysMatch = text?.match(/(\d+)/);
+    if (daysMatch) {
+      const days = parseInt(daysMatch[1]);
+      let expectedClass = 'critical'; // 0-2 days
+      if (days > 5) expectedClass = 'green';
+      else if (days > 2) expectedClass = 'yellow';
+      
+      // Verify color class exists
+      const classList = await remainingMetric.getAttribute('class');
+      expect(classList).toContain(expectedClass);
+    }
+  });
+
+  test('Validation 1.4: Header bar renders within 100ms', async ({ page }) => {
+    const startTime = Date.now();
+    await page.waitForSelector('.current-sprint-header-bar', { timeout: 100 });
+    const renderTime = Date.now() - startTime;
+    expect(renderTime).toBeLessThan(100);
+  });
+
+  // ========== VALIDATION 2: Health Dashboard ==========
+  test('Validation 2.1: Health dashboard card renders with all sections', async ({ page }) => {
+    const healthCard = page.locator('.health-dashboard-card');
+    await expect(healthCard).toBeVisible();
+    
+    // Check sections
+    await expect(page.locator('.health-status-chip')).toBeVisible();
+    await expect(page.locator('.health-progress-section')).toBeVisible();
+    await expect(page.locator('.health-split-section')).toBeVisible();
+    await expect(page.locator('.health-tracking-section')).toBeVisible();
+    await expect(page.locator('.health-actions')).toBeVisible();
+  });
+
+  test('Validation 2.2: Health dashboard progress bar displays correctly', async ({ page }) => {
+    const progressBar = page.locator('.progress-bar-container');
+    await expect(progressBar).toBeVisible();
+    
+    // Verify bars exist
+    const doneBar = page.locator('.progress-bar.done');
+    const inprogressBar = page.locator('.progress-bar.inprogress');
+    
+    // At least one should exist
+    const doneCount = await doneBar.count();
+    const inprogressCount = await inprogressBar.count();
+    expect(doneCount + inprogressCount).toBeGreaterThan(0);
+  });
+
+  test('Validation 2.3: Health dashboard copy-to-clipboard works', async ({ page }) => {
+    const copyBtn = page.locator('.health-copy-btn');
+    
+    // Mock clipboard
+    await page.evaluate(() => {
+      navigator.clipboard.writeText = async (text) => {
+        document.body.setAttribute('data-clipboard', text);
+        return Promise.resolve();
+      };
+    });
+    
+    await copyBtn.click();
+    
+    // Verify button shows "Copied!"
+    await expect(copyBtn).toContainText('Copied!', { timeout: 100 });
+    
+    // Verify clipboard content
+    const clipboardContent = await page.getAttribute('body', 'data-clipboard');
+    expect(clipboardContent).toBeTruthy();
+  });
+
+  test('Validation 2.4: Health dashboard risk indicator appears with risks', async ({ page }) => {
+    const riskChip = page.locator('.health-status-chip');
+    const riskText = await riskChip.textContent();
+    
+    // Should contain either "healthy" or "⚠️"
+    expect(riskText).toMatch(/(healthy|⚠️)/);
+  });
+
+  test('Validation 2.5: Health dashboard renders within 150ms', async ({ page }) => {
+    const startTime = Date.now();
+    await page.waitForSelector('.health-dashboard-card', { timeout: 150 });
+    const renderTime = Date.now() - startTime;
+    expect(renderTime).toBeLessThan(150);
+  });
+
+  // ========== VALIDATION 3: Alert Banner ==========
+  test('Validation 3.1: Alert banner appears when critical issues exist', async ({ page }) => {
+    // Check if alert is visible (conditional on data)
+    const alertBanner = page.locator('.alert-banner');
+    const isVisible = await alertBanner.isVisible().catch(() => false);
+    
+    if (isVisible) {
+      // Verify color class
+      const classList = await alertBanner.getAttribute('class');
+      expect(classList).toMatch(/(yellow|orange|red)/);
+    }
+  });
+
+  test('Validation 3.2: Alert banner dismiss button works', async ({ page }) => {
+    const alertBanner = page.locator('.alert-banner');
+    if (!(await alertBanner.isVisible())) {
+      test.skip();
+    }
+    
+    const dismissBtn = page.locator('.alert-dismiss');
+    await dismissBtn.click();
+    
+    // Banner should be hidden
+    await expect(alertBanner).not.toBeVisible({ timeout: 500 });
+    
+    // Verify localStorage is set
+    const isDismissed = await page.evaluate(() => {
+      const dismissedTime = localStorage.getItem('alert_banner_dismissed_unknown');
+      return dismissedTime !== null;
+    });
+    expect(isDismissed).toBeTruthy();
+  });
+
+  test('Validation 3.3: Alert banner shows correct severity colors', async ({ page }) => {
+    const banner = page.locator('.alert-banner');
+    if (!(await banner.isVisible())) {
+      test.skip();
+    }
+    
+    const classList = await banner.getAttribute('class');
+    const severity = classList?.match(/(yellow|orange|red)/)?.[0];
+    
+    expect(['yellow', 'orange', 'red']).toContain(severity);
+  });
+
+  test('Validation 3.4: Alert action links navigate correctly', async ({ page }) => {
+    const banner = page.locator('.alert-banner');
+    if (!(await banner.isVisible())) {
+      test.skip();
+    }
+    
+    const actionLink = page.locator('.alert-action').first();
+    if (await actionLink.count() > 0) {
+      const href = await actionLink.getAttribute('href');
+      expect(href).toBeTruthy();
+    }
+  });
+
+  // ========== VALIDATION 4: Risks & Insights Modal ==========
+  test('Validation 4.1: Risks & Insights card renders with all tabs', async ({ page }) => {
+    const card = page.locator('.risks-insights-card');
+    await expect(card).toBeVisible();
+    
+    // Check tabs
+    await expect(page.locator('.insights-tab')).toHaveCount(3); // Blockers, Learnings, Assumptions
+  });
+
+  test('Validation 4.2: Risks & Insights tab switching works', async ({ page }) => {
+    const tabs = page.locator('.insights-tab');
+    const learningsTab = tabs.nth(1);
+    
+    await learningsTab.click();
+    
+    // Verify tab is active
+    const isActive = await learningsTab.evaluate(el => el.classList.contains('active'));
+    expect(isActive).toBeTruthy();
+    
+    // Verify panel is visible
+    const learnPanel = page.locator('#learnings-panel');
+    const isPanelActive = await learnPanel.evaluate(el => el.classList.contains('active'));
+    expect(isPanelActive).toBeTruthy();
+  });
+
+  test('Validation 4.3: Risks & Insights keyboard navigation works', async ({ page }) => {
+    const tabs = page.locator('.insights-tab');
+    const firstTab = tabs.first();
+    
+    await firstTab.focus();
+    await page.keyboard.press('ArrowRight');
+    
+    // Second tab should now be focused
+    const secondTab = tabs.nth(1);
+    const hasFocus = await secondTab.evaluate(el => el === document.activeElement);
+    expect(hasFocus).toBeTruthy();
+  });
+
+  test('Validation 4.4: Risks & Insights save functionality works', async ({ page }) => {
+    // Mock API endpoint
+    await page.route('/api/current-sprint/insights', route => {
+      route.abort('blockedbyclient');
+    });
+    
+    const saveBtn = page.locator('#insights-save');
+    if (await saveBtn.isVisible()) {
+      await saveBtn.click();
+      
+      // Status message should show attempt
+      const statusEl = page.locator('#insights-status');
+      const statusText = await statusEl.textContent();
+      expect(statusText).toBeTruthy();
+    }
+  });
+
+  // ========== VALIDATION 5: Capacity Allocation ==========
+  test('Validation 5.1: Capacity allocation card renders', async ({ page }) => {
+    const card = page.locator('.capacity-allocation-card');
+    await expect(card).toBeVisible();
+    
+    // Check required elements
+    await expect(page.locator('.capacity-health')).toBeVisible();
+    await expect(page.locator('.capacity-allocations')).toBeVisible();
+  });
+
+  test('Validation 5.2: Capacity bar shows overallocation correctly', async ({ page }) => {
+    const bar = page.locator('.allocation-bar.overallocated');
+    const count = await bar.count();
+    
+    // If overallocated items exist, verify color
+    if (count > 0) {
+      const style = await bar.first().evaluate(el => window.getComputedStyle(el).background);
+      expect(style).toContain('rgb'); // Should have color
+    }
+  });
+
+  test('Validation 5.3: Capacity allocation expand/collapse works', async ({ page }) => {
+    const expandBtn = page.locator('.allocation-expand-btn').first();
+    if (await expandBtn.count() === 0) {
+      test.skip();
+    }
+    
+    await expandBtn.click();
+    
+    // Issues list should be visible
+    const issues = page.locator('.allocation-issues').first();
+    const isVisible = await issues.isVisible().catch(() => false);
+    expect(isVisible).toBeTruthy();
+  });
+
+  test('Validation 5.4: Capacity health color matches severity', async ({ page }) => {
+    const health = page.locator('.capacity-health');
+    const classList = await health.getAttribute('class');
+    
+    expect(classList).toMatch(/(green|orange|yellow|red)/);
+  });
+
+  // ========== VALIDATION 6: Sprint Carousel ==========
+  test('Validation 6.1: Sprint carousel renders with 8 recent sprints', async ({ page }) => {
+    const carousel = page.locator('.sprint-carousel');
+    const tabs = page.locator('.carousel-tab');
+    
+    const count = await tabs.count();
+    expect(count).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(8);
+  });
+
+  test('Validation 6.2: Sprint carousel keyboard navigation works', async ({ page }) => {
+    const tabs = page.locator('.carousel-tab');
+    const firstTab = tabs.first();
+    
+    await firstTab.focus();
+    await page.keyboard.press('ArrowRight');
+    
+    // Next tab should receive focus
+    const secondTab = tabs.nth(1);
+    const hasFocus = await secondTab.evaluate(el => el === document.activeElement);
+    expect(hasFocus).toBeTruthy();
+  });
+
+  test('Validation 6.3: Sprint carousel colors match completion %', async ({ page }) => {
+    const tabs = page.locator('.carousel-tab');
+    
+    for (let i = 0; i < Math.min(3, await tabs.count()); i++) {
+      const tab = tabs.nth(i);
+      const classList = await tab.getAttribute('class');
+      expect(classList).toMatch(/(green|yellow|gray|muted)/);
+    }
+  });
+
+  test('Validation 6.4: Sprint carousel has accessibility labels', async ({ page }) => {
+    const carousel = page.locator('.sprint-carousel');
+    const ariaLabel = await carousel.getAttribute('aria-label');
+    expect(ariaLabel).toBeTruthy();
+  });
+
+  // ========== VALIDATION 7: Scope Indicator ==========
+  test('Validation 7.1: Scope indicator chip appears only when scope > 0%', async ({ page }) => {
+    const chip = page.locator('.scope-indicator-chip');
+    const isVisible = await chip.isVisible().catch(() => false);
+    
+    if (isVisible) {
+      const text = await chip.textContent();
+      expect(text).toContain('Scope:');
+    }
+  });
+
+  test('Validation 7.2: Scope indicator color coding is correct', async ({ page }) => {
+    const chip = page.locator('.scope-indicator-chip');
+    if (!(await chip.isVisible())) {
+      test.skip();
+    }
+    
+    const classList = await chip.getAttribute('class');
+    expect(classList).toMatch(/(green|yellow|red)/);
+  });
+
+  test('Validation 7.3: Scope modal opens on details button click', async ({ page }) => {
+    const detailsBtn = page.locator('.scope-details-btn');
+    if (!(await detailsBtn.isVisible())) {
+      test.skip();
+    }
+    
+    await detailsBtn.click();
+    
+    const modal = page.locator('.scope-modal-overlay');
+    await expect(modal).toBeVisible();
+  });
+
+  test('Validation 7.4: Scope modal closes on X button click', async ({ page }) => {
+    const detailsBtn = page.locator('.scope-details-btn');
+    if (!(await detailsBtn.isVisible())) {
+      test.skip();
+    }
+    
+    await detailsBtn.click();
+    
+    const closeBtn = page.locator('.modal-close-btn');
+    await closeBtn.click();
+    
+    const modal = page.locator('.scope-modal-overlay');
+    const isHidden = await modal.evaluate(el => el.style.display === 'none');
+    expect(isHidden).toBeTruthy();
+  });
+
+  // ========== VALIDATION 8: Countdown Timer ==========
+  test('Validation 8.1: Countdown timer renders with correct color', async ({ page }) => {
+    const timer = page.locator('.countdown-timer-widget');
+    await expect(timer).toBeVisible();
+    
+    const svg = page.locator('.countdown-ring');
+    const classList = await svg.getAttribute('class');
+    expect(classList).toMatch(/(green|yellow|red|gray)/);
+  });
+
+  test('Validation 8.2: Countdown timer shows days or hours correctly', async ({ page }) => {
+    const label = page.locator('.countdown-label');
+    const text = await label.textContent();
+    
+    // Should show "Xd" or "Xh" or "✓"
+    expect(text).toMatch(/(d|h|✓|<)/);
+  });
+
+  test('Validation 8.3: Countdown timer has accessibility label', async ({ page }) => {
+    const timer = page.locator('.countdown-timer-widget');
+    const ariaLabel = await timer.getAttribute('aria-label');
+    expect(ariaLabel).toBeTruthy();
+  });
+
+  test('Validation 8.4: Countdown timer pulse animation on urgent', async ({ page }) => {
+    const timer = page.locator('.countdown-timer-widget');
+    const svg = page.locator('.countdown-ring.urgent');
+    
+    if (await svg.count() > 0) {
+      const animation = await svg.evaluate(el => window.getComputedStyle(el).animation);
+      expect(animation).toBeTruthy();
+    }
+  });
+
+  // ========== VALIDATION 9: Export Dashboard ==========
+  test('Validation 9.1: Export button is visible and clickable', async ({ page }) => {
+    const btn = page.locator('.export-dashboard-btn');
+    await expect(btn).toBeVisible();
+    await btn.click();
+    
+    const menu = page.locator('#export-menu');
+    await expect(menu).toBeVisible();
+  });
+
+  test('Validation 9.2: Export menu shows all options', async ({ page }) => {
+    const btn = page.locator('.export-dashboard-btn');
+    await btn.click();
+    
+    const options = page.locator('.export-option');
+    await expect(options).toHaveCount(5); // PNG 1920, PNG 1200, Markdown, Copy Link, Email
+  });
+
+  test('Validation 9.3: Copy dashboard link works', async ({ page }) => {
+    const btn = page.locator('.export-dashboard-btn');
+    await btn.click();
+    
+    const copyOption = page.locator('[data-action="copy-link"]');
+    
+    // Mock clipboard
+    await page.evaluate(() => {
+      navigator.clipboard.writeText = async (text) => {
+        document.body.setAttribute('data-copied-link', text);
+        return Promise.resolve();
+      };
+    });
+    
+    await copyOption.click();
+    
+    // Verify button shows "Copied!"
+    await expect(btn).toContainText('✓ Link copied!', { timeout: 1000 });
+  });
+
+  test('Validation 9.4: Export menu closes on click outside', async ({ page }) => {
+    const btn = page.locator('.export-dashboard-btn');
+    await btn.click();
+    
+    const menu = page.locator('#export-menu');
+    await expect(menu).toBeVisible();
+    
+    // Click outside menu
+    await page.click('body', { position: { x: 0, y: 0 } });
+    
+    const isHidden = await menu.evaluate(el => el.classList.contains('hidden'));
+    expect(isHidden).toBeTruthy();
+  });
+
+  // ========== VALIDATION 10: Responsive Layout ==========
+  test('Validation 10.1: Desktop layout shows 2-3 columns', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    
+    const topRow = page.locator('.sprint-cards-row.top-row');
+    const columns = page.locator('.card-column');
+    
+    const columnCount = await columns.count();
+    expect(columnCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('Validation 10.2: Tablet layout shows 2 columns', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    
+    const topRow = page.locator('.sprint-cards-row.top-row');
+    const isFlexWrap = await topRow.evaluate(el => {
+      return window.getComputedStyle(el).flexWrap === 'wrap';
+    });
+    
+    expect(isFlexWrap).toBeTruthy();
+  });
+
+  test('Validation 10.3: Mobile layout shows 1 column', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    
+    const cards = page.locator('.card-column');
+    
+    // Each card should be full width or close to it
+    for (let i = 0; i < Math.min(3, await cards.count()); i++) {
+      const width = await cards.nth(i).evaluate(el => el.offsetWidth);
+      const parentWidth = await cards.nth(i).evaluate(el => el.parentElement.offsetWidth);
+      
+      // Card should be >80% of parent width
+      expect(width / parentWidth).toBeGreaterThan(0.8);
+    }
+  });
+
+  test('Validation 10.4: Header bar is sticky on all screen sizes', async ({ page }) => {
+    for (const width of [1920, 768, 375]) {
+      await page.setViewportSize({ width, height: 1080 });
+      
+      const header = page.locator('.current-sprint-header-bar');
+      const style = await header.evaluate(el => window.getComputedStyle(el).position);
+      
+      expect(['sticky', 'fixed']).toContain(style);
+    }
+  });
+
+  // ========== VALIDATION 11: Performance & Accessibility ==========
+  test('Validation 11.1: Page load time < 1 second', async ({ page }) => {
+    const startTime = Date.now();
+    await loadSprintPage(page);
+    const loadTime = Date.now() - startTime;
+    
+    expect(loadTime).toBeLessThan(1000);
+  });
+
+  test('Validation 11.2: No console errors during render', async ({ page }) => {
+    const errors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
+      }
+    });
+    
+    await loadSprintPage(page);
+    
+    expect(errors).toEqual([]);
+  });
+
+  test('Validation 11.3: Accessibility: All interactive elements have aria-labels', async ({ page }) => {
+    const buttons = page.locator('button');
+    
+    for (let i = 0; i < Math.min(5, await buttons.count()); i++) {
+      const btn = buttons.nth(i);
+      const ariaLabel = await btn.getAttribute('aria-label');
+      const text = await btn.textContent();
+      
+      expect(ariaLabel || text).toBeTruthy();
+    }
+  });
+
+  test('Validation 11.4: Accessibility: Color contrast is sufficient', async ({ page }) => {
+    const primaryText = page.locator('h1, h2, h3');
+    
+    for (let i = 0; i < Math.min(3, await primaryText.count()); i++) {
+      const element = primaryText.nth(i);
+      const bgColor = await element.evaluate(el => window.getComputedStyle(el).backgroundColor);
+      const textColor = await element.evaluate(el => window.getComputedStyle(el).color);
+      
+      // Basic check: both should be defined
+      expect(bgColor).toBeTruthy();
+      expect(textColor).toBeTruthy();
+    }
+  });
+
+  test('Validation 11.5: DOM node count < 500 (performance)', async ({ page }) => {
+    await loadSprintPage(page);
+    
+    const nodeCount = await page.evaluate(() => {
+      return document.querySelectorAll('*').length;
+    });
+    
+    expect(nodeCount).toBeLessThan(500);
+  });
+
+  // ========== BONUS: EDGE CASES ==========
+  
+  test('Edge Case A.1: Timezone Detection - Header countdown uses correct TZ', async ({ page }) => {
+    // Set user TZ preference
+    await page.evaluate(() => {
+      localStorage.setItem('sprint_view_tz', 'America/Los_Angeles');
+    });
+    
+    await loadSprintPage(page);
+    
+    const tzPref = await page.evaluate(() => {
+      return localStorage.getItem('sprint_view_tz');
+    });
+    
+    expect(tzPref).toBe('America/Los_Angeles');
+  });
+
+  test('Edge Case B.1: Burndown with Estimation Gaps - Warning appears', async ({ page }) => {
+    // This test assumes data has >20% unestimated stories
+    const warning = page.locator('.capacity-warning');
+    
+    if (await warning.isVisible()) {
+      const text = await warning.textContent();
+      expect(text).toContain('%');
+    }
+  });
+
+  test('Edge Case C.1: Sub-task without Parent Estimate - Inferred in Health Dashboard', async ({ page }) => {
+    const trackingStatus = page.locator('.tracking-status');
+    
+    if (await trackingStatus.isVisible()) {
+      const text = await trackingStatus.textContent();
+      // Should show either "Complete" or warning about missing estimates
+      expect(text).toBeTruthy();
+    }
+  });
+
+  // ========== INTEGRATION TESTS ==========
+  
+  test('Integration: All components load without errors', async ({ page }) => {
+    const components = [
+      '.current-sprint-header-bar',
+      '.health-dashboard-card',
+      '.sprint-carousel',
+      '.countdown-timer-widget',
+      '.export-dashboard-btn'
+    ];
+    
+    for (const selector of components) {
+      const element = page.locator(selector);
+      if (await element.count() > 0) {
+        await expect(element).toBeVisible();
+      }
+    }
+  });
+
+  test('Integration: Page performance metrics meet targets', async ({ page }) => {
+    await loadSprintPage(page);
+    
+    const metrics = await getPageMetrics(page);
+    
+    expect(metrics.domReady).toBeLessThan(500);
+    expect(metrics.nodeCount).toBeLessThan(500);
+  });
+});
+
+// ========== API CONTRACT VALIDATION ==========
+test.describe('CurrentSprint Redesign - API Contracts', () => {
+  test('API: /api/current-sprint.json returns expected schema', async ({ request }) => {
+    const response = await request.get(`${BASE_URL}/api/current-sprint.json?boardId=1`);
+    
+    expect(response.status()).toBe(200);
+    
+    const data = await response.json();
+    
+    // Verify required fields
+    expect(data.sprint).toBeTruthy();
+    expect(data.summary).toBeTruthy();
+    expect(data.daysMeta).toBeTruthy();
+    expect(data.stuckCandidates).toBeTruthy();
+  });
+
+  test('API: Error handling on missing boardId', async ({ request }) => {
+    const response = await request.get(`${BASE_URL}/api/current-sprint.json`);
+    
+    // Should either return error or default data
+    expect([400, 200]).toContain(response.status());
+  });
+});

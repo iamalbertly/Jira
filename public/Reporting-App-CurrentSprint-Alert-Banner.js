@@ -1,0 +1,216 @@
+/**
+ * Alert/Warning Banner Component
+ * Dynamic alerts for: stuck items (>24h), scope growth, burndown trend, sub-task risks
+ * Color-coded: Yellow (1-2 risks), Orange (3-5 risks), Red (6+ risks or critical)
+ * Dismissible with localStorage caching (4-hour TTL)
+ * Rationale: Customer - Blockers discovered in <2s. Simplicity - One consistent place for alerts. Trust - Proactive warning pattern.
+ */
+
+import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+
+export function renderAlertBanner(data) {
+  // Collect all alerts
+  const alerts = [];
+  const stuckCount = (data.stuckCandidates || []).length;
+  const scopeChanges = data.scopeChanges || [];
+  const summary = data.summary || {};
+  const tracking = data.subtaskTracking || {};
+  const totalSP = summary.totalSP ?? 0;
+
+  // Alert 1: Stuck items (>24h in same status)
+  if (stuckCount > 0) {
+    const severity = stuckCount > 5 ? 'critical' : (stuckCount > 2 ? 'high' : 'medium');
+    alerts.push({
+      id: 'stuck-items',
+      type: 'stuck',
+      severity,
+      icon: '⚠️',
+      title: stuckCount + ' issue' + (stuckCount > 1 ? 's' : '') + ' stuck > 24h',
+      message: 'Potential blockers in progress. Review and unblock immediately.',
+      action: 'View Details',
+      actionHref: '#stuck-card',
+      color: severity === 'critical' ? 'red' : (severity === 'high' ? 'orange' : 'yellow')
+    });
+  }
+
+  // Alert 2: Scope change (> 15% growth)
+  if (scopeChanges.length > 0 && totalSP > 0) {
+    const scopeSP = scopeChanges.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
+    const scopePercent = (scopeSP / totalSP) * 100;
+    if (scopePercent > 15) {
+      alerts.push({
+        id: 'scope-growth',
+        type: 'scope',
+        severity: 'high',
+        icon: '📈',
+        title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
+        message: scopeChanges.length + ' new issues added (' + scopeSP + ' SP). Sprint commitment at risk.',
+        action: 'Review Scope',
+        actionHref: '#scope-changes-card',
+        color: 'orange'
+      });
+    } else if (scopePercent > 5) {
+      alerts.push({
+        id: 'scope-growth',
+        type: 'scope',
+        severity: 'medium',
+        icon: '📈',
+        title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
+        message: scopeChanges.length + ' new items. Monitor impact on delivery.',
+        action: 'Review Scope',
+        actionHref: '#scope-changes-card',
+        color: 'yellow'
+      });
+    }
+  }
+
+  // Alert 3: Sub-task estimation gaps
+  const trackingRows = tracking.rows || [];
+  const missingEstimates = trackingRows.filter(r => !r.estimateHours || r.estimateHours === 0).length;
+  if (missingEstimates > 5) {
+    alerts.push({
+      id: 'missing-estimates',
+      type: 'estimation',
+      severity: 'high',
+      icon: '❌',
+      title: missingEstimates + ' sub-tasks missing estimates',
+      message: 'Cannot accurately forecast completion. Add estimates immediately.',
+      action: 'View Sub-tasks',
+      actionHref: '#subtask-tracking-card',
+      color: 'red'
+    });
+  } else if (missingEstimates > 2) {
+    alerts.push({
+      id: 'missing-estimates',
+      type: 'estimation',
+      severity: 'medium',
+      icon: '❌',
+      title: missingEstimates + ' sub-tasks missing estimates',
+      message: 'Reduce forecast uncertainty by adding estimates.',
+      action: 'View Sub-tasks',
+      actionHref: '#subtask-tracking-card',
+      color: 'yellow'
+    });
+  }
+
+  // Alert 4: Low time logging
+  const totalLogged = trackingRows.reduce((sum, r) => sum + (r.loggedHours || 0), 0);
+  const totalEstimated = trackingRows.reduce((sum, r) => sum + (r.estimateHours || 0), 0);
+  if (totalEstimated > 0 && totalLogged === 0) {
+    alerts.push({
+      id: 'low-logging',
+      type: 'logging',
+      severity: 'medium',
+      icon: '📝',
+      title: 'No time logged on sub-tasks',
+      message: 'Team members need to log hours for accurate burndown visibility.',
+      action: 'View Tracking',
+      actionHref: '#subtask-tracking-card',
+      color: 'orange'
+    });
+  }
+
+  // If no alerts, return empty
+  if (alerts.length === 0) {
+    return '';
+  }
+
+  // Determine overall banner severity (worst of all alerts)
+  const maxSeverity = alerts.reduce((max, a) => {
+    const severities = { critical: 3, high: 2, medium: 1 };
+    return Math.max(max, severities[a.severity] || 0);
+  }, 0);
+  const severityMap = { 3: 'critical', 2: 'high', 1: 'medium' };
+  const bannerSeverity = severityMap[maxSeverity] || 'medium';
+  const bannerColor = bannerSeverity === 'critical' ? 'red' : (bannerSeverity === 'high' ? 'orange' : 'yellow');
+
+  // Check if banner is dismissed (localStorage)
+  const dismissKey = `alert_banner_dismissed_${data.sprint?.id || 'unknown'}`;
+  const dismissedTime = localStorage.getItem(dismissKey);
+  const now = Date.now();
+  const fourHoursMs = 4 * 60 * 60 * 1000;
+  const isDismissed = dismissedTime && (now - parseInt(dismissedTime)) < fourHoursMs;
+
+  if (isDismissed) {
+    return '';
+  }
+
+  // Build banner HTML
+  let html = '<div class="alert-banner ' + bannerColor + '" role="alert" aria-live="polite">';
+  html += '<div class="alert-banner-content">';
+
+  // Alert list
+  alerts.forEach((alert, idx) => {
+    if (idx > 0) html += '<div class="alert-separator"></div>';
+    html += '<div class="alert-item">';
+    html += '<span class="alert-icon">' + alert.icon + '</span>';
+    html += '<div class="alert-text">';
+    html += '<strong>' + escapeHtml(alert.title) + '</strong>';
+    html += '<p>' + escapeHtml(alert.message) + '</p>';
+    html += '</div>';
+    html += '<a href="' + alert.actionHref + '" class="alert-action">' + alert.action + '</a>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Dismiss button
+  html += '<button class="alert-dismiss" type="button" aria-label="Dismiss alert" title="Dismiss for 4 hours">✕</button>';
+  html += '</div>';
+
+  return html;
+}
+
+/**
+ * Wire alert banner handlers
+ */
+export function wireAlertBannerHandlers() {
+  const banner = document.querySelector('.alert-banner');
+  if (!banner) return;
+
+  const dismissBtn = banner.querySelector('.alert-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      // Get sprint ID from page context
+      const sprintName = document.querySelector('.header-sprint-name');
+      const sprintId = sprintName?.textContent?.split(' ').pop() || 'unknown';
+      
+      // Store dismissal in localStorage with timestamp
+      const dismissKey = `alert_banner_dismissed_${sprintId}`;
+      localStorage.setItem(dismissKey, String(Date.now()));
+
+      // Hide banner with fade animation
+      banner.style.animation = 'fadeOut 0.3s ease-out';
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 300);
+    });
+  }
+
+  // Make action links scroll smoothly
+  const actionLinks = banner.querySelectorAll('.alert-action');
+  actionLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      const target = document.querySelector(href);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  });
+}
+
+/**
+ * Check if alert should be shown (not dismissed)
+ */
+export function shouldShowAlertBanner(sprintId) {
+  const dismissKey = `alert_banner_dismissed_${sprintId}`;
+  const dismissedTime = localStorage.getItem(dismissKey);
+  if (!dismissedTime) return true;
+
+  const now = Date.now();
+  const fourHoursMs = 4 * 60 * 60 * 1000;
+  return (now - parseInt(dismissedTime)) >= fourHoursMs;
+}

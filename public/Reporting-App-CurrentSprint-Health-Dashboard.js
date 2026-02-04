@@ -1,0 +1,200 @@
+/**
+ * Unified Health Dashboard Component
+ * Consolidates: summary card (stories/SP), new features vs support split, burndown status, sub-task tracking
+ * Single card with risk indicators, visual progress bar, expandable details
+ * Rationale: Customer - Single screenshot shows sprint health. Simplicity - 4 cards → 1. Trust - Risk indicators visible immediately.
+ */
+
+import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+
+export function renderHealthDashboard(data) {
+  const summary = data.summary || {};
+  const tracking = data.subtaskTracking || {};
+  const trackingSummary = tracking.summary || {};
+  const stuckCount = (data.stuckCandidates || []).length;
+
+  // Core metrics
+  const totalStories = summary.totalStories ?? 0;
+  const doneStories = summary.doneStories ?? 0;
+  const totalSP = summary.totalSP ?? 0;
+  const doneSP = summary.doneSP ?? 0;
+  const percentDone = summary.percentDone ?? 0;
+  const newFeaturesSP = summary.newFeaturesSP || 0;
+  const supportOpsSP = summary.supportOpsSP || 0;
+
+  // Sub-task tracking
+  const totalEstimate = formatNumber(trackingSummary.totalEstimateHours || 0, 1, '0');
+  const totalLogged = formatNumber(trackingSummary.totalLoggedHours || 0, 1, '0');
+  const totalRemaining = formatNumber(trackingSummary.totalRemainingHours || 0, 1, '0');
+
+  // Risk indicators
+  const missingEstimates = (tracking.rows || []).filter(r => !r.estimateHours || r.estimateHours === 0).length;
+  const missingLoggedItems = (tracking.rows || []).filter(r => !r.loggedHours || r.loggedHours === 0).length;
+
+  // Risk color logic
+  let riskColor = 'green';
+  let riskMessage = '✓ All systems healthy';
+  const riskCount = (missingEstimates > 0 ? 1 : 0) + (missingLoggedItems > 0 ? 1 : 0) + (stuckCount > 0 ? 1 : 0);
+  
+  if (riskCount >= 2) {
+    riskColor = 'red';
+    riskMessage = '⚠️ Multiple risks detected';
+  } else if (riskCount === 1) {
+    riskColor = 'yellow';
+    riskMessage = '⚠️ Minor issues found';
+  }
+
+  // Story point distribution percentage
+  const donePercent = totalSP > 0 ? Math.round((doneSP / totalSP) * 100) : 0;
+  const inProgressPercent = totalSP > 0 ? Math.round(((totalSP - doneSP) / totalSP) * 100) : 0;
+
+  let html = '<div class="transparency-card health-dashboard-card" id="health-dashboard-card">';
+  html += '<h2>Sprint Health Dashboard</h2>';
+
+  // Risk indicator chip
+  html += '<div class="health-status-chip ' + riskColor + '">' + riskMessage + '</div>';
+
+  // Progress bar (story points)
+  html += '<div class="health-progress-section">';
+  html += '<div class="progress-label">Story Point Distribution</div>';
+  html += '<div class="progress-bar-container">';
+  if (donePercent > 0) {
+    html += '<div class="progress-bar done" style="width: ' + donePercent + '%;" title="' + doneSP + ' SP done">' +
+      (donePercent > 10 ? '<span class="progress-text">' + doneSP + ' SP done (' + donePercent + '%)</span>' : '') +
+      '</div>';
+  }
+  if (inProgressPercent > 0) {
+    html += '<div class="progress-bar inprogress" style="width: ' + inProgressPercent + '%;" title="' + (totalSP - doneSP) + ' SP in progress">' +
+      (inProgressPercent > 10 ? '<span class="progress-text">' + (totalSP - doneSP) + ' SP in progress</span>' : '') +
+      '</div>';
+  }
+  html += '</div>';
+  html += '<div class="progress-summary">';
+  html += '<span>' + doneStories + ' of ' + totalStories + ' stories complete</span>';
+  html += '<span>|</span>';
+  html += '<span>' + doneSP + ' of ' + totalSP + ' story points done</span>';
+  html += '</div>';
+  html += '</div>';
+
+  // Feature vs Support split
+  html += '<div class="health-split-section">';
+  html += '<div class="split-label">Scope Distribution</div>';
+  html += '<div class="split-bars">';
+  const featurePercent = totalSP > 0 ? Math.round((newFeaturesSP / totalSP) * 100) : 0;
+  const supportPercent = totalSP > 0 ? Math.round((supportOpsSP / totalSP) * 100) : 0;
+  html += '<div class="split-item">';
+  html += '<span class="split-name">New Features</span>';
+  html += '<div class="split-bar-container">';
+  html += '<div class="split-bar feature" style="width: ' + featurePercent + '%;" title="' + newFeaturesSP + ' SP"></div>';
+  html += '</div>';
+  html += '<span class="split-value">' + newFeaturesSP + ' SP (' + featurePercent + '%)</span>';
+  html += '</div>';
+  html += '<div class="split-item">';
+  html += '<span class="split-name">Support & Ops</span>';
+  html += '<div class="split-bar-container">';
+  html += '<div class="split-bar support" style="width: ' + supportPercent + '%;" title="' + supportOpsSP + ' SP"></div>';
+  html += '</div>';
+  html += '<span class="split-value">' + supportOpsSP + ' SP (' + supportPercent + '%)</span>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Time tracking status
+  html += '<div class="health-tracking-section">';
+  html += '<div class="tracking-label">Sub-task Time Tracking</div>';
+  html += '<div class="tracking-items">';
+  html += '<div class="tracking-item">';
+  html += '<span>Estimated Hours</span>';
+  html += '<strong>' + totalEstimate + ' h</strong>';
+  html += '</div>';
+  html += '<div class="tracking-item">';
+  html += '<span>Logged Hours</span>';
+  html += '<strong>' + totalLogged + ' h</strong>';
+  html += '</div>';
+  html += '<div class="tracking-item">';
+  html += '<span>Remaining Hours</span>';
+  html += '<strong>' + totalRemaining + ' h</strong>';
+  html += '</div>';
+  html += '</div>';
+
+  // Risk status
+  const statusHtml = [];
+  if (trackingSummary.totalEstimateHours > 0) {
+    statusHtml.push('✓ Complete');
+  } else if (missingEstimates > 0) {
+    statusHtml.push('⚠️ ' + missingEstimates + ' missing estimate');
+  }
+
+  if (missingLoggedItems > 0) {
+    statusHtml.push('⚠️ ' + missingLoggedItems + ' no log');
+  }
+
+  if (statusHtml.length > 0) {
+    html += '<div class="tracking-status">' + statusHtml.join(' | ') + '</div>';
+  }
+  html += '</div>';
+
+  // Stuck items indicator
+  if (stuckCount > 0) {
+    html += '<div class="health-stuck-section stuck-alert">';
+    html += '<span class="stuck-icon">⚠️</span>';
+    html += '<span class="stuck-text">' + stuckCount + ' issue' + (stuckCount > 1 ? 's' : '') + ' stuck > 24h</span>';
+    html += '<a href="#stuck-card" class="stuck-link">View details</a>';
+    html += '</div>';
+  }
+
+  // Action buttons
+  html += '<div class="health-actions">';
+  html += '<button class="btn btn-compact health-detail-btn" data-action="expand-details" title="Show detailed metrics">Details</button>';
+  html += '<button class="btn btn-compact health-copy-btn" data-action="copy-metrics" title="Copy metrics as text">Copy Metrics</button>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+/**
+ * Wire health dashboard handlers
+ */
+export function wireHealthDashboardHandlers() {
+  const dashboard = document.querySelector('.health-dashboard-card');
+  if (!dashboard) return;
+
+  // Copy metrics to clipboard
+  const copyBtn = dashboard.querySelector('.health-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const statusChip = dashboard.querySelector('.health-status-chip');
+      const progressSummary = dashboard.querySelector('.progress-summary');
+      const trackingItems = dashboard.querySelectorAll('.tracking-item');
+
+      let text = 'Sprint Health Snapshot\n\n';
+      text += statusChip?.textContent + '\n\n';
+      text += 'Progress: ' + progressSummary?.textContent + '\n\n';
+      text += 'Time Tracking:\n';
+      trackingItems.forEach(item => {
+        const label = item.querySelector('span')?.textContent;
+        const value = item.querySelector('strong')?.textContent;
+        if (label && value) text += `- ${label}: ${value}\n`;
+      });
+
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 2000);
+      });
+    });
+  }
+
+  // Expand/collapse details
+  const detailsBtn = dashboard.querySelector('.health-detail-btn');
+  if (detailsBtn) {
+    detailsBtn.addEventListener('click', () => {
+      const card = detailsBtn.closest('.health-dashboard-card');
+      card?.classList.toggle('expanded');
+    });
+  }
+}

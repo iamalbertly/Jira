@@ -5,6 +5,16 @@ import { showLoading, showError, showContent } from './Reporting-App-CurrentSpri
 import { loadBoards, loadCurrentSprint } from './Reporting-App-CurrentSprint-Page-Data-Loaders.js';
 import { renderCurrentSprintPage } from './Reporting-App-CurrentSprint-Render-Page.js';
 import { wireDynamicHandlers } from './Reporting-App-CurrentSprint-Page-Handlers.js';
+// New redesign component handlers
+import { wireHeaderBarHandlers } from './Reporting-App-CurrentSprint-Header-Bar.js';
+import { wireHealthDashboardHandlers } from './Reporting-App-CurrentSprint-Health-Dashboard.js';
+import { wireAlertBannerHandlers } from './Reporting-App-CurrentSprint-Alert-Banner.js';
+import { wireRisksAndInsightsHandlers } from './Reporting-App-CurrentSprint-Risks-Insights.js';
+import { wireCapacityAllocationHandlers } from './Reporting-App-CurrentSprint-Capacity-Allocation.js';
+import { wireSprintCarouselHandlers } from './Reporting-App-CurrentSprint-Navigation-Carousel.js';
+import { wireScopeIndicatorHandlers } from './Reporting-App-CurrentSprint-Scope-Indicator.js';
+import { wireCountdownTimerHandlers } from './Reporting-App-CurrentSprint-Countdown-Timer.js';
+import { wireExportHandlers } from './Reporting-App-CurrentSprint-Export-Dashboard.js';
 import {
   getProjectsParam,
   getStoredProjects,
@@ -17,6 +27,7 @@ import {
 
 let currentBoardId = null;
 let currentSprintId = null;
+let currentData = null; // Store current data for handlers
 
 function addLoginLink() {
   const { errorEl } = currentSprintDom;
@@ -30,11 +41,47 @@ function addLoginLink() {
   errorEl.appendChild(link);
 }
 
+/**
+ * Wire all new redesign component handlers
+ */
+function wireRedesignHandlers(data) {
+  currentData = data;
+  
+  // Wire all new components
+  wireHeaderBarHandlers();
+  wireHealthDashboardHandlers();
+  wireAlertBannerHandlers();
+  wireRisksAndInsightsHandlers();
+  wireCapacityAllocationHandlers();
+  wireCountdownTimerHandlers();
+  wireScopeIndicatorHandlers();
+  
+  // Wire carousel with sprint selection callback
+  wireSprintCarouselHandlers((sprintId) => {
+    currentSprintId = sprintId;
+    persistSelection(currentBoardId, sprintId);
+    showLoading('Loading sprint...');
+    loadCurrentSprint(currentBoardId, sprintId)
+      .then((data) => {
+        showRenderedContent(data);
+      })
+      .catch((err) => {
+        showError(err.message || 'Failed to load sprint.');
+      });
+  });
+  
+  // Wire export handlers
+  wireExportHandlers(data);
+}
+
 function showRenderedContent(data) {
   showContent(renderCurrentSprintPage(data));
   const summary = updateNotificationStore(data);
   renderNotificationDock({ summary });
   wireDynamicHandlers(data);
+  
+  // NEW: Wire all redesign component handlers
+  wireRedesignHandlers(data);
 }
 
 function onBoardChange() {
