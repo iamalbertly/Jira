@@ -163,7 +163,7 @@
           <button id="preview-btn" class="btn btn-primary">Generate Report</button>
           <div class="export-split-group">
             <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export to Excel (all data)</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>▾</button>
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>More ▾</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
               <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
@@ -202,7 +202,10 @@
           <div class="tab-content">
             <div id="tab-project-epic-level" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-project-epic-level">
               <div class="boards-controls done-stories-controls">
-                <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
+                <div class="search-input-wrap">
+                  <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
+                  <button type="button" class="search-clear-btn" data-target="boards-search-box" aria-label="Clear boards search" title="Clear">×</button>
+                </div>
                 <div class="project-pills" id="boards-project-pills"></div>
               </div>
               <div id="project-epic-level-content"></div>
@@ -213,7 +216,10 @@
 
             <div id="tab-sprints" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-sprints">
               <div class="sprints-controls done-stories-controls">
-                <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
+                <div class="search-input-wrap">
+                  <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
+                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">×</button>
+                </div>
                 <div class="project-pills" id="sprints-project-pills"></div>
               </div>
               <div id="sprints-content"></div>
@@ -224,7 +230,10 @@
 
             <div id="tab-done-stories" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-done-stories">
               <div class="done-stories-controls">
-                <input type="text" id="search-box" placeholder="Search by key or summary...">
+                <div class="search-input-wrap">
+                  <input type="text" id="search-box" placeholder="Search by key or summary..." aria-label="Search done stories">
+                  <button type="button" class="search-clear-btn" data-target="search-box" aria-label="Clear done stories search" title="Clear">×</button>
+                </div>
                 <div class="project-pills" id="project-pills"></div>
               </div>
               <div id="done-stories-content"></div>

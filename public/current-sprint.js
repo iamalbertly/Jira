@@ -28,6 +28,8 @@
   const STORAGE_KEY = 'vodaAgileBoard_lastBoardId';
   const STORAGE_SPRINT_KEY = 'vodaAgileBoard_lastSprintId';
   const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
+  const NOTIFICATION_DOCK_STATE_KEY = 'appNotificationsDockStateV1';
+  const NOTIFICATION_TOGGLE_ID = 'app-notification-toggle';
 
   let currentBoardId = null;
   let currentSprintId = null;
@@ -84,25 +86,105 @@
     return summary;
   }
 
+  function readNotificationDockState() {
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_DOCK_STATE_KEY);
+      if (!raw) return { collapsed: false, hidden: false };
+      const parsed = JSON.parse(raw);
+      return {
+        collapsed: !!parsed.collapsed,
+        hidden: !!parsed.hidden,
+      };
+    } catch (_) {
+      return { collapsed: false, hidden: false };
+    }
+  }
+
+  function writeNotificationDockState(next) {
+    try {
+      localStorage.setItem(NOTIFICATION_DOCK_STATE_KEY, JSON.stringify(next));
+    } catch (_) {}
+  }
+
+  function readNotificationSummary() {
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_STORE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return null;
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderNotificationToggleButton() {
+    let toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+    if (!toggle) {
+      toggle = document.createElement('button');
+      toggle.id = NOTIFICATION_TOGGLE_ID;
+      toggle.className = 'app-notification-toggle';
+      toggle.type = 'button';
+      toggle.textContent = 'Show notifications';
+      toggle.addEventListener('click', () => {
+        const state = readNotificationDockState();
+        writeNotificationDockState({ ...state, hidden: false });
+        toggle.remove();
+        renderNotificationDock(readNotificationSummary());
+      });
+      document.body.appendChild(toggle);
+    }
+  }
+
   function renderNotificationDock(summary) {
     const existing = document.getElementById('app-notification-dock');
+    const state = readNotificationDockState();
     if (!summary || summary.total <= 0) {
       if (existing) existing.remove();
+      const toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+      if (toggle) toggle.remove();
+      return;
+    }
+    if (state.hidden) {
+      if (existing) existing.remove();
+      renderNotificationToggleButton();
       return;
     }
     const dock = existing || document.createElement('div');
     dock.id = 'app-notification-dock';
     dock.className = 'app-notification-dock';
+    dock.classList.toggle('is-collapsed', state.collapsed);
     dock.innerHTML = `
       <div class="app-notification-title">
         <span class="app-notification-badge">${summary.total}</span>
         Time tracking alerts
+        <div class="app-notification-actions">
+          <button type="button" class="btn-ghost" data-action="toggle">${state.collapsed ? 'Expand' : 'Minimize'}</button>
+          <button type="button" class="btn-ghost" data-action="close" aria-label="Hide notifications">×</button>
+        </div>
       </div>
       <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
-      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} - No log: ${summary.missingLogged}</div>
+      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} • No log: ${summary.missingLogged}</div>
       <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
     `;
     if (!existing) document.body.appendChild(dock);
+
+    const toggleBtn = dock.querySelector('[data-action="toggle"]');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const nextState = readNotificationDockState();
+        nextState.collapsed = !nextState.collapsed;
+        writeNotificationDockState(nextState);
+        renderNotificationDock(readNotificationSummary());
+      });
+    }
+    const closeBtn = dock.querySelector('[data-action="close"]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        writeNotificationDockState({ ...readNotificationDockState(), hidden: true });
+        renderNotificationDock(readNotificationSummary());
+      });
+    }
   }
 
   function escapeHtml(value) {
@@ -648,7 +730,9 @@
     const totalMissingEstimate = actionable.reduce((sum, item) => sum + (item.missingEstimate || []).length, 0);
     const totalMissingLogged = actionable.reduce((sum, item) => sum + (item.missingLogged || []).length, 0);
     let html = '<div class="transparency-card" id="notifications-card">';
-    html += '<h2>Sub-task time tracking notifications</h2>';
+    html += '<div class="card-header"><h2>Sub-task time tracking notifications</h2>' +
+      '<button type="button" class="btn-ghost card-toggle" data-target="notifications-card">Minimize</button></div>';
+    html += '<div class="card-body">';
     if (sprintName || boardName) {
       html += '<p class="notification-context">Context: <strong>' + escapeHtml(boardName) + '</strong> ' +
         (sprintName ? ' - <strong>' + escapeHtml(sprintName) + '</strong>' : '') + '</p>';
@@ -674,7 +758,7 @@
       html += '</div>';
       html += '<textarea id="notification-message" rows="12" class="notification-message" aria-label="Notification message"></textarea>';
     }
-    html += '</div>';
+    html += '</div></div>';
     return html;
   }
 
@@ -823,6 +907,16 @@
   }
 
   function wireDynamicHandlers(data) {
+    document.querySelectorAll('.card-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-target');
+        const card = targetId ? document.getElementById(targetId) : null;
+        if (!card) return;
+        card.classList.toggle('is-collapsed');
+        btn.textContent = card.classList.contains('is-collapsed') ? 'Expand' : 'Minimize';
+      });
+    });
+
     const saveBtn = document.getElementById('notes-save');
     if (saveBtn && data?.sprint) {
       saveBtn.addEventListener('click', () => {

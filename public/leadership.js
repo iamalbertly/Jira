@@ -16,6 +16,8 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
   const STORAGE_KEY = 'leadership_filters_v1';
   const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
   const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
+  const NOTIFICATION_DOCK_STATE_KEY = 'appNotificationsDockStateV1';
+  const NOTIFICATION_TOGGLE_ID = 'app-notification-toggle';
 
   function setDefaultDates() {
     const end = new Date();
@@ -187,26 +189,94 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     }
   }
 
+  function readNotificationDockState() {
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_DOCK_STATE_KEY);
+      if (!raw) return { collapsed: false, hidden: false };
+      const parsed = JSON.parse(raw);
+      return {
+        collapsed: !!parsed.collapsed,
+        hidden: !!parsed.hidden,
+      };
+    } catch (_) {
+      return { collapsed: false, hidden: false };
+    }
+  }
+
+  function writeNotificationDockState(next) {
+    try {
+      localStorage.setItem(NOTIFICATION_DOCK_STATE_KEY, JSON.stringify(next));
+    } catch (_) {}
+  }
+
+  function renderNotificationToggleButton() {
+    let toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+    if (!toggle) {
+      toggle = document.createElement('button');
+      toggle.id = NOTIFICATION_TOGGLE_ID;
+      toggle.className = 'app-notification-toggle';
+      toggle.type = 'button';
+      toggle.textContent = 'Show notifications';
+      toggle.addEventListener('click', () => {
+        const state = readNotificationDockState();
+        writeNotificationDockState({ ...state, hidden: false });
+        toggle.remove();
+        renderNotificationDock();
+      });
+      document.body.appendChild(toggle);
+    }
+  }
+
   function renderNotificationDock() {
     const summary = readNotificationSummary();
     const existing = document.getElementById('app-notification-dock');
+    const state = readNotificationDockState();
     if (!summary || summary.total <= 0) {
       if (existing) existing.remove();
+      const toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+      if (toggle) toggle.remove();
+      return;
+    }
+    if (state.hidden) {
+      if (existing) existing.remove();
+      renderNotificationToggleButton();
       return;
     }
     const dock = existing || document.createElement('div');
     dock.id = 'app-notification-dock';
     dock.className = 'app-notification-dock';
+    dock.classList.toggle('is-collapsed', state.collapsed);
     dock.innerHTML = `
       <div class="app-notification-title">
         <span class="app-notification-badge">${summary.total}</span>
         Time tracking alerts
+        <div class="app-notification-actions">
+          <button type="button" class="btn-ghost" data-action="toggle">${state.collapsed ? 'Expand' : 'Minimize'}</button>
+          <button type="button" class="btn-ghost" data-action="close" aria-label="Hide notifications">×</button>
+        </div>
       </div>
       <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
-      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} ? No log: ${summary.missingLogged}</div>
+      <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} • No log: ${summary.missingLogged}</div>
       <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
     `;
     if (!existing) document.body.appendChild(dock);
+
+    const toggleBtn = dock.querySelector('[data-action="toggle"]');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const nextState = readNotificationDockState();
+        nextState.collapsed = !nextState.collapsed;
+        writeNotificationDockState(nextState);
+        renderNotificationDock();
+      });
+    }
+    const closeBtn = dock.querySelector('[data-action="close"]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        writeNotificationDockState({ ...readNotificationDockState(), hidden: true });
+        renderNotificationDock();
+      });
+    }
   }
 
   function render(data) {
@@ -439,6 +509,12 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     btn.addEventListener('click', async () => {
       const q = btn.getAttribute('data-quarter');
       try {
+        document.querySelectorAll('.quick-range-btn-leadership[data-quarter]').forEach(b => {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-pressed', 'true');
         let data = null;
         const res = await fetch(`/api/date-range?quarter=Q${encodeURIComponent(q)}`);
         if (res.ok) data = await res.json();
@@ -457,6 +533,7 @@ import { buildBoardSummaries } from './Jira-Reporting-App-Public-Boards-Summary.
     const container = document.querySelector('.quick-range-pills');
     const buttons = Array.from(document.querySelectorAll('.quick-range-btn-leadership[data-quarter]'));
     buttons.forEach(el => { el.textContent = '...'; });
+    buttons.forEach(btn => btn.setAttribute('aria-pressed', 'false'));
     const fetches = [1, 2, 3, 4].map(async (q) => {
       try {
         const res = await fetch(`/api/date-range?quarter=Q${q}`);

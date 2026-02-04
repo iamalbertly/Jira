@@ -95,6 +95,8 @@ let visibleBoardRows = [];
 let visibleSprintRows = [];
 
 const NOTIFICATION_STORE_KEY = 'appNotificationsV1';
+const NOTIFICATION_DOCK_STATE_KEY = 'appNotificationsDockStateV1';
+const NOTIFICATION_TOGGLE_ID = 'app-notification-toggle';
 let previewHasRows = false;
 
 // DOM Elements
@@ -370,6 +372,7 @@ previewBtn.addEventListener('click', async () => {
     statusEl.innerHTML = `
       <div class="status-banner info">
         Refreshing preview... Showing the last successful results while new data loads.
+        <button type="button" class="status-close" aria-label="Dismiss">×</button>
       </div>
     `;
     statusEl.style.display = 'block';
@@ -394,6 +397,7 @@ previewBtn.addEventListener('click', async () => {
     errorEl.innerHTML = `
       <strong>Error:</strong> ${escapeHtml(error.message)}
       <br><small>Please fix the filters above and try again.</small>
+      <button type="button" class="error-close" aria-label="Dismiss">×</button>
     `;
     // Re-enable preview, quarter buttons, and restore export buttons
     previewBtn.disabled = false;
@@ -509,12 +513,14 @@ previewBtn.addEventListener('click', async () => {
     errorEl.innerHTML = `
       <strong>Error:</strong> ${escapeHtml(errorMsg)}
       <br><small>If this problem persists, please check your Jira connection and try again.</small>
+      <button type="button" class="error-close" aria-label="Dismiss">×</button>
     `;
     if (statusEl) {
       if (hasExistingPreview) {
         statusEl.innerHTML = `
-          <div class="status-banner warn">
+          <div class="status-banner warning">
             Refresh failed. Showing the last successful preview. Please retry when ready.
+            <button type="button" class="status-close" aria-label="Dismiss">×</button>
           </div>
         `;
         statusEl.style.display = 'block';
@@ -684,6 +690,7 @@ function renderPreview() {
     errorEl.innerHTML = `
       <strong>Error:</strong> Preview metadata is missing or invalid.
       <br><small>Please refresh the page, run the preview again, or contact an administrator if the problem persists.</small>
+      <button type="button" class="error-close" aria-label="Dismiss">×</button>
     `;
     previewContent.style.display = 'none';
     exportExcelBtn.disabled = true;
@@ -757,14 +764,14 @@ function renderPreview() {
       <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
       <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
       <strong>Example story:</strong> ${sampleLabel}<br>
-      <strong>Details:</strong> ${escapeHtml(detailsLines.join(' ? '))}
+      <strong>Details:</strong> ${escapeHtml(detailsLines.join(' • '))}
       ${partialNotice}
     </div>
   `;
 
   const stickyEl = document.getElementById('preview-summary-sticky');
   if (stickyEl) {
-    stickyEl.textContent = `Preview: ${selectedProjectsLabel} ? ${windowStartLocal} to ${windowEndLocal}`;
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} • ${windowStartLocal} to ${windowEndLocal}`;
     stickyEl.setAttribute('aria-hidden', 'false');
   }
 
@@ -776,6 +783,7 @@ function renderPreview() {
         <div class="status-banner warning">
           Preview is partial: ${partialReason || 'time budget or pagination limits reached.'}
           <br><small>Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.</small>
+          <button type="button" class="status-close" aria-label="Dismiss">×</button>
         </div>
       `;
       statusEl.style.display = 'block';
@@ -937,6 +945,12 @@ document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
   btn.addEventListener('click', async () => {
     const q = btn.getAttribute('data-quarter');
     try {
+      document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(b => {
+        b.classList.remove('is-active');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('is-active');
+      btn.setAttribute('aria-pressed', 'true');
       let data = null;
       const res = await fetch(`/api/date-range?quarter=Q${encodeURIComponent(q)}`);
       if (res.ok) {
@@ -963,6 +977,7 @@ document.querySelectorAll('.quick-range-btn[data-quarter]').forEach(btn => {
 (function loadQuarterLabels() {
   const container = document.querySelector('.quick-range-pills');
   const buttons = Array.from(document.querySelectorAll('.quick-range-btn[data-quarter]'));
+  buttons.forEach(btn => btn.setAttribute('aria-pressed', 'false'));
   const fetches = [1, 2, 3, 4].map(async (q) => {
     try {
       const res = await fetch(`/api/date-range?quarter=Q${q}`);
@@ -1187,26 +1202,94 @@ function readNotificationSummary() {
   }
 }
 
+function readNotificationDockState() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATION_DOCK_STATE_KEY);
+    if (!raw) return { collapsed: false, hidden: false };
+    const parsed = JSON.parse(raw);
+    return {
+      collapsed: !!parsed.collapsed,
+      hidden: !!parsed.hidden,
+    };
+  } catch (_) {
+    return { collapsed: false, hidden: false };
+  }
+}
+
+function writeNotificationDockState(next) {
+  try {
+    localStorage.setItem(NOTIFICATION_DOCK_STATE_KEY, JSON.stringify(next));
+  } catch (_) {}
+}
+
+function renderNotificationToggleButton() {
+  let toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.id = NOTIFICATION_TOGGLE_ID;
+    toggle.className = 'app-notification-toggle';
+    toggle.type = 'button';
+    toggle.textContent = 'Show notifications';
+    toggle.addEventListener('click', () => {
+      const state = readNotificationDockState();
+      writeNotificationDockState({ ...state, hidden: false });
+      toggle.remove();
+      renderNotificationDock();
+    });
+    document.body.appendChild(toggle);
+  }
+}
+
 function renderNotificationDock() {
   const summary = readNotificationSummary();
   const existing = document.getElementById('app-notification-dock');
+  const state = readNotificationDockState();
   if (!summary || summary.total <= 0) {
     if (existing) existing.remove();
+    const toggle = document.getElementById(NOTIFICATION_TOGGLE_ID);
+    if (toggle) toggle.remove();
+    return;
+  }
+  if (state.hidden) {
+    if (existing) existing.remove();
+    renderNotificationToggleButton();
     return;
   }
   const dock = existing || document.createElement('div');
   dock.id = 'app-notification-dock';
   dock.className = 'app-notification-dock';
+  dock.classList.toggle('is-collapsed', state.collapsed);
   dock.innerHTML = `
     <div class="app-notification-title">
       <span class="app-notification-badge">${summary.total}</span>
       Time tracking alerts
+      <div class="app-notification-actions">
+        <button type="button" class="btn-ghost" data-action="toggle">${state.collapsed ? 'Expand' : 'Minimize'}</button>
+        <button type="button" class="btn-ghost" data-action="close" aria-label="Hide notifications">×</button>
+      </div>
     </div>
     <div class="app-notification-body">${escapeHtml(summary.boardName || 'Board')} - ${escapeHtml(summary.sprintName || 'Sprint')}</div>
-    <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} ? No log: ${summary.missingLogged}</div>
+    <div class="app-notification-sub">Missing estimates: ${summary.missingEstimate} • No log: ${summary.missingLogged}</div>
     <a class="app-notification-link" href="/current-sprint">Open Current Sprint</a>
   `;
   if (!existing) document.body.appendChild(dock);
+
+  const toggleBtn = dock.querySelector('[data-action="toggle"]');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const nextState = readNotificationDockState();
+      nextState.collapsed = !nextState.collapsed;
+      writeNotificationDockState(nextState);
+      renderNotificationDock();
+    });
+  }
+  const closeBtn = dock.querySelector('[data-action="close"]');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      writeNotificationDockState({ ...readNotificationDockState(), hidden: true });
+      renderNotificationDock();
+    });
+  }
 }
 
 function buildPredictabilityTableHeaderHtml() {
@@ -1890,10 +1973,48 @@ function renderSprintsTab(sprints, metrics) {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', renderNotificationDock);
+  document.addEventListener('DOMContentLoaded', () => {
+    renderNotificationDock();
+    setupSearchClearButtons();
+  });
 } else {
   renderNotificationDock();
+  setupSearchClearButtons();
 }
+
+function setupSearchClearButtons() {
+  const targets = ['boards-search-box', 'sprints-search-box', 'search-box'];
+  targets.forEach((id) => {
+    const input = document.getElementById(id);
+    const btn = document.querySelector(`.search-clear-btn[data-target="${id}"]`);
+    if (!input || !btn) return;
+    const update = () => {
+      btn.classList.toggle('is-visible', !!input.value);
+    };
+    input.addEventListener('input', update);
+    btn.addEventListener('click', () => {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      update();
+      input.focus();
+    });
+    update();
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('status-close')) {
+    const statusEl = document.getElementById('preview-status');
+    if (statusEl) {
+      statusEl.innerHTML = '';
+      statusEl.style.display = 'none';
+    }
+  }
+  if (e.target.classList.contains('error-close')) {
+    errorEl.innerHTML = '';
+    errorEl.style.display = 'none';
+  }
+});
 
 // Render Done Stories tab
 function renderDoneStoriesTab(rows) {
