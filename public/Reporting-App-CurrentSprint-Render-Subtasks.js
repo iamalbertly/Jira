@@ -1,4 +1,4 @@
-import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateTime, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 
 export function renderStuckCandidates(data) {
@@ -12,7 +12,7 @@ export function renderStuckCandidates(data) {
     html += '<table class="data-table"><thead><tr><th>Issue</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
     for (const row of stuck) {
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.key || '-') + '</td>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
       html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
@@ -45,7 +45,7 @@ export function renderSubtaskTracking(data) {
         ? (row.hoursInStatus >= 24 ? '<span class="flag-warn">' + formatNumber(row.hoursInStatus, 1, '-') + '</span>' : formatNumber(row.hoursInStatus, 1, '-'))
         : '-';
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.key || '-') + '</td>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
       html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';

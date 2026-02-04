@@ -1,5 +1,6 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber, formatDateShort, parseISO, addMonths } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
 function computeVelocityWindowStats(sprints, windowEnd, months) {
   const end = parseISO(windowEnd);
@@ -56,7 +57,11 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<h2>Boards - normalized delivery</h2>';
   if (boards.length === 0) {
-    html += '<p>No boards in this window. Adjust date range or projects.</p>';
+    html += renderEmptyStateHtml(
+      'No boards',
+      'No boards in this window. Adjust date range or projects.',
+      ''
+    );
   } else {
     html += '<table class="data-table"><thead><tr>';
     html += '<th>Board</th><th>Projects</th><th>Sprints</th><th>Done Stories</th><th>Done SP</th>';

@@ -2,13 +2,18 @@ import { updateHeader, renderSprintTabs, renderSummaryCard, renderSprintWindows 
 import { renderDailyCompletion, renderBurndown, renderScopeChanges, renderStories } from './Reporting-App-CurrentSprint-Render-Progress.js';
 import { renderNotifications, renderSubtaskTracking, renderStuckCandidates } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
 import { renderNotes, renderAssumptions } from './Reporting-App-CurrentSprint-Render-Notes.js';
+import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
 export function renderCurrentSprintPage(data) {
   if (!data.sprint) {
     updateHeader(null);
     return (
       '<div class="transparency-card">' +
-      '<p>No active or recent closed sprint for this board. Try another board or check back later.</p>' +
+      renderEmptyStateHtml(
+        'No sprint',
+        'No active or recent closed sprint for this board. Try another board or check back later.',
+        ''
+      ) +
       '</div>'
     );
   }

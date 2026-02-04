@@ -1,14 +1,9 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
 export function renderEmptyState(targetElement, title, message, hint) {
   if (!targetElement) return;
-  targetElement.innerHTML = `
-      <div class="empty-state">
-        <p><strong>${escapeHtml(title)}</strong></p>
-        <p>${escapeHtml(message)}</p>
-        ${hint ? `<p><small>${escapeHtml(hint)}</small></p>` : ''}
-      </div>
-    `;
+  targetElement.innerHTML = renderEmptyStateHtml(title, message, hint);
 }
 
 export function getSafeMeta(preview) {

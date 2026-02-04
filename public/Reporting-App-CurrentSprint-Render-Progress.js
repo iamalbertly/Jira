@@ -1,5 +1,6 @@
-import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDate, formatDayLabel, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
 function buildBurndownChart(remaining, ideal) {
   if (!remaining || remaining.length === 0) return '';
@@ -112,11 +113,11 @@ export function renderScopeChanges(data) {
     html += '<p>No scope added after sprint start (by created date).</p>';
   } else {
     html += '<p class="meta-row"><small>Scope changes are inferred using issue created date after sprint start.</small></p>';
-    html += '<table class="data-table"><thead><tr><th>Story</th><th>Summary</th><th>Story Points</th><th>Created</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Story</th><th>Type</th><th>Story Points</th><th>Created</th></tr></thead><tbody>';
     for (const row of changes) {
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.key || '-') + '</td>';
-      html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+      html += '<td>' + escapeHtml(row.issueType || row.summary || '-') + '</td>';
       html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
       html += '<td>' + escapeHtml(formatDate(row.date)) + '</td>';
       html += '</tr>';
@@ -134,12 +135,12 @@ export function renderStories(data) {
   html += '<h2>Stories in sprint</h2>';
   html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</strong></p>';
   if (!stories.length) {
-    html += '<p>No stories in this sprint.</p>';
+    html += renderEmptyStateHtml('No stories', 'No stories in this sprint.', '');
   } else {
     html += '<table class="data-table"><thead><tr><th>Story</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
     for (const row of stories) {
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.key || '-') + '</td>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
       html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';

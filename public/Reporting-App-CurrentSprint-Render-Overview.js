@@ -79,7 +79,6 @@ export function renderSummaryCard(data) {
 
   html += '<div class="status-chips">';
   html += '<span class="status-chip chip-planned">Planned: ' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</span>';
-  html += '<span class="status-chip chip-done">Done: ' + doneStories + ' stories / ' + doneSP + ' SP</span>';
   html += '<span class="status-chip chip-new">New: ' + scopeChanges.length + ' issues</span>';
   html += '</div>';
 

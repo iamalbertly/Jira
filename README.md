@@ -343,7 +343,10 @@ npm run test:current-sprint-ux-ssot
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation, Linkification and Empty-state UI Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- Specs in `tests/` use `captureBrowserTelemetry(page)` (console errors, page errors, failed requests) and UI assertions so a step fails if the UI is wrong or the browser reports errors.
+- **Issue key linkification:** Report Done Stories and Epic TTM use Jira links for issue keys; Current Sprint (Stories, Scope changes, Items stuck, Sub-task tracking) uses shared `renderIssueKeyLink(issueKey, issueUrl)` from `Reporting-App-Shared-Dom-Escape-Helpers.js`. Backend sends `issueKey` and `issueUrl`; optional `meta.jiraHost` in current-sprint response allows client fallback when URL is missing.
+- **Empty-state SSOT:** `Reporting-App-Shared-Empty-State-Helpers.js` exports `renderEmptyStateHtml(title, message, hint)`; Report, Current Sprint, and Leadership use it for consistent "no data" messaging.
 - Playwright is configured (via `playwright.config.js`) to:
   - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL` for remote runs).
   - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server, e.g. when `BASE_URL` points to a deployed instance).

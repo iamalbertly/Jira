@@ -21,7 +21,7 @@
   - `report.html` – filters panel, preview header, tabs, and content containers
   - `report.js` – preview flow, client-side validation, tab rendering, CSV exports; imports `buildBoardSummaries` from shared module
   - `leadership.js` – leadership view; imports `buildBoardSummaries` from shared module
-  - `Jira-Reporting-App-Public-Boards-Summary.js` – SSOT for board summary aggregation (Report and Leadership)
+  - `Reporting-App-Shared-Boards-Summary-Builder.js` – SSOT for board summary aggregation (Report and Leadership); both pages use `buildBoardSummaries` only
 - **Tests (`tests/*.spec.js`)**
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
   - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
@@ -76,7 +76,7 @@
 - **Sprint order contract**
   Sprints displayed for filtering (Report Sprints tab, Current Sprint tabs) are ordered **left-to-right from current/latest backwards by sprint end date**. First tab/row = latest end date; each subsequent = same or earlier. Report uses `sortSprintsLatestFirst(sprints)`; Current Sprint uses `resolveRecentSprints` (lib/currentSprint.js) which sorts by `endDate` descending. Automated tests assert this order.
 - **Data alignment**  
-  Current-sprint and leadership summary logic must use only server-provided fields. Board summary SSOT: `public/Jira-Reporting-App-Public-Boards-Summary.js` exports `buildBoardSummaries`; report and leadership import it. Canonical shape must match server `sprintsIncluded[]` (sprintWorkDays, sprintCalendarDays, etc.). Do not introduce client-only computed fields that can drift from server.
+  Current-sprint and leadership summary logic must use only server-provided fields. **Board summary SSOT:** `public/Reporting-App-Shared-Boards-Summary-Builder.js` exports `buildBoardSummaries`. Report uses it in `Reporting-App-Report-Page-Render-Boards.js` and `Reporting-App-Report-Page-Filters-Pills-Manager.js`; Leadership uses it in `Reporting-App-Leadership-Page-Data-Loader.js` and passes `boardSummaries` to the render. Do not aggregate boards/sprints locally; use the shared builder only. Canonical shape must match server `sprintsIncluded[]` (sprintWorkDays, sprintCalendarDays, etc.). Do not introduce client-only computed fields that can drift from server.
 - **Client-side date-range validation**
   - `collectFilterParams()` now throws when `start >= end` after normalising to UTC ISO:
     - Message: `"Start date must be before end date. Please adjust your date range."`
@@ -105,25 +105,25 @@
   - When the filter is on and there were preview rows, but none pass the filter:
     - Empty state messaging calls out `"Require resolved by sprint end"` explicitly with remediation hints.
 
-### View Rendering – Single Empty-State Helper
+### Issue key linkification
 
-- Introduced `renderEmptyState(targetElement, title, message, hint?)` in `public/report.js`.
-- Consolidated empty-state HTML in:
-  - `renderBoardsTab`
-  - `renderSprintsTab`
-  - `renderDoneStoriesTab`
-  - `renderMetricsTab`
-  - `renderUnusableSprintsTab`
-- Benefit:
-  - Consistent copy and styling for “no data” conditions.
-  - Future tweaks to empty-state layout are centralised.
+- **Shared helper:** `public/Reporting-App-Shared-Dom-Escape-Helpers.js` exports `renderIssueKeyLink(issueKey, issueUrl)`. When `issueUrl` is present, renders `<a href="..." target="_blank" rel="noopener noreferrer">` with escaped label; otherwise escaped text. Label = `(issueKey || '').trim() || '-'`.
+- **Current Sprint:** Backend `/api/current-sprint.json` sends `issueKey` and `issueUrl` for `stories[]`, `scopeChanges[]`, `stuckCandidates[]`, and `subtaskTracking.rows[]`. Frontend uses `renderIssueKeyLink(row.issueKey || row.key, row.issueUrl)` in Stories, Scope changes, Items stuck, and Sub-task tracking tables. Optional `meta.jiraHost` in the response allows client-side URL fallback when `issueUrl` is missing.
+- **Report:** Done Stories and Epic TTM use `buildJiraIssueUrl(jiraHost, key)` from Report utils; Epic Key and sample story in preview header are clickable Jira links.
+
+### View Rendering – Empty-state SSOT
+
+- **Shared helper:** `public/Reporting-App-Shared-Empty-State-Helpers.js` exports `renderEmptyStateHtml(title, message, hint?)` returning the same DOM pattern (`.empty-state` with title, message, optional hint). Report uses it via `renderEmptyState(targetElement, title, message, hint)` in `Reporting-App-Report-Page-Render-Helpers.js` (sets `targetElement.innerHTML`). Current Sprint (no sprint, no stories) and Leadership (no boards) use `renderEmptyStateHtml` when building HTML strings.
+- Consolidated empty-state usage: Report (Boards, Sprints, Done Stories, Metrics, Unusable), Current Sprint (no sprint, no stories), Leadership (no boards).
 
 ### Test & Helper Consolidation
 
+- **Playwright test strategy:** Specs in `tests/` (`.spec.js`) are discovered by Playwright (`testDir: './tests'`). Many specs use `captureBrowserTelemetry(page)` from `JiraReporting-Tests-Shared-PreviewExport-Helpers.js` to capture console errors, page errors, and failed requests; assertions on `telemetry.consoleErrors`, `telemetry.pageErrors`, `telemetry.failedRequests` fail the step when the UI or console/network is wrong. The orchestration runner (`scripts/Jira-Reporting-App-Test-Orchestration-Runner.js`) runs these specs in sequence; add new spec paths to the `steps` array to include them in `npm run test:all`.
 - **Shared test helpers (`tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js`)**
   - `runDefaultPreview(page, overrides?)` – navigates to `/report`, sets default Q2 MPSA+MAS window, applies overrides, clicks Preview, then waits for result.
   - `waitForPreview(page)` – waits for preview content or error and loading overlay to disappear.
-  - Imported by E2E User Journey, Excel Export, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs.
+  - `captureBrowserTelemetry(page)` – returns `{ consoleErrors, pageErrors, failedRequests }` for logcat-style assertions.
+  - Imported by E2E User Journey, Excel Export, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE, UX Trust, Current Sprint UX/SSOT, Linkification/Empty-state validation specs.
 - **API integration tests (`Jira-Reporting-App-API-Integration-Tests.spec.js`)**
   - Centralised: `DEFAULT_Q2_QUERY`, `DEFAULT_PREVIEW_URL`, contract test for `GET /api/csv-columns` vs `lib/csv.js` CSV_COLUMNS.
 

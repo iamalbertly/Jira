@@ -134,6 +134,12 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Linkification and Empty-state UI Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Linkification-EmptyState-UI-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run Vodacom Quarters SSOT Sprint Order Validation Tests',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Vodacom-Quarters-SSOT-Sprint-Order-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],

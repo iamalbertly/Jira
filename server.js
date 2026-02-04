@@ -400,6 +400,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
         out.meta = out.meta || {};
         out.meta.fromSnapshot = true;
         out.meta.snapshotAt = cached?.cachedAt ?? null;
+        out.meta.jiraHost = out.meta.jiraHost || process.env.JIRA_HOST || '';
         return res.json(out);
       }
     }
@@ -426,6 +427,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
     payload.meta.completionAnchor = anchor;
     payload.meta.fromSnapshot = false;
     payload.meta.snapshotAt = null;
+    payload.meta.jiraHost = process.env.JIRA_HOST || '';
 
     try {
       cache.set(snapshotKey, payload, CACHE_TTL.CURRENT_SPRINT_SNAPSHOT);
