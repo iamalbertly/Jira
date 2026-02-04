@@ -135,3 +135,77 @@ export function initQuarterQuickRange(options = {}) {
     }
   });
 }
+
+/**
+ * Populates a scrollable strip with Vodacom quarter pills from /api/quarters-list (5+ quarters).
+ * On pill click: sets start/end inputs, marks pill selected (aria-pressed), calls onApply.
+ * On manual start/end change: clears quarter selection.
+ * @param {string} containerSelector - Selector for the inner strip container (gets pills appended).
+ * @param {HTMLInputElement} startInput - Start date/datetime input.
+ * @param {HTMLInputElement} endInput - End date/datetime input.
+ * @param {Object} options - { formatInputValue(date, isEnd?), updateDateDisplay?, onApply?(data) }
+ */
+export function initQuarterStrip(containerSelector, startInput, endInput, options = {}) {
+  const {
+    formatInputValue = formatDateTimeLocalForInput,
+    updateDateDisplay,
+    onApply,
+  } = options;
+  const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
+  if (!container || !startInput || !endInput) return;
+
+  const clearSelection = () => {
+    container.querySelectorAll('.quarter-pill').forEach((b) => {
+      b.classList.remove('is-active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+  };
+
+  const applyQuarter = (q) => {
+    const startDate = new Date(q.start);
+    const endDate = new Date(q.end);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return;
+    const startVal = formatInputValue(startDate);
+    const endVal = formatInputValue(endDate, true);
+    startInput.value = startVal;
+    endInput.value = endVal;
+    if (updateDateDisplay) updateDateDisplay();
+    if (onApply) onApply({ startDate, endDate, data: q });
+  }
+
+  startInput.addEventListener('change', clearSelection);
+  startInput.addEventListener('input', clearSelection);
+  endInput.addEventListener('change', clearSelection);
+  endInput.addEventListener('input', clearSelection);
+
+  fetch('/api/quarters-list?count=8', { credentials: 'same-origin' })
+    .then((res) => (res.ok ? res.json() : { quarters: [] }))
+    .catch(() => ({ quarters: [] }))
+    .then((data) => {
+      const quarters = data.quarters || [];
+      container.style.overflowX = 'auto';
+      container.style.display = 'flex';
+      container.style.gap = '6px';
+      container.style.flexWrap = 'nowrap';
+      container.setAttribute('role', 'group');
+      container.setAttribute('aria-label', 'Vodacom quarters');
+      quarters.forEach((q) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-secondary btn-compact quarter-pill' + (q.isCurrent ? ' is-current' : '');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('data-start', q.start || '');
+        btn.setAttribute('data-end', q.end || '');
+        btn.title = q.period || q.label || '';
+        btn.setAttribute('aria-label', (q.period ? `${q.label} (${q.period})` : q.label) || 'Quarter');
+        btn.textContent = q.label || '';
+        btn.addEventListener('click', () => {
+          clearSelection();
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-pressed', 'true');
+          applyQuarter(q);
+        });
+        container.appendChild(btn);
+      });
+    });
+}

@@ -65,22 +65,49 @@ export function renderSubtaskTracking(data) {
 
 export function buildNotificationMessage(data, group) {
   if (!group) return '';
+  const missingEstimate = group.missingEstimate || [];
+  const missingLogged = group.missingLogged || [];
+  const seen = new Set();
+  const items = [];
+  for (const row of missingEstimate) {
+    const key = row.issueKey || row.key || '';
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      items.push({ ...row, missingEstimate: true, missingLogged: false });
+    } else if (key) {
+      const existing = items.find((i) => (i.issueKey || i.key) === key);
+      if (existing) existing.missingEstimate = true;
+    }
+  }
+  for (const row of missingLogged) {
+    const key = row.issueKey || row.key || '';
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      items.push({ ...row, missingEstimate: false, missingLogged: true });
+    } else if (key) {
+      const existing = items.find((i) => (i.issueKey || i.key) === key);
+      if (existing) existing.missingLogged = true;
+    }
+  }
   const lines = ['Hello team,'];
   lines.push('We have a few items missing time tracking on the current sprint snapshot:');
-  const items = group.items || [];
   for (const item of items) {
+    const key = item.issueKey || item.key || '';
     const parentLabel = item.parentKey ? (item.parentKey + (item.parentSummary ? ' - ' + item.parentSummary : '')) : 'N/A';
     if (item.missingEstimate) {
       lines.push(
-        `- ${item.key}: ${item.summary || ''} (Missing estimate)` +
+        `- ${key}: ${item.summary || ''} (Missing estimate)` +
         ` - Created: ${formatDateTime(item.created)}; Updated: ${formatDateTime(item.updated)}; Estimate: - ; Logged: ${formatNumber(item.loggedHours || 0, 1, '-')}h; Parent: ${parentLabel}.`
       );
     }
     if (item.missingLogged) {
       lines.push(
-        `- ${item.key}: ${item.summary || ''} (Missing log)` +
+        `- ${key}: ${item.summary || ''} (Missing log)` +
         ` - Created: ${formatDateTime(item.created)}; Updated: ${formatDateTime(item.updated)}; Estimate: ${formatNumber(item.estimateHours || 0, 1, '-')}h; Logged: 0h; Parent: ${parentLabel}.`
       );
+    }
+    if (item.issueUrl) {
+      lines.push(`Open: ${item.issueUrl}`);
     }
   }
   lines.push('If you already updated these since this snapshot, thanks - no further action needed.');
@@ -96,7 +123,9 @@ export function renderNotifications(data) {
 
   let html = '<div class="transparency-card" id="notifications-card">';
   html += '<h2>Time tracking alerts</h2>';
-  html += '<p class="meta-row"><small>Use this message to prompt assignees/reporters to update missing estimates or logs.</small></p>';
+  html += '<p class="meta-row"><small>Missing estimates / No log. Use this message to prompt assignees/reporters to update time tracking. Open Current Sprint to view details.</small></p>';
+  const generatedAt = (data.meta && data.meta.generatedAt) ? new Date(data.meta.generatedAt).toISOString() : new Date().toISOString();
+  html += '<p class="meta-row generated-at"><small>Generated at ' + generatedAt + ' UTC</small></p>';
   html += '<div class="notification-controls">' +
     '<label>Group by</label>' +
     '<select id="notification-group">' +

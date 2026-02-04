@@ -5,6 +5,7 @@ import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
 import { scheduleRender } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { updateDateDisplay } from './Reporting-App-Report-Page-DateRange-Controller.js';
+import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
 import {
   populateBoardsPills,
   populateSprintsPills,
@@ -93,11 +94,28 @@ export function renderPreview() {
 
   const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
   const sampleRow = previewRows && previewRows.length > 0 ? previewRows[0] : null;
-  const sampleLabel = sampleRow
-    ? `${escapeHtml(sampleRow.issueKey || '')} - ${escapeHtml(sampleRow.issueSummary || '')}`
-    : 'None';
+  let sampleLabel = 'None';
+  if (sampleRow) {
+    const host = meta.jiraHost || meta.host || '';
+    const sampleKey = sampleRow.issueKey || '';
+    const sampleSummary = sampleRow.issueSummary || '';
+    const url = buildJiraIssueUrl(host, sampleKey);
+    const keyText = escapeHtml(sampleKey);
+    const summaryText = escapeHtml(sampleSummary);
+    if (url) {
+      sampleLabel = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${keyText}</a> - ${summaryText}`;
+    } else {
+      sampleLabel = `${keyText} - ${summaryText}`;
+    }
+  }
+
+  const reportSubtitleEl = document.getElementById('report-subtitle');
+  if (reportSubtitleEl) {
+    reportSubtitleEl.textContent = `Projects: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}`;
+  }
 
   if (previewMeta) {
+    const generatedUtc = meta.generatedAt ? new Date(meta.generatedAt).toISOString() : new Date().toISOString();
     previewMeta.innerHTML = `
       <div class="meta-info">
         <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
@@ -105,7 +123,8 @@ export function renderPreview() {
         <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
         <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
         <strong>Example story:</strong> ${sampleLabel}<br>
-        <strong>Details:</strong> ${escapeHtml(detailsLines.join(' • '))}
+        <strong>Generated:</strong> ${escapeHtml(generatedUtc)} UTC<br>
+        <strong>Details:</strong> ${escapeHtml(detailsLines.join(' ï¿½ '))}
         ${partialNotice}
       </div>
     `;
@@ -113,7 +132,7 @@ export function renderPreview() {
 
   const stickyEl = document.getElementById('preview-summary-sticky');
   if (stickyEl) {
-    stickyEl.textContent = `Preview: ${selectedProjectsLabel} • ${windowStartLocal} to ${windowEndLocal}`;
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} ï¿½ ${windowStartLocal} to ${windowEndLocal}`;
     stickyEl.setAttribute('aria-hidden', 'false');
   }
 

@@ -51,11 +51,8 @@
           <option value="MPSA,MAS,RPA,MVA,ASG,FIN,SD,MPSA2,TRS,VB,AMS2,BIO">All projects</option>
         </select>
         <span class="quick-range-label"><small>Quick range:</small></span>
-        <div class="quick-range-pills" style="display: inline-flex; gap: 6px;" aria-label="Vodacom quarter quick pick">
-          <button type="button" class="btn btn-secondary btn-compact quick-range-btn-leadership" data-quarter="1">Q1</button>
-          <button type="button" class="btn btn-secondary btn-compact quick-range-btn-leadership" data-quarter="2">Q2</button>
-          <button type="button" class="btn btn-secondary btn-compact quick-range-btn-leadership" data-quarter="3">Q3</button>
-          <button type="button" class="btn btn-secondary btn-compact quick-range-btn-leadership" data-quarter="4">Q4</button>
+        <div class="quick-range-strip" role="group" aria-label="Vodacom quarters">
+          <div class="quarter-strip-inner quarter-strip-inner-leadership" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;"></div>
         </div>
         <label>Start</label>
         <input type="date" id="leadership-start">

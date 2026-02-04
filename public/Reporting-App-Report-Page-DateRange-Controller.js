@@ -1,6 +1,6 @@
 import { formatDateForDisplay, formatDateTimeLocalForInput } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { toUtcIsoFromLocalInput } from './Reporting-App-Report-Utils-Data-Helpers.js';
-import { initQuarterQuickRange } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
+import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 
 export function updateDateDisplay() {
@@ -39,11 +39,7 @@ export function initDateRangeControls(onApply) {
   if (startInput) startInput.addEventListener('change', updateDateDisplay);
   if (endInput) endInput.addEventListener('change', updateDateDisplay);
 
-  initQuarterQuickRange({
-    buttonSelector: '.quick-range-btn[data-quarter]',
-    containerSelector: '.quick-range-pills',
-    startInput,
-    endInput,
+  initQuarterStrip('.quarter-strip-inner', startInput, endInput, {
     formatInputValue: formatDateTimeLocalForInput,
     updateDateDisplay,
     onApply,

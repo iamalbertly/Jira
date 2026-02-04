@@ -50,6 +50,8 @@ export function computeBoardRowFromSummary(board, summary, meta, spEnabled, hasP
     'Sprint Days': totalSprintDays,
     'Avg Sprint Days': formatNumber(avgSprintLength),
     'Done Stories': doneStories,
+    'Registered Work Hours': formatNumber(summary.registeredWorkHours ?? 0, 1, '-'),
+    'Estimated Work Hours': formatNumber(summary.estimatedWorkHours ?? 0, 1, '-'),
     'Done SP': spEnabled ? doneSP : 'N/A',
     'Committed SP': formatNumber(hasPredictability ? summary.committedSP : null, 2),
     'Delivered SP': formatNumber(hasPredictability ? summary.deliveredSP : null, 2),
@@ -77,7 +79,7 @@ export function computeBoardRowFromSummary(board, summary, meta, spEnabled, hasP
 export function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPredictability) {
   if (!boards || boards.length === 0) return null;
   const windowMonths = getWindowMonths(meta);
-  let sumSprints = 0, sumSprintDays = 0, sumDoneStories = 0, sumDoneSP = 0, sumCommittedSP = 0, sumDeliveredSP = 0;
+  let sumSprints = 0, sumSprintDays = 0, sumDoneStories = 0, sumDoneSP = 0, sumRegisteredWorkHours = 0, sumEstimatedWorkHours = 0, sumCommittedSP = 0, sumDeliveredSP = 0;
   let sumPlanned = 0, sumAdhoc = 0, sumAssignees = 0, sumCapacity = 0;
   const avgSprintDaysArr = [], storiesPerSprintArr = [], spPerStoryArr = [], storiesPerDayArr = [], spPerDayArr = [];
   const spPerSprintArr = [], onTimeArr = [], spEstimationArr = [], spVarianceArr = [], wasteArr = [];
@@ -85,11 +87,13 @@ export function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled,
   let earliestStart = null, latestEnd = null;
 
   for (const board of boards) {
-    const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
+    const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, registeredWorkHours: 0, estimatedWorkHours: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
     sumSprints += summary.sprintCount || 0;
     sumSprintDays += summary.totalSprintDays || 0;
     sumDoneStories += summary.doneStories || 0;
     if (spEnabled) sumDoneSP += summary.doneSP || 0;
+    sumRegisteredWorkHours += summary.registeredWorkHours ?? 0;
+    sumEstimatedWorkHours += summary.estimatedWorkHours ?? 0;
     if (hasPredictability) {
       sumCommittedSP += summary.committedSP || 0;
       sumDeliveredSP += summary.deliveredSP || 0;
@@ -144,6 +148,8 @@ export function computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled,
     'Sprint Days': sumSprintDays,
     'Avg Sprint Days': formatNumber(avg(avgSprintDaysArr)),
     'Done Stories': sumDoneStories,
+    'Registered Work Hours': formatNumber(sumRegisteredWorkHours, 1, '-'),
+    'Estimated Work Hours': formatNumber(sumEstimatedWorkHours, 1, '-'),
     'Done SP': spEnabled ? sumDoneSP : 'N/A',
     'Committed SP': formatNumber(hasPredictability ? sumCommittedSP : null, 2),
     'Delivered SP': formatNumber(hasPredictability ? sumDeliveredSP : null, 2),

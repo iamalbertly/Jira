@@ -1,7 +1,7 @@
 import { leadershipDom, leadershipKeys } from './Reporting-App-Leadership-Page-Context.js';
 import { renderLeadershipPage } from './Reporting-App-Leadership-Page-Render.js';
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
-import { initQuarterQuickRange } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
+import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 
 function setDefaultDates() {
   const { startInput, endInput } = leadershipDom;
@@ -105,8 +105,8 @@ function buildPreviewUrl() {
   return '/preview.json?' + params.toString();
 }
 
-function setQuarterButtonsEnabled(enabled) {
-  document.querySelectorAll('.quick-range-btn-leadership[data-quarter]').forEach(b => { b.disabled = !enabled; });
+function setQuarterStripEnabled(enabled) {
+  document.querySelectorAll('.quarter-pill').forEach(b => { b.disabled = !enabled; });
 }
 
 async function loadPreview() {
@@ -127,7 +127,7 @@ async function loadPreview() {
     const meta = body.meta || {};
     if (!boards || boards.length === 0 || (sprintsIncluded && sprintsIncluded.length === 0)) {
       showError('No sprint data in this range. Widen the date range or check project access.');
-      setQuarterButtonsEnabled(true);
+      setQuarterStripEnabled(true);
       return;
     }
     meta.windowEnd = endInput?.value ? new Date(endInput.value + 'T23:59:59.999Z').toISOString() : new Date().toISOString();
@@ -136,34 +136,29 @@ async function loadPreview() {
     body.boardSummaries = boardSummaries;
     body.meta = meta;
     showContent(renderLeadershipPage(body));
-    setQuarterButtonsEnabled(true);
+    setQuarterStripEnabled(true);
   } catch (err) {
     showError(err.message || 'Failed to load preview.');
-    setQuarterButtonsEnabled(true);
+    setQuarterStripEnabled(true);
   }
 }
 
 export function initLeadershipFilters() {
   const { projectsSelect, startInput, endInput, previewBtn } = leadershipDom;
   if (previewBtn) previewBtn.addEventListener('click', () => {
-    setQuarterButtonsEnabled(false);
+    setQuarterStripEnabled(false);
     loadPreview();
   });
   if (projectsSelect) projectsSelect.addEventListener('change', saveFilters);
   if (startInput) startInput.addEventListener('change', saveFilters);
   if (endInput) endInput.addEventListener('change', saveFilters);
 
-  initQuarterQuickRange({
-    buttonSelector: '.quick-range-btn-leadership[data-quarter]',
-    containerSelector: '.quick-range-pills',
-    startInput,
-    endInput,
+  initQuarterStrip('.quarter-strip-inner-leadership', startInput, endInput, {
     formatInputValue: (date) => date.toISOString().slice(0, 10),
     onApply: () => {
       saveFilters();
       document.getElementById('leadership-preview')?.click();
     },
-    setButtonsEnabled: setQuarterButtonsEnabled,
   });
 }
 

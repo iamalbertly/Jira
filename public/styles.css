@@ -239,6 +239,30 @@ header h1 {
   color: var(--muted);
 }
 
+.quick-range-strip {
+  margin-bottom: 10px;
+}
+.quarter-strip-inner {
+  max-width: 100%;
+  padding-bottom: 4px;
+}
+.quarter-pill {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.82em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.quarter-pill.is-current {
+  border-color: var(--primary);
+  font-weight: 600;
+}
+.quarter-pill.is-active {
+  border-color: var(--primary);
+  background: rgba(15, 76, 129, 0.08);
+  color: var(--primary);
+}
+
 .filter-group input[type="datetime-local"] {
   width: 100%;
   padding: 10px 12px;
@@ -270,6 +294,21 @@ header h1 {
   cursor: pointer;
   padding: 8px 0;
   gap: 8px;
+}
+
+.filters-panel .checkbox-label {
+  padding: 5px 0;
+}
+
+@media (min-width: 1000px) {
+  .filters-panel .filter-group:first-of-type {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 12px;
+  }
+  .filters-panel .filter-group:first-of-type h3 {
+    grid-column: 1 / -1;
+  }
 }
 
 .project-code {

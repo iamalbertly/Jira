@@ -7,7 +7,7 @@ import { computeBoardRowFromSummary, computeBoardsSummaryRow } from './Reporting
 import { buildPredictabilityTableHeaderHtml, buildEpicAdhocRows, renderEpicKeyCell, renderEpicTitleCell, renderEpicStoryList, renderEpicSubtaskHours } from './Reporting-App-Report-Page-Render-Epic-Helpers.js';
 
 const BOARD_TABLE_COLUMN_ORDER = [
-  'Board', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days', 'Done Stories', 'Done SP',
+  'Board', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days', 'Done Stories', 'Registered Work Hours', 'Estimated Work Hours', 'Done SP',
   'Committed SP', 'Delivered SP', 'SP Estimation %', 'Stories / Sprint', 'SP / Story', 'Stories / Day',
   'SP / Day', 'SP / Sprint', 'SP Variance', 'Indexed Delivery', 'On-Time %', 'Planned', 'Ad-hoc',
   'Active Assignees', 'Stories / Assignee', 'SP / Assignee', 'Assumed Capacity (PD)', 'Assumed Waste %',
@@ -21,6 +21,8 @@ const BOARD_TABLE_HEADER_TOOLTIPS = {
   'Sprint Days': 'Total working days across sprints.',
   'Avg Sprint Days': 'Average sprint length (working days).',
   'Done Stories': 'Stories completed in window.',
+  'Registered Work Hours': 'Sum of work logged from subtasks (and story) in window.',
+  'Estimated Work Hours': 'Sum of estimated hours from subtasks (and story) in window.',
   'Done SP': 'Story points completed (if configured).',
   'Committed SP': 'Story points committed at sprint start.',
   'Delivered SP': 'Story points delivered by sprint end.',
@@ -51,6 +53,8 @@ const BOARD_SUMMARY_TOOLTIPS = {
   'Sprint Days': 'Total sprint days.',
   'Avg Sprint Days': 'Average sprint length.',
   'Done Stories': 'Total done stories.',
+  'Registered Work Hours': 'Total registered work hours.',
+  'Estimated Work Hours': 'Total estimated work hours.',
   'Done SP': 'Total done SP.',
   'Committed SP': 'Total committed SP.',
   'Delivered SP': 'Total delivered SP.',
@@ -100,6 +104,14 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     }
   } else {
     html += '<h3>Boards</h3>';
+    const tableContextLabel = (() => {
+      const m = getSafeMeta(reportState.previewData);
+      const proj = (m?.selectedProjects && m.selectedProjects.length) ? m.selectedProjects.join(', ') : '—';
+      const start = m?.windowStart ? formatDateForDisplay(m.windowStart) : '—';
+      const end = m?.windowEnd ? formatDateForDisplay(m.windowEnd) : '—';
+      return `General Performance – ${escapeHtml(proj)} – ${escapeHtml(start)} to ${escapeHtml(end)}`;
+    })();
+    html += '<p class="table-context" aria-label="Table context">' + tableContextLabel + '</p>';
     const hasPredictability = !!metrics?.predictability;
     html += '<p class="metrics-hint"><small>Time-normalized metrics (Stories / Day, SP / Day, Indexed Delivery) are shown. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Do not use to rank teams.</small></p>';
     html += '<table class="data-table"><thead><tr>';
@@ -109,7 +121,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     }
     html += '</tr></thead><tbody>';
     for (const board of boards) {
-      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
+      const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, registeredWorkHours: 0, estimatedWorkHours: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
       const row = computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability);
       html += '<tr>';
       for (const key of BOARD_TABLE_COLUMN_ORDER) {

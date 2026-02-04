@@ -24,7 +24,7 @@ import { mapColumnsToBusinessNames } from './lib/columnMapping.js';
 import { addKPIColumns, calculateWorkDays } from './lib/kpiCalculations.js';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { cache, CACHE_TTL } from './lib/cache.js';
-import { getQuarterLabelAndPeriod } from './lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js';
+import { getQuarterLabelAndPeriod, getQuartersUpToCurrent } from './lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js';
 import { DEFAULT_WINDOW_START, DEFAULT_WINDOW_END } from './lib/Jira-Reporting-App-Config-DefaultWindow.js';
 
 const DEFAULT_SNAPSHOT_PROJECTS = ['MPSA', 'MAS'];
@@ -299,6 +299,22 @@ app.get('/api/format-date-range', requireAuth, (req, res) => {
   const end = req.query.end || '';
   const dateRange = formatDateRangeForFilename(start, end);
   res.json({ dateRange });
+});
+
+/**
+ * GET /api/quarters-list?count=8 - Last N Vodacom quarters up to current (oldest to newest).
+ * Returns { quarters: [{ start, end, label, period, isCurrent }, ...] }.
+ */
+app.get('/api/quarters-list', requireAuth, (req, res) => {
+  const count = Math.min(20, Math.max(1, parseInt(req.query.count, 10) || 8));
+  const quarters = getQuartersUpToCurrent(count).map((q) => ({
+    start: q.startISO,
+    end: q.endISO,
+    label: q.label,
+    period: q.period,
+    isCurrent: q.isCurrent,
+  }));
+  res.json({ quarters });
 });
 
 /**

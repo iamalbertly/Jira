@@ -174,6 +174,8 @@ export function renderDoneStoriesTab(rows) {
     for (const row of sortedRows) {
       const issueKey = row.issueKey || '';
       const issueUrl = buildJiraIssueUrl(jiraHost, issueKey);
+      const epicKey = row.epicKey || '';
+      const epicUrl = buildJiraIssueUrl(jiraHost, epicKey);
       let epicSummaryDisplay = '';
       let epicSummaryTitle = '';
       if (meta?.discoveredFields?.epicLinkFieldId && row.epicSummary && typeof row.epicSummary === 'string' && row.epicSummary.length > 0) {
@@ -233,7 +235,13 @@ export function renderDoneStoriesTab(rows) {
             <td>${row.subtaskTimeVarianceHours ?? ''}</td>
           ` : ''}
           ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${row.storyPoints ?? ''}</td>` : ''}
-          ${meta?.discoveredFields?.epicLinkFieldId ? `<td>${escapeHtml(row.epicKey || '')}</td><td>${escapeHtml(row.epicTitle || '')}</td><td title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>` : ''}
+          ${meta?.discoveredFields?.epicLinkFieldId
+            ? `<td>${
+                epicUrl
+                  ? `<a href="${escapeHtml(epicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epicKey)}</a>`
+                  : escapeHtml(epicKey)
+              }</td><td>${escapeHtml(row.epicTitle || '')}</td><td title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>`
+            : ''}
         </tr>
       `;
     }

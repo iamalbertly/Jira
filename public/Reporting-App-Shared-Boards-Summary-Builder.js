@@ -36,6 +36,8 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
         sprintCount: 0,
         doneStories: 0,
         doneSP: 0,
+        registeredWorkHours: 0,
+        estimatedWorkHours: 0,
         committedSP: 0,
         deliveredSP: 0,
         earliestStart: null,
@@ -63,6 +65,8 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
         sprintCount: 0,
         doneStories: 0,
         doneSP: 0,
+        registeredWorkHours: 0,
+        estimatedWorkHours: 0,
         committedSP: 0,
         deliveredSP: 0,
         earliestStart: null,
@@ -83,6 +87,8 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
     }
     const summary = summaries.get(row.boardId);
     summary.doneStories += 1;
+    summary.registeredWorkHours += (Number(row.subtaskTimeSpentHours) || Number(row.timeSpentHours) || 0);
+    summary.estimatedWorkHours += (Number(row.subtaskTimeOriginalEstimateHours) || Number(row.timeOriginalEstimateHours) || 0);
     const rowSp = spEnabled ? (parseFloat(row.storyPoints) || 0) : 0;
     if (spEnabled) {
       summary.doneSP += rowSp;
@@ -122,6 +128,8 @@ export function buildBoardSummaries(boards, sprintsIncluded, rows, meta, predict
         sprintCount: 0,
         doneStories: 0,
         doneSP: 0,
+        registeredWorkHours: 0,
+        estimatedWorkHours: 0,
         committedSP: 0,
         deliveredSP: 0,
         earliestStart: null,
