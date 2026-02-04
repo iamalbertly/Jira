@@ -1039,8 +1039,25 @@ function buildJiraIssueUrl(host, issueKey) {
   return `${normalizeJiraHost(host)}/browse/${issueKey}`;
 }
 
-function renderEpicStoryList(epic, meta) {
-  const stories = Array.isArray(epic.storyItems) ? epic.storyItems : [];
+function getEpicStoryItems(epic, rows) {
+  if (Array.isArray(epic.storyItems) && epic.storyItems.length > 0) {
+    return epic.storyItems;
+  }
+  if (!Array.isArray(rows) || !epic?.epicKey) return [];
+  const map = new Map();
+  for (const row of rows) {
+    if (row?.epicKey !== epic.epicKey || !row.issueKey) continue;
+    if (!map.has(row.issueKey)) {
+      map.set(row.issueKey, { issueKey: row.issueKey, summary: row.issueSummary || '' });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function renderEpicStoryList(epic, meta, rows) {
+  const stories = getEpicStoryItems(epic, rows)
+    .slice()
+    .sort((a, b) => String(a.issueKey || '').localeCompare(String(b.issueKey || '')));
   if (!stories.length) return '<span>-</span>';
   const host = meta?.jiraHost || '';
   const itemsHtml = stories.map((story) => {
@@ -1065,6 +1082,20 @@ function renderEpicKeyCell(epic, meta) {
   return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(epic.epicKey)}</a>`;
 }
 
+function renderEpicTitleCell(epic) {
+  if (epic?.epicTitle) {
+    return escapeHtml(epic.epicTitle);
+  }
+  return '<span class="epic-title-missing" title="Epic title unavailable. Jira access may be restricted or the Epic could not be fetched.">Epic title unavailable</span>';
+}
+
+function renderEpicSubtaskHours(epic) {
+  if (epic?.subtaskSpentHours == null || Number.isNaN(Number(epic.subtaskSpentHours))) {
+    return '<span class="epic-title-missing" title="No subtask time logged for this epic.">—</span>';
+  }
+  return formatNumber(Number(epic.subtaskSpentHours), 2);
+}
+
 function buildEpicAdhocRows(rows) {
   if (!Array.isArray(rows)) return [];
   const groups = new Map();
@@ -1077,6 +1108,8 @@ function buildEpicAdhocRows(rows) {
         storyItems: new Map(),
         earliestCreated: null,
         latestResolved: null,
+        subtaskSpentHoursTotal: 0,
+        subtaskSpentHoursEntries: 0,
       });
     }
     const group = groups.get(boardName);
@@ -1100,6 +1133,13 @@ function buildEpicAdhocRows(rows) {
           : resolved;
       }
     }
+    if (row?.subtaskTimeSpentHours != null && row.subtaskTimeSpentHours !== '') {
+      const hours = Number(row.subtaskTimeSpentHours);
+      if (!Number.isNaN(hours)) {
+        group.subtaskSpentHoursTotal += hours;
+        group.subtaskSpentHoursEntries += 1;
+      }
+    }
   }
 
   const results = [];
@@ -1115,6 +1155,7 @@ function buildEpicAdhocRows(rows) {
       epicTitle: 'No epic assigned',
       storyCount: group.storyCount,
       storyItems: [...group.storyItems.values()],
+      subtaskSpentHours: group.subtaskSpentHoursEntries > 0 ? group.subtaskSpentHoursTotal : null,
       startDate,
       endDate,
       calendarTTMdays,
@@ -1583,6 +1624,9 @@ function renderProjectEpicLevelTab(boards, metrics) {
       if (meta?.epicTTMFallbackCount > 0) {
         html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
       }
+      if (meta?.epicTitleMissingCount > 0) {
+        html += `<p class="data-quality-warning"><small>Note: ${meta.epicTitleMissingCount} epic(s) are missing titles. Check Jira permissions or Epic keys.</small></p>`;
+      }
       html += '<p class="metrics-hint"><small>Completion anchored to: Resolution date.</small></p>';
       html += '<table class="data-table"><thead><tr>' +
         '<th title="Epic identifier in Jira." data-tooltip="Epic identifier in Jira.">Epic Key</th>' +
@@ -1593,18 +1637,20 @@ function renderProjectEpicLevelTab(boards, metrics) {
         '<th title="Epic end date (Epic resolved or last story resolved if Epic dates missing)." data-tooltip="Epic end date (Epic resolved or last story resolved if Epic dates missing).">End Date</th>' +
         '<th title="Calendar days from start to end (includes weekends)." data-tooltip="Calendar days from start to end (includes weekends).">Calendar TTM (days)</th>' +
         '<th title="Working days from start to end (excludes weekends). Use this to compare team flow." data-tooltip="Working days from start to end (excludes weekends). Use this to compare team flow.">Working TTM (days)</th>' +
+        '<th title="Sum of subtask time spent (hours) across stories in this epic." data-tooltip="Sum of subtask time spent (hours) across stories in this epic.">Subtask Spent (Hrs)</th>' +
         '</tr></thead><tbody>';
       const epicRows = [...metrics.epicTTM, ...buildEpicAdhocRows(previewRows)];
       for (const epic of epicRows) {
         html += `<tr>
           <td>${renderEpicKeyCell(epic, meta)}</td>
-          <td>${escapeHtml(epic.epicTitle || '')}</td>
-          <td>${renderEpicStoryList(epic, meta)}</td>
+          <td>${renderEpicTitleCell(epic)}</td>
+          <td>${renderEpicStoryList(epic, meta, previewRows)}</td>
           <td>${epic.storyCount}</td>
           <td>${escapeHtml(formatDateForDisplay(epic.startDate))}</td>
           <td>${escapeHtml(formatDateForDisplay(epic.endDate || ''))}</td>
           <td>${epic.calendarTTMdays ?? ''}</td>
           <td>${epic.workingTTMdays ?? ''}</td>
+          <td>${renderEpicSubtaskHours(epic)}</td>
         </tr>`;
       }
       html += '</tbody></table>';
@@ -2885,18 +2931,19 @@ function prepareSprintsSheetData(sprintsIncluded, rows, predictabilityPerSprint 
 
 // Prepare Epics sheet data (from Epic TTM metrics)
 function prepareEpicsSheetData(metrics, rows) {
-  const columns = ['Epic ID', 'Epic Name', 'Story Keys', 'Story Count', 'Start Date', 'End Date', 'Calendar TTM (days)', 'Working TTM (days)'];
+  const columns = ['Epic ID', 'Epic Name', 'Story Keys', 'Story Count', 'Start Date', 'End Date', 'Calendar TTM (days)', 'Working TTM (days)', 'Subtask Spent (Hrs)'];
   
   const combined = [...(metrics?.epicTTM || []), ...buildEpicAdhocRows(rows)];
   let rowsData = combined.map(epic => ({
     'Epic ID': epic.epicKey,
     'Epic Name': epic.epicTitle || '',
-    'Story Keys': Array.isArray(epic.storyItems) ? epic.storyItems.map(item => item.issueKey).filter(Boolean).join(', ') : '',
+    'Story Keys': getEpicStoryItems(epic, rows).map(item => item.issueKey).filter(Boolean).join(', '),
     'Story Count': epic.storyCount || 0,
     'Start Date': formatDateForDisplay(epic.startDate) || '',
     'End Date': formatDateForDisplay(epic.endDate) || '',
     'Calendar TTM (days)': epic.calendarTTMdays || '',
-    'Working TTM (days)': epic.workingTTMdays || ''
+    'Working TTM (days)': epic.workingTTMdays || '',
+    'Subtask Spent (Hrs)': epic.subtaskSpentHours != null ? formatNumber(Number(epic.subtaskSpentHours), 2) : ''
   }));
   
   // Add placeholder row if Epics sheet is empty
@@ -2909,7 +2956,8 @@ function prepareEpicsSheetData(metrics, rows) {
       'Start Date': 'Epic TTM is always enabled. No Epic data found for selected date range.',
       'End Date': '',
       'Calendar TTM (days)': '',
-      'Working TTM (days)': ''
+      'Working TTM (days)': '',
+      'Subtask Spent (Hrs)': ''
     }];
   }
 
@@ -3868,6 +3916,9 @@ function renderMetricsTab(metrics) {
     if (meta?.epicTTMFallbackCount > 0) {
       html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
     }
+    if (meta?.epicTitleMissingCount > 0) {
+      html += `<p class="data-quality-warning"><small>Note: ${meta.epicTitleMissingCount} epic(s) are missing titles. Check Jira permissions or Epic keys.</small></p>`;
+    }
     html += '<table class="data-table"><thead><tr>' +
       '<th title="Epic identifier in Jira." data-tooltip="Epic identifier in Jira.">Epic Key</th>' +
       '<th title="Epic summary/title." data-tooltip="Epic summary/title.">Epic Name</th>' +
@@ -3877,18 +3928,20 @@ function renderMetricsTab(metrics) {
       '<th title="Epic end date (Epic resolved or last story resolved if Epic dates missing)." data-tooltip="Epic end date (Epic resolved or last story resolved if Epic dates missing).">End Date</th>' +
       '<th title="Calendar days from start to end (includes weekends)." data-tooltip="Calendar days from start to end (includes weekends).">Calendar TTM (days)</th>' +
       '<th title="Working days from start to end (excludes weekends). Use this to compare team flow." data-tooltip="Working days from start to end (excludes weekends). Use this to compare team flow.">Working TTM (days)</th>' +
+      '<th title="Sum of subtask time spent (hours) across stories in this epic." data-tooltip="Sum of subtask time spent (hours) across stories in this epic.">Subtask Spent (Hrs)</th>' +
       '</tr></thead><tbody>';
     const epicRows = [...safeMetrics.epicTTM, ...buildEpicAdhocRows(previewRows)];
     for (const epic of epicRows) {
       html += `<tr>
         <td>${renderEpicKeyCell(epic, meta)}</td>
-        <td>${escapeHtml(epic.epicTitle || '')}</td>
-        <td>${renderEpicStoryList(epic, meta)}</td>
+        <td>${renderEpicTitleCell(epic)}</td>
+        <td>${renderEpicStoryList(epic, meta, previewRows)}</td>
         <td>${epic.storyCount}</td>
         <td>${escapeHtml(formatDateForDisplay(epic.startDate))}</td>
         <td>${escapeHtml(formatDateForDisplay(epic.endDate || ''))}</td>
         <td>${epic.calendarTTMdays ?? ''}</td>
         <td>${epic.workingTTMdays ?? ''}</td>
+        <td>${renderEpicSubtaskHours(epic)}</td>
       </tr>`;
     }
     html += '</tbody></table>';

@@ -1089,6 +1089,9 @@ app.get('/preview.json', requireAuth, async (req, res) => {
             logger.info(`Epic TTM: ${epicTTMResult.fallbackCount} epic(s) used story date fallback`);
           }
         }
+        if (Array.isArray(metrics.epicTTM)) {
+          meta.epicTitleMissingCount = metrics.epicTTM.filter(epic => !epic.epicTitle).length;
+        }
       }
 
       addPhase('calculateMetrics', {

@@ -172,6 +172,18 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
         
         expect(hasFallbackWarning).toBeTruthy();
         console.log('[TEST] ✓ Epic TTM fallback warning displayed in UI');
+
+        const epicTable = page.locator('#project-epic-level-content table').filter({ hasText: 'Epic Key' }).first();
+        const epicTableHeader = epicTable.locator('thead tr');
+        await expect(epicTableHeader).toContainText('Subtask Spent (Hrs)');
+        console.log('[TEST] ✓ Epic TTM subtask hours column visible');
+
+        const storyLink = page.locator('#project-epic-level-content table tbody tr td .epic-story-list a').first();
+        if (await storyLink.isVisible().catch(() => false)) {
+          const href = await storyLink.getAttribute('href');
+          expect(href || '').toContain('/browse/');
+          console.log('[TEST] ✓ Epic TTM story IDs render as Jira links');
+        }
       } else {
         console.log('[TEST] ⚠ No Epic TTM fallback detected (may be all Epics available)');
       }

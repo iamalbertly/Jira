@@ -1036,6 +1036,11 @@ header h1 {
   text-decoration: underline;
 }
 
+.epic-title-missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .section-export {
   display: flex;
   justify-content: flex-end;
