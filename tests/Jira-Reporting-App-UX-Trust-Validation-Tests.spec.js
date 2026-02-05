@@ -11,7 +11,7 @@ test.describe('Jira Reporting App - UX Trust Validation (UI + Console)', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
-    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
+    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
     await expect(page.locator('#project-mpsa')).toBeVisible();
     await expect(page.locator('#preview-btn')).toBeVisible();
     await expect(page.locator('#export-excel-btn')).toBeVisible();

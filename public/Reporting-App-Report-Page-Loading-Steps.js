@@ -58,9 +58,34 @@ export async function readResponseJson(response) {
   return { data: null, text };
 }
 
+export function setLoadingVisible(visible = true) {
+  const { loadingEl } = reportDom;
+  if (!loadingEl) return;
+  loadingEl.style.display = visible ? 'block' : 'none';
+  loadingEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
+}
+
 export function hideLoadingIfVisible() {
   const { loadingEl } = reportDom;
-  if (loadingEl && loadingEl.style.display !== 'none') {
+  if (loadingEl) {
     loadingEl.style.display = 'none';
+    loadingEl.setAttribute('aria-hidden', 'true');
+  }
+}
+
+export function forceHideLoading() {
+  const { loadingEl } = reportDom;
+  try {
+    if (loadingEl) {
+      // Remove inline styles and ensure hidden; also clear any animation state
+      loadingEl.style.display = 'none';
+      loadingEl.setAttribute('aria-hidden', 'true');
+      const steps = loadingEl.querySelectorAll('.loading-step');
+      if (steps && steps.length) {
+        loadingEl.querySelector('.loading-steps').innerHTML = '';
+      }
+    }
+  } catch (e) {
+    // best-effort, ignore
   }
 }

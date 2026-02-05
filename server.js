@@ -1383,10 +1383,11 @@ app.post('/feedback', async (req, res) => {
     const trimmedMessage = typeof message === 'string' ? message.trim() : '';
     const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '';
 
-    if (!trimmedEmail || !trimmedMessage) {
+    // Message is required; email is optional (allow anonymous feedback)
+    if (!trimmedMessage) {
       return res.status(400).json({
         error: 'Invalid feedback payload',
-        message: 'Email and feedback message are required.'
+        message: 'Feedback message is required.'
       });
     }
 

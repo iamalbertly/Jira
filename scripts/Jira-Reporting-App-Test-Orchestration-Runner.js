@@ -92,6 +92,12 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Date Window Ordering Test',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-DateWindow-Ordering.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run Throughput Merge Test',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Throughput-Merge.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],

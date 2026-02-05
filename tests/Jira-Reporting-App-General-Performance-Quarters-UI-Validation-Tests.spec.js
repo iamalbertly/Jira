@@ -56,7 +56,7 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
     expect(telemetry.pageErrors).toEqual([]);
   });
 
-  test('report has quarter strip with at least one quarter pill', async ({ page }) => {
+  test('report has quarter strip with at least one quarter pill and shows a date span', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
@@ -71,6 +71,37 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
     const pills = page.locator('.quarter-pill');
     const count = await pills.count();
     expect(count).toBeGreaterThanOrEqual(1);
+
+    // Ensure each visible quarter pill includes the date period underneath
+    const firstPeriod = await page.locator('.quarter-pill .quick-range-period').first().textContent().catch(() => '');
+    expect(firstPeriod).toBeTruthy();
+    expect(firstPeriod).toMatch(/\d{1,2} \w{3} \d{4} - \d{1,2} \w{3} \d{4}/);
+
+    expect(telemetry.consoleErrors).toEqual([]);
+    expect(telemetry.pageErrors).toEqual([]);
+  });
+
+  test('boards table headers do not wrap and table supports horizontal scroll', async ({ page }) => {
+    test.setTimeout(180000);
+    const telemetry = captureBrowserTelemetry(page);
+    await runDefaultPreview(page);
+
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) {
+      test.skip(true, 'Preview not visible; may require Jira credentials');
+      return;
+    }
+
+    await page.click('.tab-btn[data-tab="project-epic-level"]').catch(() => null);
+    await page.waitForSelector('#project-epic-level-content .data-table', { timeout: 15000 });
+
+    // table should be horizontally scrollable rather than wrapping cells
+    const tableOverflowX = await page.evaluate(() => getComputedStyle(document.querySelector('#project-epic-level-content .data-table')).overflowX);
+    expect(tableOverflowX === 'auto' || tableOverflowX === 'scroll').toBeTruthy();
+
+    // header whitespace should be nowrap to avoid vertical character stacking
+    const headerWhiteSpace = await page.evaluate(() => getComputedStyle(document.querySelector('#project-epic-level-content .data-table th')).whiteSpace);
+    expect(headerWhiteSpace).toBe('nowrap');
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);

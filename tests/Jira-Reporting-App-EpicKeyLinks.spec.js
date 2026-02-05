@@ -4,7 +4,7 @@ import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-He
 test.describe('Epic Key linkification & column layout', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
+    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
   });
 
   test('Epic keys render as clickable links (open in new tab) in tables', async ({ page }) => {

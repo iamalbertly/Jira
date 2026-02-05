@@ -67,6 +67,7 @@ export function initPreviewFlow() {
       requestAnimationFrame(() => {
         if (isLoading) {
           loadingEl.style.display = 'block';
+          loadingEl.setAttribute('aria-hidden', 'false');
         }
       });
     }
@@ -199,9 +200,20 @@ export function initPreviewFlow() {
       reportState.previewHasRows = reportState.previewRows.length > 0;
 
       updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
-      renderPreview();
+      try {
+        renderPreview();
+      } catch (renderErr) {
+        if (errorEl) {
+          errorEl.style.display = 'block';
+          errorEl.innerHTML = `<div role="alert"><strong>Error:</strong> Failed to render preview: ${escapeHtml(renderErr.message || String(renderErr))}<button type="button" class="error-close" aria-label="Dismiss">x</button></div>`;
+        }
+      }
 
-      if (loadingEl) loadingEl.style.display = 'none';
+      // Ensure loading hidden and preview content visible (best-effort)
+      if (loadingEl) {
+        loadingEl.style.display = 'none';
+        loadingEl.setAttribute('aria-hidden', 'true');
+      }
       if (previewContent) previewContent.style.display = 'block';
       if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
@@ -210,11 +222,14 @@ export function initPreviewFlow() {
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
 
-      if (loadingEl) loadingEl.style.display = 'none';
+      if (loadingEl) {
+        loadingEl.style.display = 'none';
+        loadingEl.setAttribute('aria-hidden', 'true');
+      }
       if (errorEl) errorEl.style.display = 'block';
 
       let errorMsg = error.message;
-      if (error.name === 'AbortError') {
+      if (error && error.name === 'AbortError') {
         errorMsg = 'Preview request timed out after 5 minutes. This can happen with very large date ranges or many sprints. Try a smaller date range, fewer projects, or check the server logs for more details.';
       }
 
@@ -244,7 +259,13 @@ export function initPreviewFlow() {
       }
     } finally {
       isLoading = false;
-      hideLoadingIfVisible();
+      // Strongly ensure loading elements are hidden and steps cleared to avoid spinner hangs
+      try {
+        hideLoadingIfVisible();
+        clearLoadingSteps();
+        forceHideLoading();
+      } catch (e) {}
+
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
 

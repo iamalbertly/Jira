@@ -105,10 +105,11 @@ export function renderDoneStoriesTab(rows) {
     sprintGroups.get(row.sprintId).rows.push(row);
   }
 
+  // Show most recent sprints first (descending by start date)
   const sortedSprints = Array.from(sprintGroups.values()).sort((a, b) => {
-    const dateA = new Date(a.sprint.startDate || 0);
-    const dateB = new Date(b.sprint.startDate || 0);
-    return dateA - dateB;
+    const dateA = new Date(a.sprint.startDate || 0).getTime();
+    const dateB = new Date(b.sprint.startDate || 0).getTime();
+    return dateB - dateA;
   });
 
   let html = '<div class="sprint-groups">';
@@ -251,6 +252,7 @@ export function renderDoneStoriesTab(rows) {
 
   html += '</div>';
   content.innerHTML = html;
+  try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#tab-done-stories table.data-table th, #tab-done-stories table.data-table td')).catch(() => {}); } catch (e) {}
 
   document.querySelectorAll('.sprint-header[data-sprint-target]').forEach(btn => {
     btn.addEventListener('click', () => {

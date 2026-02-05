@@ -131,6 +131,15 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 
 ### Preview Behaviour & Feedback
 
+## Recent UX & Reliability fixes (2026-02-05)
+- Tables now avoid aggressive character-wrapping on narrow screens; large tables use horizontal scroll and headers use `nowrap` with ellipsis for better legibility (improves simplicity and trust). ✅
+- Quarter pills (Vodacom quick range) are more compact and now show the date span directly under the label for clearer selection context. ✅
+- Current Sprint: when the boards list fails to load, a **Retry** button is presented so users can try again without a full page refresh (improves reliability). ✅
+- Mobile styling tweaks: quarter strip scrolls correctly and header/table spacing improved for small screens (improves customer-first readability). ✅
+- Playwright tests updated to validate the above UI behaviours and the retry flow; orchestration runner remains the same but tests now fail-fast on first error. ✅
+
+### Preview Behaviour & Feedback
+
 - **In-flight feedback**:
 - **User feedback capture**:
   - Click **Give Feedback** at the top of the report to submit your email and detailed feedback.

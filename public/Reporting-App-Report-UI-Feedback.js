@@ -26,6 +26,38 @@ export function initFeedbackPanel() {
     feedbackToggle.addEventListener('click', () => toggleFeedbackPanel(feedbackPanel, feedbackStatus));
   }
 
+  // Mobile: create a floating feedback FAB for easy access on small screens (visible via CSS media query)
+  const existingFab = document.getElementById('feedback-fab');
+  if (!existingFab) {
+    const fab = document.createElement('button');
+    fab.id = 'feedback-fab';
+    fab.className = 'feedback-fab';
+    fab.title = 'Send feedback (press "f")';
+    fab.setAttribute('aria-label', 'Send feedback');
+    fab.type = 'button';
+    fab.textContent = '✉';
+    fab.addEventListener('click', () => toggleFeedbackPanel(feedbackPanel, feedbackStatus, true));
+    // Show small sent indicator if feedback was recently sent
+    try {
+      const last = Number(localStorage.getItem('feedback-last-sent') || 0);
+      const dayMs = 24 * 60 * 60 * 1000;
+      if (last && (Date.now() - last) < dayMs) {
+        const badge = document.createElement('span');
+        badge.className = 'feedback-fab-badge';
+        fab.appendChild(badge);
+      }
+    } catch (e) {}
+    document.body.appendChild(fab);
+  }
+
+  // Keyboard shortcut: press 'f' to open feedback unless typing in an input/textarea
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'f' && (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) === false)) {
+      ev.preventDefault();
+      toggleFeedbackPanel(feedbackPanel, feedbackStatus, true);
+    }
+  });
+
   if (feedbackCancel) {
     feedbackCancel.addEventListener('click', () => toggleFeedbackPanel(feedbackPanel, feedbackStatus, false));
   }
@@ -53,6 +85,8 @@ export function initFeedbackPanel() {
           throw new Error(text);
         }
         setFeedbackStatus(feedbackStatus, 'Thanks! Your feedback was received.');
+        // record local timestamp of last sent feedback for UX hinting (e.g., clear badge)
+        try { localStorage.setItem('feedback-last-sent', String(Date.now())); } catch (e) {}
         if (feedbackEmail) feedbackEmail.value = '';
         if (feedbackMessage) feedbackMessage.value = '';
       } catch (error) {

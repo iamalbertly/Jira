@@ -33,3 +33,25 @@ export function renderIssueKeyLink(issueKey, issueUrl) {
   }
   return escaped;
 }
+
+/**
+ * Adds title attributes to elements that are visually truncated (overflowing) so users can hover to see full text.
+ * @param {string} selector - CSS selector for cells to check (th, td)
+ */
+export function addTitleForTruncatedCells(selector) {
+  try {
+    const nodes = Array.from(document.querySelectorAll(selector || ''));
+    nodes.forEach((n) => {
+      if (!n || !n.isConnected) return;
+      // Only set title if text is larger than container (horizontal overflow)
+      if (n.scrollWidth > n.clientWidth && n.textContent && n.textContent.trim()) {
+        n.setAttribute('title', n.textContent.trim());
+      } else {
+        // leave existing title if present, else remove
+        if (!n.getAttribute('title')) n.removeAttribute('title');
+      }
+    });
+  } catch (e) {
+    // ignore errors on old browsers or hidden nodes
+  }
+} 

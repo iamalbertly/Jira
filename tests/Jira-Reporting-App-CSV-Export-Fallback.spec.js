@@ -29,8 +29,8 @@ test('CSV export fallback copies CSV to clipboard when download fails', async ({
   // Click export section button to trigger CSV download which will fail and show fallback
   await doneStoriesBtn.click();
 
-  // Fallback copy button should appear
-  const copyBtn = page.locator('#export-copy-csv');
+  // Fallback copy button should appear (inline next to export button)
+  const copyBtn = page.locator('.export-copy-csv[data-export-copy="done-stories"]');
   await expect(copyBtn).toBeVisible({ timeout: 5000 });
 
   // Click copy button and assert clipboard captured content

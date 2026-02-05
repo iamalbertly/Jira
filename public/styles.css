@@ -313,6 +313,22 @@ header h1 {
   background: rgba(15, 76, 129, 0.08);
   color: var(--primary);
 }
+/* Compact quarter pills for easier scrolling and single-line display */
+.quarter-pill { min-width: 110px; padding: 8px 10px; display: inline-flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.quarter-pill .quick-range-label { font-weight: 700; }
+.quarter-pill .quick-range-period { font-size: 0.78em; color: var(--muted); }
+.date-window-btn { padding: 6px 10px; font-size: 13px; border-radius: 6px; }
+
+/* Compact inline export fallback */
+.export-copy-inline .export-copy-csv { font-size: 12px; padding: 6px 8px; }
+
+/* Mobile floating feedback action: visible only on small screens */
+.feedback-fab { display: none; }
+@media (max-width: 768px) {
+  .feedback-fab { display: inline-flex; position: fixed; right: 16px; bottom: 16px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: white; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.16); z-index: 1200; }
+  .feedback-fab-badge { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 6px; background: #22c55e; border: 2px solid #fff; }
+}
+
 
 .filter-group input[type="datetime-local"] {
   width: 100%;
@@ -1095,30 +1111,38 @@ header h1 {
   font-weight: 500;
 }
 
-/* Tables */
+/* Tables: horizontal-scroll on narrow screens to avoid column collapse and character wrapping */
 .data-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.9em;
+  font-size: 0.88em; /* slightly more compact */
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
   background: #fff;
+  display: block; /* enable horizontal scrolling instead of collapsing columns */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
 }
 
 .data-table th {
   background-color: #f1f5f9;
-  padding: 12px;
+  padding: 10px;
   text-align: left;
   font-weight: 600;
   color: #1b2733;
   border-bottom: 1px solid var(--border);
-  font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.82em;
+  text-transform: none; /* improve readability */
+  letter-spacing: 0.02em;
 }
-
+.data-table td, .data-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 768px) {
+  .data-table { font-size: 0.78em; }
+  .data-table th { padding: 8px; font-size: 0.75em; }
+  .data-table td { padding: 6px 8px; }
+} 
 .data-table th[title] {
   cursor: help;
 }

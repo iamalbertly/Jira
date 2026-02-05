@@ -136,5 +136,6 @@ export function renderMetricsTab(metrics) {
     renderEmptyState(content, title, message, hint);
   } else {
     content.innerHTML = hintHtml + html;
+    try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#metrics-content table.data-table th, #metrics-content table.data-table td')).catch(() => {}); } catch (e) {}
   }
-}
+} 

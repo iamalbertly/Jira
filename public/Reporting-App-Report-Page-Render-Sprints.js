@@ -252,4 +252,5 @@ export function renderSprintsTab(sprints, metrics) {
 
   html += '</tbody></table>';
   content.innerHTML = html;
-}
+  try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#tab-sprints table.data-table th, #tab-sprints table.data-table td')).catch(() => {}); } catch (e) {}
+} 

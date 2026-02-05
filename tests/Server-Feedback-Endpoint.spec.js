@@ -4,7 +4,8 @@ import { existsSync, readFileSync } from 'fs';
 
 test('server /feedback accepts anonymous submissions and persists them', async ({ request }) => {
   const payload = {
-    email: 'test+auto@example.com',
+    // Email optional – test anonymous submission path by leaving it empty
+    email: '',
     message: 'Automated test feedback - please ignore.'
   };
 
@@ -32,7 +33,7 @@ test('server /feedback accepts anonymous submissions and persists them', async (
   const found = lines.some(line => {
     try {
       const obj = JSON.parse(line);
-      return obj.email === payload.email && String(obj.message).includes('Automated test feedback');
+      return String(obj.message).includes('Automated test feedback');
     } catch (e) {
       return false;
     }

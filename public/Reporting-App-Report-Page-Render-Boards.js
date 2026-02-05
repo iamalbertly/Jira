@@ -250,4 +250,6 @@ export function renderProjectEpicLevelTab(boards, metrics) {
   }
 
   content.innerHTML = html;
+  // Add hover titles for truncated headers/cells for better discoverability (dynamic import)
+  try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#project-epic-level-content table.data-table th, #project-epic-level-content table.data-table td')).catch(() => {}); } catch (e) {}
 }

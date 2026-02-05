@@ -201,6 +201,12 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         container.appendChild(fallback);
         return;
       }
+      // Ensure quarters are shown most-recent-first (end date desc)
+      quarters.sort((a, b) => {
+        const at = a && a.end ? new Date(a.end).getTime() : 0;
+        const bt = b && b.end ? new Date(b.end).getTime() : 0;
+        return bt - at;
+      });
       quarters.forEach((q) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -208,9 +214,10 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         btn.setAttribute('aria-pressed', 'false');
         btn.setAttribute('data-start', q.start || '');
         btn.setAttribute('data-end', q.end || '');
+        // Use the shared renderer so the pill shows label and the period underneath for clarity
+        applyQuarterButtonContent(btn, { label: q.label || '', period: q.period || '' });
         btn.title = q.period || q.label || '';
         btn.setAttribute('aria-label', (q.period ? `${q.label} (${q.period})` : q.label) || 'Quarter');
-        btn.textContent = q.label || '';
         btn.addEventListener('click', () => {
           clearSelection();
           btn.classList.add('is-active');

@@ -176,6 +176,38 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     expect(telemetry.pageErrors).toEqual([]);
   });
 
+  test('current-sprint: retry button appears on failure and succeeds when retried', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    let calls = 0;
+    await page.route('**/api/boards.json*', (route) => {
+      calls += 1;
+      if (calls === 1) {
+        route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Temporary error' }) });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ boards: [{ id: 123, name: 'Retry Board', projectKey: 'MPSA' }] }) });
+      }
+    });
+
+    await page.goto('/current-sprint');
+
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+
+    // Wait for retry button to appear
+    await page.waitForSelector('#current-sprint-error .retry-btn', { timeout: 10000 });
+    await page.click('#current-sprint-error .retry-btn');
+
+    // After retry, the board should appear in the select
+    await page.waitForSelector('#board-select option[value="123"]', { timeout: 15000 });
+    const opts = await page.locator('#board-select option[value]:not([value=""])').count();
+    expect(opts).toBeGreaterThan(0);
+
+    expect(telemetry.consoleErrors).toEqual([]);
+    expect(telemetry.pageErrors).toEqual([]);
+  });
+
   test('leadership: empty preview shows single message when no sprint data in range', async ({ page }) => {
     test.setTimeout(30000);
     const telemetry = captureBrowserTelemetry(page);

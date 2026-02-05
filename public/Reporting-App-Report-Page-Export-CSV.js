@@ -10,7 +10,8 @@ export function validateCSVColumns(columns, rows) {
   return true;
 }
 
-export function downloadCSV(csv, filename) {
+export function downloadCSV(csv, filename, options = {}) {
+  const { anchorEl = null, exportId = null } = options;
   try {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
@@ -22,14 +23,51 @@ export function downloadCSV(csv, filename) {
 
     const successMsg = document.createElement('div');
     successMsg.className = 'export-success-msg';
-    successMsg.innerHTML = `<strong>Exported:</strong> ${escapeHtml(filename)}`;
+    const strong = document.createElement('strong'); strong.textContent = 'Exported:';
+    successMsg.appendChild(strong);
+    successMsg.appendChild(document.createTextNode(' ' + filename));
     document.body.appendChild(successMsg);
     setTimeout(() => successMsg.remove(), 4000);
   } catch (err) {
+    // If an anchor/button was provided, show a compact inline fallback next to it requiring fewer visual changes
+    if (anchorEl && anchorEl.parentElement) {
+      // Remove existing fallback if present for this exportId
+      const existing = anchorEl.parentElement.querySelector('.export-copy-csv');
+      if (existing) existing.remove();
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'export-copy-inline';
+      wrapper.style.display = 'inline-block';
+      wrapper.style.marginLeft = '8px';
+      wrapper.innerHTML = `<button type="button" class="btn btn-compact export-copy-csv" data-export-copy="${escapeHtml(exportId || '')}">Copy CSV</button>`;
+      anchorEl.parentElement.appendChild(wrapper);
+      const copyBtn = wrapper.querySelector('.export-copy-csv');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(csv);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = csv;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              ta.remove();
+            }
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy CSV'; }, 3000);
+          } catch (copyErr) {
+            copyBtn.textContent = 'Copy failed';
+          }
+        });
+      }
+      return;
+    }
+
     const errorEl = reportDom.errorEl;
     if (errorEl) {
       errorEl.style.display = 'block';
-      // Add a fallback: allow copying CSV to clipboard when download fails
       errorEl.innerHTML = `
         <div role="alert">
           <strong>Export error:</strong> Unable to download CSV file.
@@ -41,7 +79,6 @@ export function downloadCSV(csv, filename) {
         </div>
       `;
 
-      // Attach handler to copy content
       const copyBtn = document.getElementById('export-copy-csv');
       if (copyBtn) {
         copyBtn.addEventListener('click', async () => {
@@ -65,7 +102,7 @@ export function downloadCSV(csv, filename) {
       }
     }
   }
-}
+} 
 
 export async function exportCSV(rows, type, columns) {
   const meta = getSafeMeta(reportState.previewData);
@@ -98,6 +135,9 @@ export async function exportSectionCSV(sectionName, data, button = null) {
   const filename = buildCsvFilename(sectionName, meta, '', await getDateRangeLabel(meta.windowStart, meta.windowEnd));
   const rows = Array.isArray(data) ? data : [];
   const csv = generateCSVClient(Object.keys(rows[0] || {}), rows);
-  downloadCSV(csv, filename);
-  if (button) button.disabled = false;
+  try {
+    downloadCSV(csv, filename, { anchorEl: button, exportId: sectionName });
+  } finally {
+    if (button) button.disabled = false;
+  }
 }

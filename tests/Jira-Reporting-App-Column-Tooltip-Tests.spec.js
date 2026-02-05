@@ -7,7 +7,7 @@ const DEFAULT_Q2_END = '2025-09-30T23:59';
 test.describe('Jira Reporting App - Column Titles & Tooltips', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
+    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
   });
 
   test('boards table column titles expose helpful tooltips', async ({ page }) => {

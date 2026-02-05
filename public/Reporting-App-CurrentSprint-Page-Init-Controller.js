@@ -161,6 +161,22 @@ function refreshBoards(preferredId, preferredSprintId) {
       if ((msg || '').includes('Session expired')) {
         addLoginLink();
       }
+      // Append a retry button so the user can manually retry without a full page reload
+      try {
+        const { errorEl } = currentSprintDom;
+        if (errorEl && !errorEl.querySelector('.retry-btn')) {
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'btn btn-primary btn-sm retry-btn';
+          retry.textContent = 'Retry';
+          retry.style.marginLeft = '8px';
+          retry.addEventListener('click', () => {
+            clearError();
+            refreshBoards(preferredId, preferredSprintId);
+          });
+          errorEl.appendChild(retry);
+        }
+      } catch (_) {}
       return null;
     });
 }

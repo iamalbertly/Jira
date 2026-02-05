@@ -33,6 +33,16 @@ function initReportPage() {
       }
     }
   });
+
+  // Keyboard shortcuts: '/' focuses the boards search box; 'f' opens Feedback (handled by feedback module)
+  document.addEventListener('keydown', (ev) => {
+    const active = document.activeElement && document.activeElement.tagName;
+    if (ev.key === '/' && active !== 'INPUT' && active !== 'TEXTAREA') {
+      ev.preventDefault();
+      const boardsSearch = document.getElementById('boards-search-box') || document.getElementById('search-box');
+      if (boardsSearch) boardsSearch.focus();
+    }
+  });
 }
 
 if (document.readyState === 'loading') {

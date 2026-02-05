@@ -6,7 +6,7 @@ const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=
 test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/report');
-    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
+    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
   });
 
   test('should load report page with default filters', async ({ page }) => {
