@@ -14,6 +14,8 @@ import { wireCapacityAllocationHandlers } from './Reporting-App-CurrentSprint-Ca
 import { wireSprintCarouselHandlers } from './Reporting-App-CurrentSprint-Navigation-Carousel.js';
 import { wireScopeIndicatorHandlers } from './Reporting-App-CurrentSprint-Scope-Indicator.js';
 import { wireCountdownTimerHandlers } from './Reporting-App-CurrentSprint-Countdown-Timer.js';
+import { wireSubtasksShowMoreHandlers } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
+import { wireProgressShowMoreHandlers } from './Reporting-App-CurrentSprint-Render-Progress.js';
 import { wireExportHandlers } from './Reporting-App-CurrentSprint-Export-Dashboard.js';
 import {
   getProjectsParam,
@@ -55,6 +57,9 @@ function wireRedesignHandlers(data) {
   wireCapacityAllocationHandlers();
   wireCountdownTimerHandlers();
   wireScopeIndicatorHandlers();
+  // Wire show-more handlers for large tables to reduce initial DOM node count
+  wireSubtasksShowMoreHandlers();
+  wireProgressShowMoreHandlers();
   
   // Wire carousel with sprint selection callback
   wireSprintCarouselHandlers((sprintId) => {
@@ -72,6 +77,9 @@ function wireRedesignHandlers(data) {
   
   // Wire export handlers
   wireExportHandlers(data);
+
+  // Wire legacy template loaders (load heavy legacy content on demand)
+  wireLegacyTemplateLoaders();
 }
 
 function showRenderedContent(data) {
@@ -82,6 +90,11 @@ function showRenderedContent(data) {
   
   // NEW: Wire all redesign component handlers
   wireRedesignHandlers(data);
+
+  // Wire legacy template loaders if present
+  if (window._legacyTemplates) {
+    wireLegacyTemplateLoaders();
+  }
 }
 
 function onBoardChange() {
@@ -188,6 +201,18 @@ function init() {
 
   if (boardSelect) boardSelect.addEventListener('change', onBoardChange);
   if (contentEl) contentEl.addEventListener('click', onSprintTabClick);
+  // Listen for refresh events from header bar or other components
+  document.addEventListener('refreshSprint', () => {
+    if (!currentBoardId) return;
+    showLoading('Refreshing sprint...');
+    loadCurrentSprint(currentBoardId, currentSprintId)
+      .then((data) => {
+        showRenderedContent(data);
+      })
+      .catch((err) => {
+        showError(err.message || 'Failed to refresh sprint.');
+      });
+  });
   if (projectsSelect) {
     projectsSelect.addEventListener('change', onProjectsChange);
   }
@@ -203,4 +228,28 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
+}
+// Legacy template loader
+export function wireLegacyTemplateLoaders() {
+  const legacyButtons = document.querySelectorAll('.legacy-placeholder button[data-load-target]');
+  legacyButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const target = btn.getAttribute('data-load-target');
+      if (target === 'legacy-notifications') {
+        const tpl = document.getElementById('legacy-notifications-template');
+        const el = document.getElementById('legacy-notifications-placeholder');
+        if (tpl && el) {
+          el.outerHTML = tpl.innerHTML;
+        }
+      } else if (target === 'legacy-subtasks') {
+        const tpl = document.getElementById('legacy-subtasks-template');
+        const el = document.getElementById('legacy-subtasks-placeholder');
+        if (tpl && el) {
+          el.outerHTML = tpl.innerHTML;
+          // After replacing with full content, wire show-more handlers
+          wireSubtasksShowMoreHandlers();
+        }
+      }
+    });
+  });
 }

@@ -89,10 +89,13 @@ export function renderBurndown(data) {
   html += '<h2>Burndown</h2>';
   html += '<p><strong>' + pct + '%</strong> complete (' + formatNumber(doneSP, 1, '-') + ' SP done of ' + formatNumber(totalSP, 1, '-') + ' SP).</p>';
   html += buildBurndownChart(remaining, ideal);
-  html += '<table class="data-table">';
+  html += '<table class="data-table" id="burndown-table">';
   html += '<thead><tr><th>Date</th><th>Remaining SP</th><th>Ideal Remaining</th></tr></thead><tbody>';
-  for (let i = 0; i < remaining.length; i++) {
-    const row = remaining[i];
+  const burndownInitial = 7;
+  const burndownToShow = remaining.slice(0, burndownInitial);
+  const burndownRemaining = remaining.slice(burndownInitial);
+  for (let i = 0; i < burndownToShow.length; i++) {
+    const row = burndownToShow[i];
     const idealRow = ideal[i] || ideal[ideal.length - 1] || {};
     html += '<tr>';
     html += '<td>' + escapeHtml(formatDayLabel(row.date)) + '</td>';
@@ -101,8 +104,99 @@ export function renderBurndown(data) {
     html += '</tr>';
   }
   html += '</tbody></table>';
+
+  if (burndownRemaining.length > 0) {
+    html += '<button class="btn btn-secondary btn-compact burndown-show-more" data-count="' + burndownRemaining.length + '">Show ' + burndownRemaining.length + ' more</button>';
+    html += '<template id="burndown-more-template">';
+    for (let i = burndownInitial; i < remaining.length; i++) {
+      const row = remaining[i];
+      const idealRow = ideal[i] || ideal[ideal.length - 1] || {};
+      html += '<tr>';
+      html += '<td>' + escapeHtml(formatDayLabel(row.date)) + '</td>';
+      html += '<td>' + formatNumber(row.remainingSP ?? 0, 1, '-') + '</td>';
+      html += '<td>' + formatNumber(idealRow.remainingSP ?? 0, 1, '-') + '</td>';
+      html += '</tr>';
+    }
+    html += '</template>';
+  }
+
   html += '</div>';
   return html;
+}
+
+export function renderStories(data) {
+  const stories = data.stories || [];
+  const planned = data.plannedWindow || {};
+  let html = '<div class="transparency-card" id="stories-card">';
+  html += '<h2>Stories in sprint</h2>';
+  html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</strong></p>';
+  if (!stories.length) {
+    html += renderEmptyStateHtml('No stories', 'No stories in this sprint.', '');
+  } else {
+    // Prevent rendering all rows to avoid large initial DOM
+    const initialLimit = 10;
+    const toShow = stories.slice(0, initialLimit);
+    const remaining = stories.slice(initialLimit);
+
+    html += '<table class="data-table" id="stories-table"><thead><tr><th>Story</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
+    for (const row of toShow) {
+      html += '<tr>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+      html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+      html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
+      html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
+      html += '<td>' + escapeHtml(formatDate(row.resolved)) + '</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    if (remaining.length > 0) {
+      html += '<button class="btn btn-secondary btn-compact stories-show-more" data-count="' + remaining.length + '">Show ' + remaining.length + ' more</button>';
+      html += '<template id="stories-more-template">';
+      for (const row of remaining) {
+        html += '<tr>';
+        html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+        html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
+        html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
+        html += '<td>' + escapeHtml(formatDate(row.resolved)) + '</td>';
+        html += '</tr>';
+      }
+      html += '</template>';
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+export function wireProgressShowMoreHandlers() {
+  const storiesBtn = document.querySelector('.stories-show-more');
+  if (storiesBtn) {
+    storiesBtn.addEventListener('click', () => {
+      const tpl = document.getElementById('stories-more-template');
+      const tbody = document.querySelector('#stories-table tbody');
+      if (tpl && tbody) {
+        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        storiesBtn.style.display = 'none';
+      }
+    });
+  }
+
+  const burndownBtn = document.querySelector('.burndown-show-more');
+  if (burndownBtn) {
+    burndownBtn.addEventListener('click', () => {
+      const tpl = document.getElementById('burndown-more-template');
+      const tbody = document.querySelector('#burndown-table tbody');
+      if (tpl && tbody) {
+        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        burndownBtn.style.display = 'none';
+      }
+    });
+  }
 }
 
 export function renderScopeChanges(data) {

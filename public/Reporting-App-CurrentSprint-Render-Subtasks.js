@@ -9,8 +9,12 @@ export function renderStuckCandidates(data) {
   if (!stuck.length) {
     html += '<p>No items stuck beyond 24 hours in the current snapshot.</p>';
   } else {
-    html += '<table class="data-table"><thead><tr><th>Issue</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
-    for (const row of stuck) {
+    // Limit initial rows to reduce DOM nodes
+    const initialLimit = 10;
+    html += '<table class="data-table" id="stuck-table"><thead><tr><th>Issue</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
+    const toShow = stuck.slice(0, initialLimit);
+    const remaining = stuck.slice(initialLimit);
+    for (const row of toShow) {
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
       html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
@@ -21,6 +25,23 @@ export function renderStuckCandidates(data) {
       html += '</tr>';
     }
     html += '</tbody></table>';
+
+    if (remaining.length > 0) {
+      // Provide a show-more button and a template with remaining rows
+      html += '<button class="btn btn-secondary btn-compact stuck-show-more" data-count="' + remaining.length + '">Show ' + remaining.length + ' more</button>';
+      html += '<template id="stuck-more-template">';
+      for (const row of remaining) {
+        html += '<tr>';
+        html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+        html += '<td>' + formatNumber(row.hoursInStatus ?? 0, 1, '-') + '</td>';
+        html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+        html += '</tr>';
+      }
+      html += '</template>';
+    }
   }
   html += '</div>';
   return html;
@@ -38,9 +59,13 @@ export function renderSubtaskTracking(data) {
   if (!rows.length) {
     html += '<p>No sub-tasks with time tracking in this sprint.</p>';
   } else {
-    html += '<table class="data-table">';
+    const initialLimit = 10;
+    const toShow = rows.slice(0, initialLimit);
+    const remaining = rows.slice(initialLimit);
+
+    html += '<table class="data-table" id="subtask-table">';
     html += '<thead><tr><th>Sub-task</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Estimate</th><th>Logged</th><th>Remaining</th><th>Hours in status</th><th>Created</th><th>Updated</th></tr></thead><tbody>';
-    for (const row of rows) {
+    for (const row of toShow) {
       const hoursCell = row.hoursInStatus != null
         ? (row.hoursInStatus >= 24 ? '<span class="flag-warn">' + formatNumber(row.hoursInStatus, 1, '-') + '</span>' : formatNumber(row.hoursInStatus, 1, '-'))
         : '-';
@@ -58,6 +83,29 @@ export function renderSubtaskTracking(data) {
       html += '</tr>';
     }
     html += '</tbody></table>';
+
+    if (remaining.length > 0) {
+      html += '<button class="btn btn-secondary btn-compact subtask-show-more" data-count="' + remaining.length + '">Show ' + remaining.length + ' more</button>';
+      html += '<template id="subtask-more-template">';
+      for (const row of remaining) {
+        const hoursCell = row.hoursInStatus != null
+          ? (row.hoursInStatus >= 24 ? '<span class="flag-warn">' + formatNumber(row.hoursInStatus, 1, '-') + '</span>' : formatNumber(row.hoursInStatus, 1, '-'))
+          : '-';
+        html += '<tr>';
+        html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+        html += '<td>' + formatNumber(row.estimateHours || 0, 1, '-') + '</td>';
+        html += '<td>' + formatNumber(row.loggedHours || 0, 1, '-') + '</td>';
+        html += '<td>' + formatNumber(row.remainingHours || 0, 1, '-') + '</td>';
+        html += '<td>' + hoursCell + '</td>';
+        html += '<td>' + escapeHtml(formatDateTime(row.created)) + '</td>';
+        html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+        html += '</tr>';
+      }
+      html += '</template>';
+    }
   }
   html += '</div>';
   return html;
@@ -141,4 +189,33 @@ export function renderNotifications(data) {
   html += '</div>';
 
   return html;
+}
+
+// Handlers for show-more buttons in subtask & stuck tables
+export function wireSubtasksShowMoreHandlers() {
+  // Stuck items
+  const stuckBtn = document.querySelector('.stuck-show-more');
+  if (stuckBtn) {
+    stuckBtn.addEventListener('click', () => {
+      const tpl = document.getElementById('stuck-more-template');
+      const tbody = document.querySelector('#stuck-table tbody');
+      if (tpl && tbody) {
+        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        stuckBtn.style.display = 'none';
+      }
+    });
+  }
+
+  // Subtasks
+  const subtaskBtn = document.querySelector('.subtask-show-more');
+  if (subtaskBtn) {
+    subtaskBtn.addEventListener('click', () => {
+      const tpl = document.getElementById('subtask-more-template');
+      const tbody = document.querySelector('#subtask-table tbody');
+      if (tpl && tbody) {
+        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        subtaskBtn.style.display = 'none';
+      }
+    });
+  }
 }

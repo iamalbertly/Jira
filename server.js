@@ -1351,19 +1351,50 @@ app.post('/export-excel', requireAuth, async (req, res) => {
   }
 });
 
-/**
- * POST /feedback - Capture user feedback for later review
- */
-app.post('/feedback', requireAuth, async (req, res) => {
+// POST /feedback - Capture user feedback for later review (anonymous submissions allowed)
+// Simple IP rate-limiting applied to reduce spam while keeping the flow low-friction for users
+const feedbackRateLimitByIp = (function () {
+  const map = new Map(); // ip -> { count, resetAt }
+  const WINDOW_MS = 60 * 1000; // 1 minute
+  const MAX_PER_WINDOW = 3; // allow short bursts from same IP
+  return {
+    check(ip) {
+      const now = Date.now();
+      let record = map.get(ip);
+      if (record && now > record.resetAt) {
+        map.delete(ip);
+        record = null;
+      }
+      if (!record) {
+        map.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+        return true;
+      }
+      if (record.count >= MAX_PER_WINDOW) return false;
+      record.count += 1;
+      return true;
+    }
+  };
+})();
+
+app.post('/feedback', async (req, res) => {
   try {
     const { email, message } = req.body || {};
     const trimmedEmail = typeof email === 'string' ? email.trim() : '';
     const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+    const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '';
 
     if (!trimmedEmail || !trimmedMessage) {
       return res.status(400).json({
         error: 'Invalid feedback payload',
         message: 'Email and feedback message are required.'
+      });
+    }
+
+    // Rate limit per IP
+    if (!feedbackRateLimitByIp.check(ip)) {
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        message: 'Too many feedback submissions from this IP. Please wait a minute and try again.'
       });
     }
 
@@ -1373,7 +1404,8 @@ app.post('/feedback', requireAuth, async (req, res) => {
       email: trimmedEmail,
       message: trimmedMessage,
       userAgent: req.headers['user-agent'] || '',
-      ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '',
+      ip,
+      user: (req.session && req.session.user) ? { id: req.session.user.id, username: req.session.user.username } : null,
     };
     await appendFile(FEEDBACK_FILE, `${JSON.stringify(feedbackEntry)}\n`, 'utf-8');
 

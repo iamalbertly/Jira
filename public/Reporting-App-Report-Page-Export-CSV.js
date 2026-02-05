@@ -25,15 +25,44 @@ export function downloadCSV(csv, filename) {
     successMsg.innerHTML = `<strong>Exported:</strong> ${escapeHtml(filename)}`;
     document.body.appendChild(successMsg);
     setTimeout(() => successMsg.remove(), 4000);
-  } catch (_) {
+  } catch (err) {
     const errorEl = reportDom.errorEl;
     if (errorEl) {
       errorEl.style.display = 'block';
+      // Add a fallback: allow copying CSV to clipboard when download fails
       errorEl.innerHTML = `
-        <strong>Export error:</strong> Unable to download CSV file.
-        <br><small>Your browser may be blocking downloads. Please check your browser settings or try clicking the export button again.</small>
-        <button type="button" class="error-close" aria-label="Dismiss">x</button>
+        <div role="alert">
+          <strong>Export error:</strong> Unable to download CSV file.
+          <br><small>Your browser may be blocking downloads or an unexpected error occurred.</small>
+          <div style="margin-top:8px">
+            <button type="button" id="export-copy-csv" class="btn btn-compact">Copy CSV to clipboard</button>
+            <button type="button" class="error-close" aria-label="Dismiss">x</button>
+          </div>
+        </div>
       `;
+
+      // Attach handler to copy content
+      const copyBtn = document.getElementById('export-copy-csv');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(csv);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = csv;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              ta.remove();
+            }
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy CSV to clipboard'; }, 3000);
+          } catch (copyErr) {
+            copyBtn.textContent = 'Copy failed';
+          }
+        });
+      }
     }
   }
 }

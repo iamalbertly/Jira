@@ -9,13 +9,19 @@ export function showLoading(msg) {
   if (errorEl) errorEl.style.display = 'none';
 }
 
+import { setErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
+
 export function showError(msg) {
   const { loadingEl, errorEl } = currentSprintDom;
   if (loadingEl) loadingEl.style.display = 'none';
   if (errorEl) {
-    errorEl.textContent = msg || 'An error occurred.';
-    errorEl.style.display = 'block';
+    setErrorOnEl(errorEl, msg);
   }
+}
+
+export function clearError() {
+  const { errorEl } = currentSprintDom;
+  clearEl(errorEl);
 }
 
 export function showContent(html) {

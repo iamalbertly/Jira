@@ -41,6 +41,13 @@ export function initPreviewFlow() {
         previewBtn.focus();
       }
     }
+
+    // Retry action (for refresh failures)
+    if (target.getAttribute && target.getAttribute('data-action') === 'retry-preview') {
+      if (previewBtn && !previewBtn.disabled) {
+        previewBtn.click();
+      }
+    }
   });
 
   previewBtn.addEventListener('click', async () => {
@@ -224,7 +231,7 @@ export function initPreviewFlow() {
         if (hasExistingPreview) {
           statusEl.innerHTML = `
             <div class="status-banner warning">
-              Refresh failed. Showing the last successful preview. Please retry when ready.
+              Refresh failed. Showing the last successful preview. <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
               <button type="button" class="status-close" aria-label="Dismiss">x</button>
             </div>
           `;

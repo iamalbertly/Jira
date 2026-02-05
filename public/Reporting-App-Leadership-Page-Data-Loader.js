@@ -66,14 +66,20 @@ function showLoading(msg) {
   if (contentEl) contentEl.style.display = 'none';
 }
 
+import { setErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
+
 function showError(msg) {
   const { loadingEl, errorEl, contentEl } = leadershipDom;
   if (loadingEl) loadingEl.style.display = 'none';
   if (errorEl) {
-    errorEl.textContent = msg || 'An error occurred.';
-    errorEl.style.display = 'block';
+    setErrorOnEl(errorEl, msg);
   }
   if (contentEl) contentEl.style.display = 'none';
+}
+
+function clearError() {
+  const { errorEl } = leadershipDom;
+  clearEl(errorEl);
 }
 
 function showContent(html) {

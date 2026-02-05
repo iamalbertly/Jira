@@ -169,16 +169,43 @@ export function wireHealthDashboardHandlers() {
       const progressSummary = dashboard.querySelector('.progress-summary');
       const trackingItems = dashboard.querySelectorAll('.tracking-item');
 
-      let text = 'Sprint Health Snapshot\n\n';
-      text += statusChip?.textContent + '\n\n';
-      text += 'Progress: ' + progressSummary?.textContent + '\n\n';
-      text += 'Time Tracking:\n';
+      // Build Slack-friendly markdown-like message
+      let lines = [];
+      lines.push('*Sprint Health Snapshot*');
+      if (statusChip?.textContent) {
+        lines.push('> ' + statusChip.textContent.trim());
+      }
+      if (progressSummary?.textContent) {
+        lines.push('\n*Progress*: ' + progressSummary.textContent.trim());
+      }
+
+      lines.push('\n*Time Tracking:*');
       trackingItems.forEach(item => {
-        const label = item.querySelector('span')?.textContent;
-        const value = item.querySelector('strong')?.textContent;
-        if (label && value) text += `- ${label}: ${value}\n`;
+        const label = item.querySelector('span')?.textContent?.trim();
+        const value = item.querySelector('strong')?.textContent?.trim();
+        if (label && value) lines.push('- ' + label + ': ' + value);
       });
 
+      // Top stuck items (if present) — include issue link text and summary
+      const stuckRows = Array.from(document.querySelectorAll('#stuck-card tbody tr'));
+      if (stuckRows.length > 0) {
+        lines.push('\n*Top stuck items:*');
+        const toShow = stuckRows.slice(0, 5);
+        toShow.forEach(tr => {
+          const issueCell = tr.querySelector('td:first-child');
+          const summaryCell = tr.querySelector('td:nth-child(2)');
+          let keyText = issueCell ? (issueCell.textContent || '').trim() : '';
+          const link = issueCell ? issueCell.querySelector('a') : null;
+          if (link && link.href) {
+            // Slack-friendly: <url|KEY>
+            lines.push('- <' + link.href + '|' + keyText + '> — ' + (summaryCell ? (summaryCell.textContent || '').trim() : ''));
+          } else if (keyText) {
+            lines.push('- `' + keyText + '` — ' + (summaryCell ? (summaryCell.textContent || '').trim() : ''));
+          }
+        });
+      }
+
+      const text = lines.join('\n');
       navigator.clipboard.writeText(text).then(() => {
         const originalText = copyBtn.textContent;
         copyBtn.textContent = 'Copied!';

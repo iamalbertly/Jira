@@ -114,15 +114,16 @@ export function wireSprintCarouselHandlers(onSprintSelect) {
         e.preventDefault();
         const nextTab = tabs[idx + 1];
         if (nextTab) {
-          nextTab.click();
+          // Move focus without triggering a click/refresh
           nextTab.focus();
+          nextTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const prevTab = tabs[idx - 1];
         if (prevTab) {
-          prevTab.click();
           prevTab.focus();
+          prevTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
       } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();

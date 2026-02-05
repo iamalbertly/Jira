@@ -8,6 +8,7 @@
 
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { createModalBehavior } from './Reporting-App-Core-UI-02Primitives-Modal.js';
 
 export function renderScopeIndicator(data) {
   const scopeChanges = data.scopeChanges || [];
@@ -113,26 +114,20 @@ export function renderScopeModal(data) {
 export function wireScopeIndicatorHandlers() {
   const indicator = document.querySelector('#scope-indicator');
   if (!indicator) return;
-
   const detailsBtn = indicator.querySelector('.scope-details-btn');
   if (detailsBtn) {
+    let modalController = null;
     detailsBtn.addEventListener('click', () => {
-      const modal = document.querySelector('#scope-modal');
-      if (modal) {
-        modal.style.display = 'flex';
-        const closeBtn = modal.querySelector('.modal-close-btn');
-        if (closeBtn) {
-          closeBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-          });
-        }
-        // Close on overlay click
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) {
-            modal.style.display = 'none';
-          }
+      const modalEl = document.querySelector('#scope-modal');
+      if (!modalEl) return;
+      // initialize modal behavior once
+      if (!modalController) {
+        modalController = createModalBehavior('#scope-modal', {
+          onOpen: () => { modalEl.style.display = 'flex'; },
+          onClose: () => { modalEl.style.display = 'none'; }
         });
       }
+      modalController.open();
     });
   }
 }

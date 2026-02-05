@@ -37,12 +37,19 @@ export function renderHeaderBar(data) {
       remainingClass = 'critical';
     } else {
       remainingLabel = String(remainingDays) + ' day' + (remainingDays !== 1 ? 's' : '');
-      remainingClass = remainingDays <= 2 ? 'critical' : (remainingDays <= 5 ? 'warning' : '');
+      // Map semantics to expected visual classes: green (>5), yellow (3-5), critical (<=2)
+      if (remainingDays > 5) {
+        remainingClass = 'green';
+      } else if (remainingDays > 2) {
+        remainingClass = 'yellow';
+      } else {
+        remainingClass = 'critical';
+      }
     }
   }
 
   // Build HTML
-  let html = '<div class="current-sprint-header-bar">';
+  let html = '<div class="current-sprint-header-bar" data-sprint-id="' + (sprint.id || '') + '">';
   
   // Left section: Sprint info
   html += '<div class="header-bar-left">';
@@ -68,9 +75,12 @@ export function renderHeaderBar(data) {
   html += '</div>';
   html += '</div>';
 
-  // Right section: Status badge
+  // Right section: Status badge, last-updated and refresh
+  const generatedAt = meta && (meta.generatedAt || meta.snapshotAt) ? new Date(meta.generatedAt || meta.snapshotAt).toISOString() : null;
   html += '<div class="header-bar-right">';
   html += '<div class="status-badge ' + statusClass + '">' + statusBadge + '</div>';
+  html += '<div class="header-updated">' + (generatedAt ? ('Updated: <small class="last-updated">' + escapeHtml(generatedAt) + ' UTC</small>') : '') + '</div>';
+  html += '<button class="btn btn-compact header-refresh-btn" title="Refresh sprint data">Refresh</button>';
   html += '</div>';
 
   html += '</div>';
@@ -100,5 +110,13 @@ export function wireHeaderBarHandlers() {
   const remainingMetric = headerBar.querySelector('.header-metric:first-of-type .metric-value');
   if (remainingMetric) {
     remainingMetric.title = 'Days remaining in sprint (working days)';
+  }
+
+  // Refresh button wiring
+  const refreshBtn = headerBar.querySelector('.header-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      document.dispatchEvent(new Event('refreshSprint'));
+    });
   }
 }

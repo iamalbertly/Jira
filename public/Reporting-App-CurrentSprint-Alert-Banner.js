@@ -18,9 +18,18 @@ export function renderAlertBanner(data) {
   const tracking = data.subtaskTracking || {};
   const totalSP = summary.totalSP ?? 0;
 
+  // Adaptive team size calculation to tune thresholds (defaults to 1 if unknown)
+  const assignees = new Set();
+  (data.stories || []).forEach(s => { if (s.assignee) assignees.add(s.assignee); });
+  (data.stuckCandidates || []).forEach(s => { if (s.assignee) assignees.add(s.assignee); });
+  const teamSize = Math.max(1, assignees.size || 1);
+
+  // Stuck threshold scales with team size: ~1 per 5 people
+  const stuckThresholdCount = Math.max(1, Math.ceil(teamSize / 5));
+
   // Alert 1: Stuck items (>24h in same status)
-  if (stuckCount > 0) {
-    const severity = stuckCount > 5 ? 'critical' : (stuckCount > 2 ? 'high' : 'medium');
+  if (stuckCount >= stuckThresholdCount) {
+    const severity = stuckCount > Math.max(5, stuckThresholdCount + 3) ? 'critical' : (stuckCount > Math.max(2, stuckThresholdCount) ? 'high' : 'medium');
     alerts.push({
       id: 'stuck-items',
       type: 'stuck',
@@ -28,17 +37,21 @@ export function renderAlertBanner(data) {
       icon: '⚠️',
       title: stuckCount + ' issue' + (stuckCount > 1 ? 's' : '') + ' stuck > 24h',
       message: 'Potential blockers in progress. Review and unblock immediately.',
-      action: 'View Details',
+      action: 'View Blockers',
       actionHref: '#stuck-card',
+      actionData: 'view-blockers',
       color: severity === 'critical' ? 'red' : (severity === 'high' ? 'orange' : 'yellow')
     });
   }
 
-  // Alert 2: Scope change (> 15% growth)
+  // Alert 2: Scope change (adaptive percent threshold based on team size)
   if (scopeChanges.length > 0 && totalSP > 0) {
     const scopeSP = scopeChanges.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
     const scopePercent = (scopeSP / totalSP) * 100;
-    if (scopePercent > 15) {
+    // Smaller teams: be more sensitive
+    const scopeThresholdHigh = teamSize <= 3 ? 8 : 15;
+    const scopeThresholdMedium = teamSize <= 3 ? 4 : 5;
+    if (scopePercent > scopeThresholdHigh) {
       alerts.push({
         id: 'scope-growth',
         type: 'scope',
@@ -48,9 +61,10 @@ export function renderAlertBanner(data) {
         message: scopeChanges.length + ' new issues added (' + scopeSP + ' SP). Sprint commitment at risk.',
         action: 'Review Scope',
         actionHref: '#scope-changes-card',
+        actionData: 'review-scope',
         color: 'orange'
       });
-    } else if (scopePercent > 5) {
+    } else if (scopePercent > scopeThresholdMedium) {
       alerts.push({
         id: 'scope-growth',
         type: 'scope',
@@ -60,6 +74,7 @@ export function renderAlertBanner(data) {
         message: scopeChanges.length + ' new items. Monitor impact on delivery.',
         action: 'Review Scope',
         actionHref: '#scope-changes-card',
+        actionData: 'review-scope',
         color: 'yellow'
       });
     }
@@ -149,7 +164,9 @@ export function renderAlertBanner(data) {
     html += '<strong>' + escapeHtml(alert.title) + '</strong>';
     html += '<p>' + escapeHtml(alert.message) + '</p>';
     html += '</div>';
-    html += '<a href="' + alert.actionHref + '" class="alert-action">' + alert.action + '</a>';
+    // Add data-action-data attribute for action handlers (backwards-compatible)
+    const actionDataAttr = alert.actionData ? (' data-action="' + alert.actionData + '"') : '';
+    html += '<a href="' + alert.actionHref + '" class="alert-action"' + actionDataAttr + '>' + alert.action + '</a>';
     html += '</div>';
   });
 
@@ -172,13 +189,16 @@ export function wireAlertBannerHandlers() {
   const dismissBtn = banner.querySelector('.alert-dismiss');
   if (dismissBtn) {
     dismissBtn.addEventListener('click', () => {
-      // Get sprint ID from page context
-      const sprintName = document.querySelector('.header-sprint-name');
-      const sprintId = sprintName?.textContent?.split(' ').pop() || 'unknown';
-      
-      // Store dismissal in localStorage with timestamp
+      // Get sprint ID from header data attribute if available
+      const headerBar = document.querySelector('.current-sprint-header-bar');
+      const sprintId = headerBar?.getAttribute('data-sprint-id') || 'unknown';
+
+      // Store dismissal in localStorage with timestamp (store both sprint-specific and generic key for compatibility)
       const dismissKey = `alert_banner_dismissed_${sprintId}`;
-      localStorage.setItem(dismissKey, String(Date.now()));
+      const genericKey = `alert_banner_dismissed_unknown`;
+      const ts = String(Date.now());
+      localStorage.setItem(dismissKey, ts);
+      localStorage.setItem(genericKey, ts);
 
       // Hide banner with fade animation
       banner.style.animation = 'fadeOut 0.3s ease-out';
@@ -188,12 +208,33 @@ export function wireAlertBannerHandlers() {
     });
   }
 
-  // Make action links scroll smoothly
+  // Make action links scroll smoothly and wire actionData handlers
   const actionLinks = banner.querySelectorAll('.alert-action');
   actionLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
       const href = link.getAttribute('href');
+      const actionData = link.getAttribute('data-action') || link.getAttribute('data-action-data') || link.getAttribute('data-action');
+      if (actionData === 'view-blockers') {
+        const target = document.querySelector('#stuck-card');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth' });
+          target.classList.add('highlight-flash');
+          setTimeout(() => target.classList.remove('highlight-flash'), 2000);
+        }
+        return;
+      }
+      if (actionData === 'review-scope') {
+        const target = document.querySelector('#scope-changes-card');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth' });
+          // Open scope modal if available
+          const scopeDetails = document.querySelector('.scope-details-btn');
+          if (scopeDetails) scopeDetails.click();
+        }
+        return;
+      }
+
       const target = document.querySelector(href);
       if (target) {
         target.scrollIntoView({ behavior: 'smooth' });
@@ -207,7 +248,8 @@ export function wireAlertBannerHandlers() {
  */
 export function shouldShowAlertBanner(sprintId) {
   const dismissKey = `alert_banner_dismissed_${sprintId}`;
-  const dismissedTime = localStorage.getItem(dismissKey);
+  const genericKey = `alert_banner_dismissed_unknown`;
+  const dismissedTime = localStorage.getItem(dismissKey) || localStorage.getItem(genericKey);
   if (!dismissedTime) return true;
 
   const now = Date.now();

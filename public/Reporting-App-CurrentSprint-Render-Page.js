@@ -76,9 +76,29 @@ export function renderCurrentSprintPage(data) {
 
   // LEGACY (kept for backward compatibility): Notifications, Sprint windows, Sub-task tracking
   html += '<div class="legacy-cards-section">';
-  html += renderNotifications(data);
+  // Render lightweight placeholders and keep heavy legacy content inside <template> to avoid DOM bloat
+  const notificationsHtml = renderNotifications(data);
+  const subtaskHtml = renderSubtaskTracking(data);
+
+  // Notifications placeholder with template
+  html += '<div class="legacy-placeholder" id="legacy-notifications-placeholder">';
+  html += '<h3>Legacy: Time tracking alerts</h3>';
+  html += '<p><small>' + ((data.subtaskTracking && (data.subtaskTracking.notifications || []).length) || 0) + ' alerts</small></p>';
+  html += '<button class="btn btn-secondary btn-compact" data-load-target="legacy-notifications">Show legacy notifications</button>';
+  html += '<template id="legacy-notifications-template">' + notificationsHtml + '</template>';
+  html += '</div>';
+
+  // Sprint windows (keep as-is: small list)
   html += renderSprintWindows(data);
-  html += renderSubtaskTracking(data);
+
+  // Subtask tracking placeholder with template
+  html += '<div class="legacy-placeholder" id="legacy-subtasks-placeholder">';
+  html += '<h3>Legacy: Sub-task tracking</h3>';
+  html += '<p><small>' + ((data.subtaskTracking && (data.subtaskTracking.rows || []).length) || 0) + ' sub-tasks</small></p>';
+  html += '<button class="btn btn-secondary btn-compact" data-load-target="legacy-subtasks">Show legacy sub-task table</button>';
+  html += '<template id="legacy-subtasks-template">' + subtaskHtml + '</template>';
+  html += '</div>';
+
   html += '</div>';
 
   // Scope modal (hidden by default)
@@ -94,6 +114,9 @@ export function renderCurrentSprintPage(data) {
   html += renderSprintTabs(data);
   html += renderSummaryCard(data);
   html += renderAssumptions(data);
+
+  // Add handlers for loading legacy templates on demand (to be wired after render)
+  html += '<script>window._legacyTemplates = true;</script>';
 
   return html;
 }
