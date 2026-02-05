@@ -86,6 +86,24 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run CSV Export Fallback Test',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-CSV-Export-Fallback.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Preview Retry Test',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Preview-Retry.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Server Feedback Endpoint Test',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Server-Feedback-Endpoint.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run Column Titles & Tooltips Tests',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Column-Tooltip-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
