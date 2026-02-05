@@ -53,9 +53,9 @@ export function renderEpicKeyCell(epic, meta) {
   const host = meta?.jiraHost || meta?.host || '';
   const url = buildJiraIssueUrl(host, epic.epicKey);
   if (url) {
-    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(epic.epicKey || '')}</a>`;
+    return `<span class="epic-key"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epic.epicKey || '')}</a></span>`;
   }
-  return escapeHtml(epic.epicKey || '');
+  return `<span class="epic-key">${escapeHtml(epic.epicKey || '')}</span>`;
 }
 
 export function renderEpicTitleCell(epic) {

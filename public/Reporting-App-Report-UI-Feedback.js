@@ -34,8 +34,9 @@ export function initFeedbackPanel() {
     feedbackSubmit.addEventListener('click', async () => {
       const email = (feedbackEmail?.value || '').trim();
       const message = (feedbackMessage?.value || '').trim();
-      if (!email || !message) {
-        setFeedbackStatus(feedbackStatus, 'Please enter your email and feedback.', 'error');
+      // Email is optional; message is required (allow anonymous feedback)
+      if (!message) {
+        setFeedbackStatus(feedbackStatus, 'Please enter your feedback message.', 'error');
         return;
       }
 

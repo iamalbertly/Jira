@@ -41,21 +41,27 @@ export function writeNotificationDockState(next, stateKey = DEFAULT_NOTIFICATION
   } catch (_) {}
 }
 
-function renderToggleButton({ toggleId, stateKey, onShow }) {
+function renderToggleButton({ toggleId, stateKey, onShow, summary } = {}) {
   let toggle = document.getElementById(toggleId);
   if (!toggle) {
+    const container = document.querySelector('header .header-row') || document.body;
     toggle = document.createElement('button');
     toggle.id = toggleId;
     toggle.className = 'app-notification-toggle';
     toggle.type = 'button';
-    toggle.textContent = 'Show notifications';
+    const total = summary && summary.total ? Number(summary.total) : 0;
+    toggle.setAttribute('aria-label', 'Show notifications');
+    toggle.innerHTML = `🔔 <span class="app-notification-badge">${total}</span>`;
     toggle.addEventListener('click', () => {
       const state = readNotificationDockState(stateKey);
       writeNotificationDockState({ ...state, hidden: false }, stateKey);
       toggle.remove();
       if (onShow) onShow();
     });
-    document.body.appendChild(toggle);
+    container.appendChild(toggle);
+  } else if (summary && typeof summary.total !== 'undefined') {
+    const badge = toggle.querySelector('.app-notification-badge');
+    if (badge) badge.textContent = String(summary.total);
   }
 }
 
@@ -82,7 +88,7 @@ export function renderNotificationDock(options = {}) {
 
   if (state.hidden) {
     if (existing) existing.remove();
-    renderToggleButton({ toggleId, stateKey, onShow: () => renderNotificationDock(options) });
+    renderToggleButton({ toggleId, stateKey, onShow: () => renderNotificationDock(options), summary: resolvedSummary });
     return;
   }
 

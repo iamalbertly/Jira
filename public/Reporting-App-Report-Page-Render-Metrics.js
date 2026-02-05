@@ -16,19 +16,25 @@ export function renderMetricsTab(metrics) {
     hasMetrics = true;
     html += '<h3>Throughput</h3>';
     html += '<p class="metrics-hint"><small>Note: Per Sprint data is shown in the Sprints tab. Below are aggregated views.</small></p>';
-    html += '<h4>Per Project</h4>';
-    html += '<table class="data-table"><thead><tr>' +
-      '<th title="Project key.">Project</th>' +
-      '<th title="Total story points delivered for this project.">Total SP</th>' +
-      '<th title="Number of sprints included for this project.">Sprint Count</th>' +
-      '<th title="Average story points delivered per sprint.">Average SP/Sprint</th>' +
-      '<th title="Number of stories completed for this project.">Story Count</th>' +
-      '</tr></thead><tbody>';
-    for (const projectKey in safeMetrics.throughput.perProject) {
-      const data = safeMetrics.throughput.perProject[projectKey];
-      html += `<tr><td>${escapeHtml(data.projectKey)}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${formatNumber(data.averageSPPerSprint)}</td><td>${data.storyCount}</td></tr>`;
+    // If Boards are present, we merge per-project throughput into the Boards table and avoid duplicate tables here.
+    if (reportState.previewData && Array.isArray(reportState.previewData.boards) && reportState.previewData.boards.length > 0) {
+      html += '<h4>Per Project</h4>';
+      html += '<p><em>Per-project throughput has been merged into the <strong>Boards</strong> table for a unified view. <button type="button" class="btn-ghost" data-action="open-boards-tab">Open Boards</button></em></p>';
+    } else {
+      html += '<h4>Per Project</h4>';
+      html += '<table class="data-table"><thead><tr>' +
+        '<th title="Project key.">Project</th>' +
+        '<th title="Total story points delivered for this project.">Total SP</th>' +
+        '<th title="Number of sprints included for this project.">Sprint Count</th>' +
+        '<th title="Average story points delivered per sprint.">Average SP/Sprint</th>' +
+        '<th title="Number of stories completed for this project.">Story Count</th>' +
+        '</tr></thead><tbody>';
+      for (const projectKey in safeMetrics.throughput.perProject) {
+        const data = safeMetrics.throughput.perProject[projectKey];
+        html += `<tr><td>${escapeHtml(data.projectKey)}</td><td>${data.totalSP}</td><td>${data.sprintCount}</td><td>${formatNumber(data.averageSPPerSprint)}</td><td>${data.storyCount}</td></tr>`;
+      }
+      html += '</tbody></table>';
     }
-    html += '</tbody></table>';
 
     if (safeMetrics.throughput.perIssueType && Object.keys(safeMetrics.throughput.perIssueType).length > 0) {
       html += '<h4>Per Issue Type</h4>';

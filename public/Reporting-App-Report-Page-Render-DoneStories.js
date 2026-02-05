@@ -238,8 +238,8 @@ export function renderDoneStoriesTab(rows) {
           ${meta?.discoveredFields?.epicLinkFieldId
             ? `<td>${
                 epicUrl
-                  ? `<a href="${escapeHtml(epicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epicKey)}</a>`
-                  : escapeHtml(epicKey)
+                  ? `<span class="epic-key"><a href="${escapeHtml(epicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epicKey)}</a></span>`
+                  : `<span class="epic-key">${escapeHtml(epicKey)}</span>`
               }</td><td>${escapeHtml(row.epicTitle || '')}</td><td title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>`
             : ''}
         </tr>

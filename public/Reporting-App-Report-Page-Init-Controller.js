@@ -19,6 +19,20 @@ function initReportPage() {
   initPreviewFlow();
   initSearchClearButtons();
   renderNotificationDock();
+
+  // Delegated click handlers for small CTA buttons inside Metrics/Boards etc.
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest && ev.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    if (action === 'open-boards-tab') {
+      const boardTab = document.getElementById('tab-btn-project-epic-level');
+      if (boardTab) {
+        boardTab.click();
+        boardTab.focus();
+      }
+    }
+  });
 }
 
 if (document.readyState === 'loading') {

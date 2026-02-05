@@ -53,7 +53,58 @@ header {
   margin-bottom: 22px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+  position: sticky; /* keep header visible while scrolling */
+  top: 12px;
+  z-index: 30;
 }
+
+/* Notification toggle placed in header (compact bell with badge) */
+.app-notification-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  color: var(--primary);
+}
+.app-notification-toggle .app-notification-badge {
+  background: var(--danger);
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 0.75em;
+}
+
+/* Dock styling (modern, floating panel) */
+.app-notification-dock {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 360px;
+  background: linear-gradient(180deg,#fff,#fbfdff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(20,40,80,0.12);
+  padding: 12px;
+  z-index: 60;
+}
+.app-notification-dock .app-notification-title { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+.app-notification-dock .app-notification-badge { background: var(--danger); color:#fff; border-radius:10px; padding:4px 8px; }
+.app-notification-dock .app-notification-actions button { margin-left: 6px; }
+
+/* Epic key column CSS to prevent wrapping and make click-through easier */
+.data-table .epic-key { display: inline-block; min-width: 120px; }
+.data-table .epic-key a { white-space: nowrap; text-decoration: none; color: var(--primary); }
+.data-table td, .data-table th { padding: 8px 12px; }
+
+/* Ensure long tables remain readable */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { text-align: left; background: var(--card-muted); font-weight: 600; }
+.data-table tbody tr:nth-child(odd) { background: rgba(15,76,129,0.02); }
+
 
 header .header-row {
   display: flex;
