@@ -92,6 +92,18 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Throughput Merge Test',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Throughput-Merge.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
+    name: 'Run Epic Key Link Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-EpicKeyLinks.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run Preview Retry Test',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-Preview-Retry.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
