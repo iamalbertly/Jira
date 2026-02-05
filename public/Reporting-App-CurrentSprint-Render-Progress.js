@@ -138,11 +138,11 @@ export function renderStories(data) {
     const toShow = stories.slice(0, initialLimit);
     const remaining = stories.slice(initialLimit);
 
-    html += '<table class="data-table" id="stories-table"><thead><tr><th>Story</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
+    html += '<table class="data-table" id="stories-table"><thead><tr><th>Story</th><th class="cell-wrap">Summary</th><th>Status</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
     for (const row of toShow) {
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-      html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
       html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
@@ -158,7 +158,7 @@ export function renderStories(data) {
       for (const row of remaining) {
         html += '<tr>';
         html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
         html += '<td>' + escapeHtml(row.status || '-') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
@@ -221,5 +221,4 @@ export function renderScopeChanges(data) {
   html += '</div>';
   return html;
 }
-
 

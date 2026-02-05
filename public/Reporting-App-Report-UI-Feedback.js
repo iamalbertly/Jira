@@ -14,6 +14,9 @@ function toggleFeedbackPanel(panelEl, statusEl, show) {
 }
 
 export function initFeedbackPanel() {
+  if (document.body && document.body.dataset.feedbackPanelInit === 'true') {
+    return;
+  }
   const feedbackToggle = document.getElementById('feedback-toggle');
   const feedbackPanel = document.getElementById('feedback-panel');
   const feedbackEmail = document.getElementById('feedback-email');
@@ -95,5 +98,9 @@ export function initFeedbackPanel() {
         feedbackSubmit.disabled = false;
       }
     });
+  }
+
+  if (document.body) {
+    document.body.dataset.feedbackPanelInit = 'true';
   }
 }

@@ -105,9 +105,10 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     await page.waitForSelector('#current-sprint-content, #current-sprint-error', { timeout: 20000 }).catch(() => null);
 
     const bodyText = await page.locator('body').textContent();
-    const hasBurndownLine = bodyText && /of \d+ SP done|\d+ of \d+ SP done/.test(bodyText);
-    const hasBurndownHint = bodyText && /Burndown will appear when story points and resolutions/.test(bodyText);
-    const hasNoSprint = bodyText && /No active or recent closed sprint/.test(bodyText);
+    // Allow decimal SP values like "0.0 SP done" as well as integer forms
+    const hasBurndownLine = bodyText && (/of \d+(?:\.\d+)? SP done/.test(bodyText) || /\d+ of \d+ SP done/.test(bodyText));
+    const hasBurndownHint = bodyText && /Burndown will appear when story points and resolutions/i.test(bodyText);
+    const hasNoSprint = bodyText && /No active or recent closed sprint/i.test(bodyText);
     expect(hasBurndownLine || hasBurndownHint || hasNoSprint).toBeTruthy();
 
     if (!hasNoSprint) {

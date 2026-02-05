@@ -182,6 +182,12 @@ const steps = [
     cwd: projectRoot,
   },
   {
+    name: 'Run Mobile Responsive UX Validation Tests',
+    command: 'npx',
+    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
+    cwd: projectRoot,
+  },
+  {
     name: 'Run General Performance Quarters UI Validation Tests',
     command: 'npx',
     args: ['playwright', 'test', 'tests/Jira-Reporting-App-General-Performance-Quarters-UI-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],

@@ -186,6 +186,13 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
     .catch(() => ({ quarters: [] }))
     .then((data) => {
       const quarters = data.quarters || [];
+      const now = Date.now();
+      const filteredQuarters = quarters.filter((q) => {
+        if (!q || !q.start) return true;
+        const startTime = new Date(q.start).getTime();
+        if (Number.isNaN(startTime)) return true;
+        return startTime <= now;
+      });
       container.innerHTML = '';
       container.style.overflowX = 'auto';
       container.style.display = 'flex';
@@ -193,7 +200,7 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
       container.style.flexWrap = 'nowrap';
       container.setAttribute('role', 'group');
       container.setAttribute('aria-label', 'Vodacom quarters');
-      if (quarters.length === 0) {
+      if (filteredQuarters.length === 0) {
         const fallback = document.createElement('span');
         fallback.className = 'quarter-strip-fallback';
         fallback.setAttribute('aria-live', 'polite');
@@ -202,12 +209,12 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         return;
       }
       // Ensure quarters are shown most-recent-first (end date desc)
-      quarters.sort((a, b) => {
+      filteredQuarters.sort((a, b) => {
         const at = a && a.end ? new Date(a.end).getTime() : 0;
         const bt = b && b.end ? new Date(b.end).getTime() : 0;
         return bt - at;
       });
-      quarters.forEach((q) => {
+      filteredQuarters.forEach((q) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn btn-secondary btn-compact quarter-pill' + (q.isCurrent ? ' is-current' : '');

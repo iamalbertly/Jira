@@ -83,12 +83,14 @@ export function renderNotificationDock(options = {}) {
     if (existing) existing.remove();
     const toggle = document.getElementById(toggleId);
     if (toggle) toggle.remove();
+    document.body.classList.remove('notification-dock-visible');
     return;
   }
 
   if (state.hidden) {
     if (existing) existing.remove();
     renderToggleButton({ toggleId, stateKey, onShow: () => renderNotificationDock(options), summary: resolvedSummary });
+    document.body.classList.remove('notification-dock-visible');
     return;
   }
 
@@ -115,6 +117,7 @@ export function renderNotificationDock(options = {}) {
     <a class="app-notification-link" href="${linkHref}">Open Current Sprint</a>
   `;
   if (!existing) document.body.appendChild(dock);
+  document.body.classList.add('notification-dock-visible');
 
   const toggleBtn = dock.querySelector('[data-action="toggle"]');
   if (toggleBtn) {

@@ -60,10 +60,18 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     console.log('[TEST] Starting empty issueType display validation');
     test.setTimeout(300000);
 
-    // Test via API first to get data
-    const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
-      timeout: 120000
-    });
+    // Test via API first to get data (retry once if transient timeout)
+    let response;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, { timeout: 120000 });
+        break;
+      } catch (err) {
+        console.warn(`[TEST] Preview API attempt ${attempt} failed: ${err.message}`);
+        if (attempt === 2) throw err;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
 
     if (response.status() === 200) {
       const data = await response.json();

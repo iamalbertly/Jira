@@ -1,7 +1,7 @@
 import { currentSprintDom } from './Reporting-App-CurrentSprint-Page-Context.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { updateNotificationStore } from './Reporting-App-CurrentSprint-Notifications-Helpers.js';
-import { showLoading, showError, showContent } from './Reporting-App-CurrentSprint-Page-Status.js';
+import { showLoading, showError, showContent, clearError } from './Reporting-App-CurrentSprint-Page-Status.js';
 import { loadBoards, loadCurrentSprint } from './Reporting-App-CurrentSprint-Page-Data-Loaders.js';
 import { renderCurrentSprintPage } from './Reporting-App-CurrentSprint-Render-Page.js';
 import { wireDynamicHandlers } from './Reporting-App-CurrentSprint-Page-Handlers.js';
@@ -121,11 +121,16 @@ function onBoardChange() {
     });
 }
 
+let __lastBoardsRefreshRequestId = 0;
+
 function refreshBoards(preferredId, preferredSprintId) {
+  const requestId = ++__lastBoardsRefreshRequestId;
   const { boardSelect } = currentSprintDom;
   showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
   return loadBoards()
     .then((res) => {
+      // Ignore if a newer refresh was started
+      if (requestId !== __lastBoardsRefreshRequestId) return null;
       const boards = res.boards || [];
       if (!boardSelect) return null;
       boardSelect.innerHTML = '';
@@ -145,8 +150,11 @@ function refreshBoards(preferredId, preferredSprintId) {
         boardSelect.value = idToSelect;
         currentBoardId = idToSelect;
         showLoading('Loading current sprint...');
+        const myRequestId = ++__lastBoardsRefreshRequestId; // increment to mark sprint load
         return loadCurrentSprint(idToSelect, preferredSprintId)
           .then((data) => {
+            // ensure still the latest
+            if (myRequestId !== __lastBoardsRefreshRequestId) return null;
             currentSprintId = data?.sprint?.id || null;
             persistSelection(currentBoardId, currentSprintId);
             showRenderedContent(data);
@@ -171,8 +179,13 @@ function refreshBoards(preferredId, preferredSprintId) {
           retry.textContent = 'Retry';
           retry.style.marginLeft = '8px';
           retry.addEventListener('click', () => {
+            try { if (typeof window !== 'undefined') window.__retryClicked = (window.__retryClicked || 0) + 1; } catch (_) {}
+            retry.disabled = true;
+            retry.textContent = 'Retrying...';
             clearError();
-            refreshBoards(preferredId, preferredSprintId);
+            refreshBoards(preferredId, preferredSprintId).finally(() => {
+              try { retry.disabled = false; retry.textContent = 'Retry'; } catch (_) {}
+            });
           });
           errorEl.appendChild(retry);
         }

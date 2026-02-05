@@ -2,6 +2,7 @@ import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
+import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState } from './Reporting-App-Report-Page-Export-Menu.js';
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
@@ -54,6 +55,7 @@ export function initPreviewFlow() {
     let timeoutId;
     let progressInterval;
     let isLoading = true;
+    const cachePrefix = 'reportPreview:';
 
     const prevExportFilteredDisabled = exportDropdownTrigger ? exportDropdownTrigger.disabled : true;
     const prevExportExcelDisabled = exportExcelBtn ? exportExcelBtn.disabled : true;
@@ -133,6 +135,73 @@ export function initPreviewFlow() {
     }
 
     const queryString = new URLSearchParams(params).toString();
+    const cacheKey = `${cachePrefix}${queryString}`;
+
+    const readCachedPreview = () => {
+      try {
+        const raw = sessionStorage.getItem(cacheKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const writeCachedPreview = (payload) => {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+      } catch (_) {}
+    };
+
+    const applyPreviewPayload = (payload, options = {}) => {
+      const { finalize = true, fromSessionCache = false } = options;
+      if (!payload || typeof payload !== 'object') return;
+
+      if (fromSessionCache && payload.meta) {
+        payload.meta.fromCache = true;
+      }
+
+      reportState.previewData = payload;
+      reportState.previewRows = reportState.previewData.rows || [];
+      reportState.visibleRows = [...reportState.previewRows];
+      const boards = reportState.previewData.boards || [];
+      const sprintsIncluded = reportState.previewData.sprintsIncluded || [];
+      reportState.visibleBoardRows = [...boards];
+      reportState.visibleSprintRows = sortSprintsLatestFirst(sprintsIncluded);
+      reportState.previewHasRows = reportState.previewRows.length > 0;
+
+      try {
+        renderPreview();
+      } catch (renderErr) {
+        if (errorEl) {
+          errorEl.style.display = 'block';
+          errorEl.innerHTML = `<div role="alert"><strong>Error:</strong> Failed to render preview: ${escapeHtml(renderErr.message || String(renderErr))}<button type="button" class="error-close" aria-label="Dismiss">x</button></div>`;
+        }
+      }
+
+      if (!finalize) return;
+      if (loadingEl) {
+        loadingEl.style.display = 'none';
+        loadingEl.setAttribute('aria-hidden', 'true');
+      }
+      if (previewContent) previewContent.style.display = 'block';
+      if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
+      if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
+      updateExportFilteredState();
+    };
+
+    const cachedPreview = readCachedPreview();
+    if (!hasExistingPreview && cachedPreview && statusEl) {
+      applyPreviewPayload(cachedPreview, { finalize: false, fromSessionCache: true });
+      statusEl.innerHTML = `
+        <div class="status-banner info">
+          Showing cached preview while refreshing with the latest data.
+          <button type="button" class="status-close" aria-label="Dismiss">x</button>
+        </div>
+      `;
+      statusEl.style.display = 'block';
+    }
 
     try {
       updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
@@ -140,7 +209,7 @@ export function initPreviewFlow() {
       const controller = new AbortController();
       timeoutId = setTimeout(() => {
         controller.abort();
-      }, 300000);
+      }, 60000);
 
       let elapsedSeconds = 0;
       progressInterval = setInterval(() => {
@@ -150,6 +219,9 @@ export function initPreviewFlow() {
         const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
         updateLoadingMessage(`Fetching data from Jira... (${timeStr})`, null);
       }, 2000);
+
+      // Emit telemetry that a preview fetch is starting (captured by tests)
+      try { emitTelemetry('preview.fetch', { params: queryString }); } catch (_) {}
 
       const response = await fetch(`/preview.json?${queryString}`, { signal: controller.signal });
 
@@ -181,6 +253,7 @@ export function initPreviewFlow() {
           displayMessage = 'Network error. Please check your connection and try again.';
         }
 
+        try { emitTelemetry('preview.error', { code: errorCode, message: displayMessage }); } catch (_) {}
         throw new Error(displayMessage);
       }
 
@@ -190,34 +263,12 @@ export function initPreviewFlow() {
         throw new Error('Preview response was not valid JSON. Please check server logs and try again.');
       }
 
-      reportState.previewData = responseJson;
-      reportState.previewRows = reportState.previewData.rows || [];
-      reportState.visibleRows = [...reportState.previewRows];
-      const boards = reportState.previewData.boards || [];
-      const sprintsIncluded = reportState.previewData.sprintsIncluded || [];
-      reportState.visibleBoardRows = [...boards];
-      reportState.visibleSprintRows = sortSprintsLatestFirst(sprintsIncluded);
-      reportState.previewHasRows = reportState.previewRows.length > 0;
+      writeCachedPreview(responseJson);
 
       updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
-      try {
-        renderPreview();
-      } catch (renderErr) {
-        if (errorEl) {
-          errorEl.style.display = 'block';
-          errorEl.innerHTML = `<div role="alert"><strong>Error:</strong> Failed to render preview: ${escapeHtml(renderErr.message || String(renderErr))}<button type="button" class="error-close" aria-label="Dismiss">x</button></div>`;
-        }
-      }
-
-      // Ensure loading hidden and preview content visible (best-effort)
-      if (loadingEl) {
-        loadingEl.style.display = 'none';
-        loadingEl.setAttribute('aria-hidden', 'true');
-      }
-      if (previewContent) previewContent.style.display = 'block';
-      if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
-      if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
-      updateExportFilteredState();
+      applyPreviewPayload(responseJson);
+      const boards = responseJson?.boards || [];
+      try { emitTelemetry('preview.complete', { rows: reportState.previewRows.length || 0, boards: (boards || []).length || 0 }); } catch (_) {}
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
@@ -230,14 +281,19 @@ export function initPreviewFlow() {
 
       let errorMsg = error.message;
       if (error && error.name === 'AbortError') {
-        errorMsg = 'Preview request timed out after 5 minutes. This can happen with very large date ranges or many sprints. Try a smaller date range, fewer projects, or check the server logs for more details.';
+        errorMsg = 'Preview request timed out after 60 seconds. Try a smaller date range or fewer projects, or retry to use cached results.';
       }
+
+      try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
 
       if (errorEl) {
         errorEl.innerHTML = `
           <div role="alert">
             <strong>Error:</strong> ${escapeHtml(errorMsg)}
             <br><small>If this problem persists, please check your Jira connection and try again.</small>
+            <div style="margin-top: 8px;">
+              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
+            </div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
         `;

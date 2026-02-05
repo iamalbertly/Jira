@@ -5,6 +5,7 @@ import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateForDisplay, formatPercent } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { computeBoardRowFromSummary, computeBoardsSummaryRow } from './Reporting-App-Report-Page-Render-Boards-Summary-Helpers.js';
 import { buildPredictabilityTableHeaderHtml, buildEpicAdhocRows, renderEpicKeyCell, renderEpicTitleCell, renderEpicStoryList, renderEpicSubtaskHours } from './Reporting-App-Report-Page-Render-Epic-Helpers.js';
+import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
 
 const BOARD_TABLE_COLUMN_ORDER = [
   'Board', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days', 'Done Stories', 'Registered Work Hours', 'Estimated Work Hours', 'Done SP',
@@ -114,32 +115,22 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     html += '<p class="table-context" aria-label="Table context">' + tableContextLabel + '</p>';
     const hasPredictability = !!metrics?.predictability;
     html += '<p class="metrics-hint"><small>Time-normalized metrics (Stories / Day, SP / Day, Indexed Delivery) are shown. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Do not use to rank teams.</small></p>';
-    html += '<table class="data-table"><thead><tr>';
-    for (const key of BOARD_TABLE_COLUMN_ORDER) {
-      const title = BOARD_TABLE_HEADER_TOOLTIPS[key] || '';
-      html += '<th title="' + escapeHtml(title) + '" data-tooltip="' + escapeHtml(title) + '">' + escapeHtml(key) + '</th>';
-    }
-    html += '</tr></thead><tbody>';
-    for (const board of boards) {
+    // Build table using shared renderer for consistent behavior
+    const columns = BOARD_TABLE_COLUMN_ORDER.map(k => ({ key: k, label: k, title: BOARD_TABLE_HEADER_TOOLTIPS[k] || '' }));
+    const rowsForRender = boards.map((board) => {
       const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, registeredWorkHours: 0, estimatedWorkHours: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
       const row = computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability);
-      html += '<tr>';
-      for (const key of BOARD_TABLE_COLUMN_ORDER) {
-        html += '<td>' + escapeHtml(String(row[key] ?? '')) + '</td>';
-      }
-      html += '</tr>';
-    }
-    html += '</tbody>';
+      // convert object to expected keys
+      const out = {};
+      for (const k of BOARD_TABLE_COLUMN_ORDER) out[k] = row[k] ?? '';
+      return out;
+    });
     const summaryRow = computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPredictability);
     if (summaryRow) {
-      html += '<tfoot><tr class="boards-summary-row">';
-      for (const key of BOARD_TABLE_COLUMN_ORDER) {
-        const tip = BOARD_SUMMARY_TOOLTIPS[key] || '';
-        html += '<td title="' + escapeHtml(tip) + '" data-tooltip="' + escapeHtml(tip) + '">' + escapeHtml(String(summaryRow[key] ?? '??-')) + '</td>';
-      }
-      html += '</tr></tfoot>';
+      summaryRow['Board'] = 'All Boards (Comparison)';
+      rowsForRender.unshift({ __rowClass: 'boards-summary-row', ...summaryRow });
     }
-    html += '</table>';
+    html += buildDataTableHtml(columns, rowsForRender, { id: 'boards-table' });
   }
 
   if (metrics) {

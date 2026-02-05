@@ -11,13 +11,13 @@ export function renderStuckCandidates(data) {
   } else {
     // Limit initial rows to reduce DOM nodes
     const initialLimit = 10;
-    html += '<table class="data-table" id="stuck-table"><thead><tr><th>Issue</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
+    html += '<table class="data-table" id="stuck-table"><thead><tr><th>Issue</th><th class="cell-wrap">Summary</th><th>Status</th><th>Assignee</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
     const toShow = stuck.slice(0, initialLimit);
     const remaining = stuck.slice(initialLimit);
     for (const row of toShow) {
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-      html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
       html += '<td>' + formatNumber(row.hoursInStatus ?? 0, 1, '-') + '</td>';
@@ -33,7 +33,7 @@ export function renderStuckCandidates(data) {
       for (const row of remaining) {
         html += '<tr>';
         html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
         html += '<td>' + escapeHtml(row.status || '-') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + formatNumber(row.hoursInStatus ?? 0, 1, '-') + '</td>';
@@ -64,14 +64,14 @@ export function renderSubtaskTracking(data) {
     const remaining = rows.slice(initialLimit);
 
     html += '<table class="data-table" id="subtask-table">';
-    html += '<thead><tr><th>Sub-task</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Estimate</th><th>Logged</th><th>Remaining</th><th>Hours in status</th><th>Created</th><th>Updated</th></tr></thead><tbody>';
+    html += '<thead><tr><th>Sub-task</th><th class="cell-wrap">Summary</th><th>Status</th><th>Assignee</th><th>Estimate</th><th>Logged</th><th>Remaining</th><th>Hours in status</th><th>Created</th><th>Updated</th></tr></thead><tbody>';
     for (const row of toShow) {
       const hoursCell = row.hoursInStatus != null
         ? (row.hoursInStatus >= 24 ? '<span class="flag-warn">' + formatNumber(row.hoursInStatus, 1, '-') + '</span>' : formatNumber(row.hoursInStatus, 1, '-'))
         : '-';
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-      html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
       html += '<td>' + formatNumber(row.estimateHours || 0, 1, '-') + '</td>';
@@ -93,7 +93,7 @@ export function renderSubtaskTracking(data) {
           : '-';
         html += '<tr>';
         html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
-        html += '<td>' + escapeHtml(row.summary || '-') + '</td>';
+        html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
         html += '<td>' + escapeHtml(row.status || '-') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + formatNumber(row.estimateHours || 0, 1, '-') + '</td>';

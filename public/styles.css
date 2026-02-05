@@ -98,19 +98,30 @@ header {
 /* Epic key column CSS to prevent wrapping and make click-through easier */
 .data-table .epic-key { display: inline-block; min-width: 120px; }
 .data-table .epic-key a { white-space: nowrap; text-decoration: none; color: var(--primary); }
-.data-table td, .data-table th { padding: 8px 12px; }
-
-/* Ensure long tables remain readable */
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th { text-align: left; background: var(--card-muted); font-weight: 600; }
-.data-table tbody tr:nth-child(odd) { background: rgba(15,76,129,0.02); }
 
 
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
 header .header-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+}
+
+/* Sticky header fine-tuning on small screens */
+@media (max-width: 768px) {
+  header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  main { padding-top: 8px; }
 }
 
 header h1 {
@@ -287,7 +298,7 @@ header h1 {
 
 .quick-range-period {
   font-size: 0.78em;
-  color: var(--muted);
+  color: #344054;
 }
 
 .quick-range-strip {
@@ -299,24 +310,34 @@ header h1 {
 }
 .quarter-pill {
   margin: 0;
+  min-width: 96px;
   padding: 6px 10px;
-  font-size: 0.82em;
+  font-size: 0.78em;
+  line-height: 1.2;
   white-space: nowrap;
   flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  border: 1px solid #cbd5e1;
+  background: #f2f4f7;
+  color: #1f2937;
 }
 .quarter-pill.is-current {
   border-color: var(--primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 .quarter-pill.is-active {
   border-color: var(--primary);
-  background: rgba(15, 76, 129, 0.08);
-  color: var(--primary);
+  background: var(--primary);
+  color: #fff;
 }
-/* Compact quarter pills for easier scrolling and single-line display */
-.quarter-pill { min-width: 110px; padding: 8px 10px; display: inline-flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.quarter-pill.is-active .quick-range-period {
+  color: #e5eff9;
+}
 .quarter-pill .quick-range-label { font-weight: 700; }
-.quarter-pill .quick-range-period { font-size: 0.78em; color: var(--muted); }
+.quarter-pill .quick-range-period { font-size: 0.75em; color: #475467; }
 .date-window-btn { padding: 6px 10px; font-size: 13px; border-radius: 6px; }
 
 /* Compact inline export fallback */
@@ -653,6 +674,13 @@ header h1 {
 
 .tab-pane.active {
   display: block;
+}
+
+.tab-pane,
+.transparency-card,
+.leadership-card {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Current Sprint Enhancements */
@@ -1111,38 +1139,77 @@ header h1 {
   font-weight: 500;
 }
 
-/* Tables: horizontal-scroll on narrow screens to avoid column collapse and character wrapping */
+/* Tables */
 .data-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.88em; /* slightly more compact */
+  font-size: 0.88em;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
-  display: block; /* enable horizontal scrolling instead of collapsing columns */
+  display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
 }
 
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #edf2f7;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .data-table th {
   background-color: #f1f5f9;
-  padding: 10px;
-  text-align: left;
   font-weight: 600;
   color: #1b2733;
-  border-bottom: 1px solid var(--border);
   font-size: 0.82em;
-  text-transform: none; /* improve readability */
+  text-transform: none;
   letter-spacing: 0.02em;
 }
-.data-table td, .data-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.data-table a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.data-table a:hover {
+  color: var(--accent);
+}
+
+.data-table td.cell-wrap,
+.data-table th.cell-wrap {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 360px;
+}
+
+.data-table tbody tr:nth-child(odd) {
+  background-color: #fbfdff;
+}
+
+.data-table tr:hover {
+  background-color: #f1f7ff;
+}
+
+.boards-summary-row td {
+  font-weight: 600;
+  background: #f7faff;
+}
+
 @media (max-width: 768px) {
-  .data-table { font-size: 0.78em; }
-  .data-table th { padding: 8px; font-size: 0.75em; }
+  .data-table { font-size: 0.82em; }
+  .data-table th { padding: 8px; font-size: 0.78em; }
   .data-table td { padding: 6px 8px; }
-} 
+}
+
 .data-table th[title] {
   cursor: help;
 }
@@ -1190,19 +1257,6 @@ header h1 {
 }
 .preview-summary-sticky[aria-hidden="true"] {
   display: none;
-}
-
-.data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #edf2f7;
-}
-
-.data-table tbody tr:nth-child(odd) {
-  background-color: #fbfdff;
-}
-
-.data-table tr:hover {
-  background-color: #f1f7ff;
 }
 
 .epic-story-list {
@@ -1630,6 +1684,9 @@ header h1 {
   align-items: flex-start;
   gap: 16px;
   animation: slideDown 0.3s ease-out;
+  scroll-margin-top: 120px;
+  position: relative;
+  z-index: 1200;
 }
 
 .alert-banner.yellow {
@@ -2277,7 +2334,7 @@ header h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1300;
   padding: 20px;
 }
 
@@ -2717,6 +2774,9 @@ header h1 {
   right: 20px;
   z-index: 100;
 }
+body.notification-dock-visible .export-dashboard-container {
+  right: 400px;
+}
 
 .export-dashboard-btn {
   padding: 12px 16px;
@@ -2842,6 +2902,10 @@ header h1 {
 }
 
 @media (max-width: 768px) {
+  body.notification-dock-visible .export-dashboard-container {
+    right: 20px;
+    bottom: 120px;
+  }
   .current-sprint-header-bar {
     padding: 12px;
     gap: 12px;

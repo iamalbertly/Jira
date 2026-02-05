@@ -7,12 +7,21 @@ export function getErrorMessage(response, body, fallback) {
 }
 
 export async function loadBoards() {
+  // Instrumentation for tests and reliability: track invocation counts on the window for debugging
+  try {
+    if (typeof window !== 'undefined') {
+      window.__lastBoardsCall = (window.__lastBoardsCall || 0) + 1;
+      window.__lastBoardsCallTime = Date.now();
+    }
+  } catch (_) {}
+
   const projects = encodeURIComponent(getProjectsParam());
   const response = await fetch(`/api/boards.json?projects=${projects}`, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
   });
   const body = await response.json().catch(() => ({}));
+  try { if (typeof window !== 'undefined') window.__lastBoardsCallStatus = response.ok ? 'ok' : 'error'; } catch (_) {}
   if (!response.ok) {
     throw new Error(getErrorMessage(response, body, 'Failed to load boards'));
   }

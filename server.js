@@ -497,7 +497,7 @@ app.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
 app.get('/preview.json', requireAuth, async (req, res) => {
   try {
     // Preview timing and phase tracking for transparency and partial responses
-    const MAX_PREVIEW_MS = 4 * 60 * 1000; // 4 minutes soft limit
+    const MAX_PREVIEW_MS = 60 * 1000; // 1 minute soft limit to keep UI responsive
     const previewStartedAt = Date.now();
     const requestedAt = new Date().toISOString();
     const phaseLog = [];

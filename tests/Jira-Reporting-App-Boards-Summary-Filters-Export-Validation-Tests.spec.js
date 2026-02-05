@@ -36,10 +36,14 @@ test.describe('Jira Reporting App - Boards Summary Filters Export Validation Tes
     const summaryRowLocator = hasTfoot ? table.locator('tfoot') : table.locator('tr.boards-summary-row');
     await expect(summaryRowLocator).toBeVisible({ timeout: 3000 });
     const summaryText = (await summaryRowLocator.textContent()) || '';
-    const hasLabel = /Total|Summary/i.test(summaryText);
+    const hasLabel = /Total|Summary|Comparison/i.test(summaryText);
     expect(hasLabel || summaryText.trim().length > 0).toBeTruthy();
     const numericCell = hasTfoot ? table.locator('tfoot td').nth(4) : table.locator('tr.boards-summary-row td').nth(4);
     await expect(numericCell).toBeVisible();
+    if (!hasTfoot) {
+      const firstRowClass = await table.locator('tbody tr').first().getAttribute('class');
+      expect(firstRowClass && firstRowClass.includes('boards-summary-row')).toBeTruthy();
+    }
   });
 
   test('Tooltip on tap: hover header shows popover with tooltip text', async ({ page }) => {

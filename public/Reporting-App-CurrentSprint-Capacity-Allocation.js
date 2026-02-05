@@ -5,13 +5,15 @@
  * Rationale: Customer - Prevents sprint overload surprises. Simplicity - Visual bar vs. manual calculation. Trust - Transparent about capacity.
  */
 
-import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
 
 export function renderCapacityAllocation(data) {
   const issues = data.stories || [];
   const summary = data.summary || {};
   const daysMeta = data.daysMeta || {};
+  const jiraHost = data?.meta?.jiraHost || data?.meta?.host || '';
 
   // Build assignee map
   const assigneeMap = {};
@@ -107,7 +109,9 @@ export function renderCapacityAllocation(data) {
       const assigneeIssues = issues.filter(i => (i.assignee || 'Unassigned') === assignee.name);
       assigneeIssues.forEach(issue => {
         html += '<div class="allocation-issue">';
-        html += '<span class="issue-key">' + escapeHtml(issue.key) + '</span>';
+        const key = issue.key || '';
+        const url = issue.issueUrl || buildJiraIssueUrl(jiraHost, key);
+        html += '<span class="issue-key">' + renderIssueKeyLink(key, url) + '</span>';
         html += '<span class="issue-summary">' + escapeHtml(issue.summary || '-') + '</span>';
         html += '<span class="issue-sp">' + (issue.storyPoints || '?') + ' SP</span>';
         html += '</div>';

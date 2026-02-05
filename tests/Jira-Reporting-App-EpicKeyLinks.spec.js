@@ -13,7 +13,7 @@ test.describe('Epic Key linkification & column layout', () => {
 
     // Navigate to Project & Epic Level (Boards + Epics)
     await page.click('.tab-btn[data-tab="project-epic-level"]');
-    await page.waitForSelector('#project-epic-level.active', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
     await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 10000 });
 
     // Check for epic-key link in either Boards or Epic TTM

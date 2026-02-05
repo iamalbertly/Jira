@@ -75,7 +75,7 @@ export function renderEpicStoryList(epic, meta, rows) {
     const summary = escapeHtml(item.summary || '');
     const title = summary ? ` title="${summary}"` : '';
     if (url) {
-      return `<a class="story-pill" href="${escapeHtml(url)}" target="_blank" rel="noopener"${title}>${label}</a>`;
+      return `<a class="story-pill" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${title}>${label}</a>`;
     }
     return `<span class="story-pill"${title}>${label}</span>`;
   });

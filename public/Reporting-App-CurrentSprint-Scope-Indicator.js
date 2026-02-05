@@ -6,9 +6,10 @@
  * Rationale: Customer - Scope creep is sprint killer; visible immediately. Simplicity - One chip vs. tab. Trust - Transparent tracking.
  */
 
-import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { createModalBehavior } from './Reporting-App-Core-UI-02Primitives-Modal.js';
+import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
 
 export function renderScopeIndicator(data) {
   const scopeChanges = data.scopeChanges || [];
@@ -58,6 +59,7 @@ export function renderScopeIndicator(data) {
  */
 export function renderScopeModal(data) {
   const scopeChanges = data.scopeChanges || [];
+  const jiraHost = data?.meta?.jiraHost || data?.meta?.host || '';
 
   if (scopeChanges.length === 0) {
     return '';
@@ -89,8 +91,10 @@ export function renderScopeModal(data) {
     html += '<thead><tr><th>Issue</th><th>Type</th><th>SP</th><th>Status</th></tr></thead>';
     html += '<tbody>';
     issues.forEach(issue => {
+      const key = issue.key || issue.issueKey || '';
+      const url = issue.issueUrl || buildJiraIssueUrl(jiraHost, key);
       html += '<tr>';
-      html += '<td><a href="' + escapeHtml(issue.issueUrl || '#') + '" target="_blank">' + escapeHtml(issue.key) + '</a></td>';
+      html += '<td>' + renderIssueKeyLink(key, url) + '</td>';
       html += '<td>' + escapeHtml(issue.issuetype || '-') + '</td>';
       html += '<td>' + (issue.storyPoints || '-') + '</td>';
       html += '<td>' + escapeHtml(issue.status || '-') + '</td>';

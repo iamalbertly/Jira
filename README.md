@@ -98,7 +98,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 4. **Click Preview**: Generates preview data from Jira
 
 5. **Review Tabs**:
-  - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, **Done Stories**, **Registered Work Hours**, **Estimated Work Hours**, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Includes capacity proxies (Active Assignees, Stories/SP per Assignee, Assumed Capacity, Assumed Waste %) with clear assumptions. Epic Time-To-Market shows Epic Name, story IDs as Jira links with hover summaries, **Subtask Spent (Hrs)** for the epic, and includes a **{Board}-AD-HOC** row per board for stories not linked to any epic. Missing epic titles are surfaced with a warning for trust. Throughput remains available by issue type, along with rework ratio and predictability. Includes per-section CSV export button.
+  - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, **Done Stories**, **Registered Work Hours**, **Estimated Work Hours**, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Includes a top-row **All Boards (Comparison)** summary to anchor comparisons. Includes capacity proxies (Active Assignees, Stories/SP per Assignee, Assumed Capacity, Assumed Waste %) with clear assumptions. Epic Time-To-Market shows Epic Name, story IDs as Jira links with hover summaries, **Subtask Spent (Hrs)** for the epic, and includes a **{Board}-AD-HOC** row per board for stories not linked to any epic. Missing epic titles are surfaced with a warning for trust. Throughput remains available by issue type, along with rework ratio and predictability. Includes per-section CSV export button.
    - **Sprints**: Lists sprints overlapping the date window with completion counts. Shows "Total SP" and "Story Count" columns. Column labels: "Stories Completed (Total)" (all stories currently marked Done) and "Completed Within Sprint End Date" (stories resolved by sprint end date). When time-tracking data exists, shows Est Hrs, Spent Hrs, Remaining Hrs, and Variance Hrs. When subtask tracking exists, adds Subtask Est/Spent/Remaining/Variance columns. Includes per-section CSV export button.
    - **Done Stories**: Drill-down view of completed stories, grouped by sprint. Shows Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available. Epic Summary is truncated to 100 characters with full text in tooltip. When time tracking exists, shows Est/Spent/Remaining/Variance hours for the story and for its subtasks (when available). Dates render in local-friendly format with raw ISO on hover. Includes per-section CSV export button.
    - **Unusable Sprints**: Lists sprints excluded due to missing dates
@@ -129,13 +129,13 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
-### Preview Behaviour & Feedback
-
 ## Recent UX & Reliability fixes (2026-02-05)
-- Tables now avoid aggressive character-wrapping on narrow screens; large tables use horizontal scroll and headers use `nowrap` with ellipsis for better legibility (improves simplicity and trust). ✅
-- Quarter pills (Vodacom quick range) are more compact and now show the date span directly under the label for clearer selection context. ✅
-- Current Sprint: when the boards list fails to load, a **Retry** button is presented so users can try again without a full page refresh (improves reliability). ✅
-- Mobile styling tweaks: quarter strip scrolls correctly and header/table spacing improved for small screens (improves customer-first readability). ✅
+- Boards table now includes a top-row **All Boards (Comparison)** summary so the main comparison baseline is always visible. ✅
+- Issue keys across report and current sprint tables now render as clickable Jira links (opens new tab). ✅
+- Tables support readable wrapping for long text columns while keeping other columns compact. ✅
+- Quarter pills are more compact, higher contrast, and never show future quarters. ✅
+- Preview fetches are cache-friendly with longer TTLs and show cached results when available for faster perceived load. ✅
+- Preview generation now respects a 1-minute soft limit and will return a partial preview instead of stalling. ✅
 - Playwright tests updated to validate the above UI behaviours and the retry flow; orchestration runner remains the same but tests now fail-fast on first error. ✅
 
 ### Preview Behaviour & Feedback
@@ -505,7 +505,7 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
 - Ensure stories belong to the selected projects
 - Try enabling "Include Active/Missing End Date Sprints" if sprints are missing end dates
 - Check server logs for detailed error messages
-- Large date ranges or many sprints may take several minutes to process
+- Large date ranges or many sprints may return a partial preview after ~1 minute to keep the UI responsive
 
 ### Date Timezone Issues
 - All dates are handled in UTC

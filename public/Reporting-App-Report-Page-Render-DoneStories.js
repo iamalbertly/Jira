@@ -133,13 +133,13 @@ export function renderDoneStoriesTab(rows) {
             <thead>
               <tr>
                 <th title="Jira issue key.">Key</th>
-                <th title="Issue summary from Jira.">Summary</th>
+                <th class="cell-wrap" title="Issue summary from Jira.">Summary</th>
                 <th title="Current Jira status.">Status</th>
                 <th title="Issue type (Story, Bug, etc.).">Type</th>
                 ${hasStatusCategory ? '<th title="Status group (To Do / In Progress / Done).">Status Group</th>' : ''}
                 ${hasPriority ? '<th title="Priority from Jira.">Priority</th>' : ''}
-                ${hasLabels ? '<th title="Issue labels.">Labels</th>' : ''}
-                ${hasComponents ? '<th title="Components on the issue.">Components</th>' : ''}
+                ${hasLabels ? '<th class="cell-wrap" title="Issue labels.">Labels</th>' : ''}
+                ${hasComponents ? '<th class="cell-wrap" title="Components on the issue.">Components</th>' : ''}
                 ${hasFixVersions ? '<th title="Fix versions on the issue.">Fix Versions</th>' : ''}
                 ${hasEbmTeam ? '<th title="EBM Team: who owns the value. Use to compare outcomes and focus by team.">EBM Team</th>' : ''}
                 ${hasEbmProductArea ? '<th title="EBM Product Area: links work to the customer or product slice it serves.">EBM Product Area</th>' : ''}
@@ -164,7 +164,7 @@ export function renderDoneStoriesTab(rows) {
                 ${hasTimeTracking ? '<th title="Original estimate (hours).">Est (Hrs)</th><th title="Time spent (hours).">Spent (Hrs)</th><th title="Remaining estimate (hours).">Remaining (Hrs)</th><th title="Actual hours minus estimate. Positive = over estimate; negative = under. Large swings mean estimation risk.">Variance (Hrs)</th>' : ''}
                 ${hasSubtaskTimeTracking ? '<th title="Subtask estimate (hours).">Subtask Est (Hrs)</th><th title="Subtask spent (hours).">Subtask Spent (Hrs)</th><th title="Subtask remaining (hours).">Subtask Remaining (Hrs)</th><th title="Actual subtask hours minus estimate. Large swings signal hidden work or poor slicing.">Subtask Variance (Hrs)</th>' : ''}
                 ${meta?.discoveredFields?.storyPointsFieldId ? '<th title="Story Points.">SP</th>' : ''}
-                ${meta?.discoveredFields?.epicLinkFieldId ? '<th title="Epic key (planned work).">Epic</th><th title="Epic title.">Epic Title</th><th title="Epic summary (truncated in UI).">Epic Summary</th>' : ''}
+                ${meta?.discoveredFields?.epicLinkFieldId ? '<th title="Epic key (planned work).">Epic</th><th title="Epic title.">Epic Title</th><th class="cell-wrap" title="Epic summary (truncated in UI).">Epic Summary</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -195,13 +195,13 @@ export function renderDoneStoriesTab(rows) {
               ? `<a href="${escapeHtml(issueUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`
               : escapeHtml(issueKey)
           }</td>
-          <td>${escapeHtml(row.issueSummary)}</td>
+          <td class="cell-wrap">${escapeHtml(row.issueSummary)}</td>
           <td>${escapeHtml(row.issueStatus)}</td>
           <td>${row.issueType ? escapeHtml(row.issueType) : '<em>Unknown</em>'}</td>
           ${hasStatusCategory ? `<td>${escapeHtml(row.issueStatusCategory || '')}</td>` : ''}
           ${hasPriority ? `<td>${escapeHtml(row.issuePriority || '')}</td>` : ''}
-          ${hasLabels ? `<td>${escapeHtml(row.issueLabels || '')}</td>` : ''}
-          ${hasComponents ? `<td>${escapeHtml(row.issueComponents || '')}</td>` : ''}
+          ${hasLabels ? `<td class="cell-wrap">${escapeHtml(row.issueLabels || '')}</td>` : ''}
+          ${hasComponents ? `<td class="cell-wrap">${escapeHtml(row.issueComponents || '')}</td>` : ''}
           ${hasFixVersions ? `<td>${escapeHtml(row.issueFixVersions || '')}</td>` : ''}
           ${hasEbmTeam ? `<td>${escapeHtml(row.ebmTeam || '')}</td>` : ''}
           ${hasEbmProductArea ? `<td>${escapeHtml(row.ebmProductArea || '')}</td>` : ''}
@@ -241,7 +241,7 @@ export function renderDoneStoriesTab(rows) {
                 epicUrl
                   ? `<span class="epic-key"><a href="${escapeHtml(epicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epicKey)}</a></span>`
                   : `<span class="epic-key">${escapeHtml(epicKey)}</span>`
-              }</td><td>${escapeHtml(row.epicTitle || '')}</td><td title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>`
+              }</td><td>${escapeHtml(row.epicTitle || '')}</td><td class="cell-wrap" title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>`
             : ''}
         </tr>
       `;
