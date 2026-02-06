@@ -49,6 +49,13 @@ export function initPreviewFlow() {
         previewBtn.click();
       }
     }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'force-full-refresh') {
+      if (previewBtn && !previewBtn.disabled) {
+        previewBtn.dataset.bypassCache = 'true';
+        previewBtn.click();
+      }
+    }
   });
 
   previewBtn.addEventListener('click', async () => {
@@ -56,6 +63,10 @@ export function initPreviewFlow() {
     let progressInterval;
     let isLoading = true;
     const cachePrefix = 'reportPreview:';
+    const bypassCache = previewBtn.dataset.bypassCache === 'true';
+    if (bypassCache) {
+      previewBtn.dataset.bypassCache = 'false';
+    }
 
     const prevExportFilteredDisabled = exportDropdownTrigger ? exportDropdownTrigger.disabled : true;
     const prevExportExcelDisabled = exportExcelBtn ? exportExcelBtn.disabled : true;
@@ -134,6 +145,19 @@ export function initPreviewFlow() {
       return;
     }
 
+    if (bypassCache) {
+      params.bypassCache = true;
+    }
+    const startMs = params.start ? new Date(params.start).getTime() : NaN;
+    const endMs = params.end ? new Date(params.end).getTime() : NaN;
+    const rangeDays = (!Number.isNaN(startMs) && !Number.isNaN(endMs))
+      ? Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24))
+      : null;
+    if (rangeDays && rangeDays > 14) {
+      params.splitRecent = true;
+      params.recentDays = 14;
+    }
+
     const queryString = new URLSearchParams(params).toString();
     const cacheKey = `${cachePrefix}${queryString}`;
 
@@ -207,9 +231,10 @@ export function initPreviewFlow() {
       updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
 
       const controller = new AbortController();
+      const timeoutMs = rangeDays && rangeDays > 14 ? 90000 : 60000;
       timeoutId = setTimeout(() => {
         controller.abort();
-      }, 60000);
+      }, timeoutMs);
 
       let elapsedSeconds = 0;
       progressInterval = setInterval(() => {
@@ -291,8 +316,9 @@ export function initPreviewFlow() {
           <div role="alert">
             <strong>Error:</strong> ${escapeHtml(errorMsg)}
             <br><small>If this problem persists, please check your Jira connection and try again.</small>
-            <div style="margin-top: 8px;">
+            <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
               <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
+              <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
             </div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>

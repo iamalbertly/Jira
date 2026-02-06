@@ -207,10 +207,13 @@ export function renderProjectEpicLevelTab(boards, metrics) {
           html += `<p class="data-quality-warning"><small>Note: ${meta.epicTitleMissingCount} epic(s) are missing titles. Check Jira permissions or Epic keys.</small></p>`;
         }
         html += '<p class="metrics-hint"><small>Completion anchored to: Resolution date.</small></p>';
+        if (!meta?.jiraHost) {
+          html += '<p class="metrics-hint data-quality-warning"><small>Jira issue links are unavailable. Set JIRA_HOST in the server environment to enable links.</small></p>';
+        }
         html += '<table class="data-table"><thead><tr>' +
           '<th title="Epic identifier in Jira." data-tooltip="Epic identifier in Jira.">Epic Key</th>' +
-          '<th title="Epic summary/title." data-tooltip="Epic summary/title.">Epic Name</th>' +
-          '<th title="User stories linked to this epic in the window. Hover to see summaries." data-tooltip="User stories linked to this epic in the window. Hover to see summaries.">Story IDs</th>' +
+          '<th class="cell-wrap" title="Epic summary/title." data-tooltip="Epic summary/title.">Epic Name</th>' +
+          '<th class="cell-wrap" title="User stories linked to this epic in the window. Hover to see summaries." data-tooltip="User stories linked to this epic in the window. Hover to see summaries.">Story IDs</th>' +
           '<th title="Number of stories linked to the epic in this window." data-tooltip="Number of stories linked to the epic in this window.">Story Count</th>' +
           '<th title="Epic start date (Epic created or first story created if Epic dates missing)." data-tooltip="Epic start date (Epic created or first story created if Epic dates missing).">Start Date</th>' +
           '<th title="Epic end date (Epic resolved or last story resolved if Epic dates missing)." data-tooltip="Epic end date (Epic resolved or last story resolved if Epic dates missing).">End Date</th>' +
@@ -222,8 +225,8 @@ export function renderProjectEpicLevelTab(boards, metrics) {
         for (const epic of epicRows) {
           html += `<tr>
           <td>${renderEpicKeyCell(epic, meta)}</td>
-          <td>${renderEpicTitleCell(epic)}</td>
-          <td>${renderEpicStoryList(epic, meta, reportState.previewRows)}</td>
+          <td class="cell-wrap">${renderEpicTitleCell(epic)}</td>
+          <td class="cell-wrap">${renderEpicStoryList(epic, meta, reportState.previewRows)}</td>
           <td>${epic.storyCount}</td>
           <td>${escapeHtml(formatDateForDisplay(epic.startDate))}</td>
           <td>${escapeHtml(formatDateForDisplay(epic.endDate || ''))}</td>

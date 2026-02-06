@@ -578,8 +578,10 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     }
 
     // Split long windows: prefer cached older sprints + live recent 2 weeks to avoid timeouts
-    const RECENT_SPLIT_DAYS = 14;
-    const shouldSplitByRecent = !bypassCache && rangeDays > RECENT_SPLIT_DAYS;
+    const requestedSplit = req.query.splitRecent === 'true' || req.query.splitRecent === '1';
+    const requestedRecentDays = parseInt(req.query.recentDays, 10);
+    const RECENT_SPLIT_DAYS = Number.isNaN(requestedRecentDays) || requestedRecentDays <= 0 ? 14 : Math.min(60, requestedRecentDays);
+    const shouldSplitByRecent = (!bypassCache && rangeDays > RECENT_SPLIT_DAYS) || (!bypassCache && requestedSplit);
     const recentCutoffDate = shouldSplitByRecent ? new Date(endDate) : null;
     if (recentCutoffDate) {
       recentCutoffDate.setDate(recentCutoffDate.getDate() - RECENT_SPLIT_DAYS);

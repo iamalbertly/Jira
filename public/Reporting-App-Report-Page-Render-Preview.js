@@ -143,6 +143,9 @@ export function renderPreview() {
         <div class="status-banner warning">
           Preview is partial: ${partialReason || 'time budget or pagination limits reached.'}
           <br><small>Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.</small>
+          <div style="margin-top: 6px;">
+            <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
+          </div>
           <button type="button" class="status-close" aria-label="Dismiss">x</button>
         </div>
       `;

@@ -1195,6 +1195,11 @@ header h1 {
   max-width: 360px;
 }
 
+.data-table td.cell-wrap .story-pill {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+}
+
 .data-table tbody tr:nth-child(odd) {
   background-color: #fbfdff;
 }

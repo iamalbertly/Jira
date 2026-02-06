@@ -1,6 +1,6 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateForDisplay, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
-import { buildJiraIssueUrl, getEpicStoryItems } from './Reporting-App-Report-Utils-Jira-Helpers.js';
+import { buildJiraIssueUrl, getEpicStoryItems, isJiraIssueKey } from './Reporting-App-Report-Utils-Jira-Helpers.js';
 
 export function buildPredictabilityTableHeaderHtml() {
   return '<table class="data-table"><thead><tr>' +
@@ -19,50 +19,71 @@ export function buildPredictabilityTableHeaderHtml() {
 export function buildEpicAdhocRows(rows) {
   const nonEpicRows = (rows || []).filter(row => !row.epicKey);
   if (nonEpicRows.length === 0) return [];
-  const totalStoryCount = nonEpicRows.length;
-  const earliestStart = nonEpicRows.reduce((acc, row) => {
-    const created = row.created ? new Date(row.created) : null;
-    if (!created || Number.isNaN(created.getTime())) return acc;
-    return !acc || created < acc ? created : acc;
-  }, null);
-  const latestEnd = nonEpicRows.reduce((acc, row) => {
-    const resolved = row.resolutionDate ? new Date(row.resolutionDate) : null;
-    if (!resolved || Number.isNaN(resolved.getTime())) return acc;
-    return !acc || resolved > acc ? resolved : acc;
-  }, null);
-  if (!earliestStart || !latestEnd) return [];
-  const calendarTTMdays = Math.ceil((latestEnd.getTime() - earliestStart.getTime()) / (1000 * 60 * 60 * 24));
-  return [{
-    epicKey: 'AD-HOC',
-    epicName: 'Ad-hoc work',
-    storyCount: totalStoryCount,
-    startDate: earliestStart.toISOString(),
-    endDate: latestEnd.toISOString(),
-    calendarTTMdays,
-    workingTTMdays: calendarTTMdays,
-    storyItems: nonEpicRows.map(row => ({
-      key: row.issueKey,
-      summary: row.issueSummary,
-      subtaskTimeSpentHours: row.subtaskTimeSpentHours,
-    })),
-    subtaskSpentHours: nonEpicRows.reduce((sum, row) => sum + (Number(row.subtaskTimeSpentHours) || 0), 0),
-  }];
+  const byBoard = new Map();
+  for (const row of nonEpicRows) {
+    const boardId = row.boardId ?? '';
+    const boardName = (row.boardName || '').trim();
+    const projectKey = (row.projectKey || '').trim();
+    const groupKey = String(boardId || boardName || projectKey || 'unknown');
+    const displayLabel = boardName || projectKey || (boardId ? `Board-${boardId}` : 'Unknown');
+    if (!byBoard.has(groupKey)) {
+      byBoard.set(groupKey, { displayLabel: displayLabel.trim() || groupKey, rows: [] });
+    }
+    byBoard.get(groupKey).rows.push(row);
+  }
+  const result = [];
+  for (const { displayLabel, rows: groupRows } of byBoard.values()) {
+    const earliestStart = groupRows.reduce((acc, row) => {
+      const created = row.created ? new Date(row.created) : null;
+      if (!created || Number.isNaN(created.getTime())) return acc;
+      return !acc || created < acc ? created : acc;
+    }, null);
+    const latestEnd = groupRows.reduce((acc, row) => {
+      const resolved = row.resolutionDate ? new Date(row.resolutionDate) : null;
+      if (!resolved || Number.isNaN(resolved.getTime())) return acc;
+      return !acc || resolved > acc ? resolved : acc;
+    }, null);
+    if (!earliestStart || !latestEnd) continue;
+    const calendarTTMdays = Math.ceil((latestEnd.getTime() - earliestStart.getTime()) / (1000 * 60 * 60 * 24));
+    result.push({
+      epicKey: `${displayLabel}-ad-hoc`,
+      epicName: 'Ad-hoc work',
+      storyCount: groupRows.length,
+      startDate: earliestStart.toISOString(),
+      endDate: latestEnd.toISOString(),
+      calendarTTMdays,
+      workingTTMdays: calendarTTMdays,
+      storyItems: groupRows.map(row => ({
+        key: row.issueKey,
+        summary: row.issueSummary,
+        subtaskTimeSpentHours: row.subtaskTimeSpentHours,
+      })),
+      subtaskSpentHours: groupRows.reduce((sum, row) => sum + (Number(row.subtaskTimeSpentHours) || 0), 0),
+    });
+  }
+  return result;
 }
 
 export function renderEpicKeyCell(epic, meta) {
-  const host = meta?.jiraHost || meta?.host || '';
-  const url = buildJiraIssueUrl(host, epic.epicKey);
-  if (url) {
-    return `<span class="epic-key"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epic.epicKey || '')}</a></span>`;
+  const key = epic.epicKey || '';
+  if (!isJiraIssueKey(key)) {
+    return `<span class="epic-key">${escapeHtml(key)}</span>`;
   }
-  return `<span class="epic-key">${escapeHtml(epic.epicKey || '')}</span>`;
+  const host = meta?.jiraHost || meta?.host || '';
+  const url = buildJiraIssueUrl(host, key);
+  if (url) {
+    const aria = ` aria-label="Open issue ${escapeHtml(key)} in Jira"`;
+    const title = ` title="Open in Jira: ${escapeHtml(key)}"`;
+    return `<span class="epic-key"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${title}${aria}>${escapeHtml(key)}</a></span>`;
+  }
+  return `<span class="epic-key">${escapeHtml(key)}</span>`;
 }
 
 export function renderEpicTitleCell(epic) {
   if (epic?.epicTitle && String(epic.epicTitle).trim() !== '') {
     return escapeHtml(epic.epicTitle);
   }
-  return '<span class="data-quality-warning">Epic title unavailable</span>';
+  return '<span class="data-quality-warning" title="Title may be missing due to Jira permissions or Epic key access.">Epic title unavailable</span>';
 }
 
 export function renderEpicStoryList(epic, meta, rows) {
@@ -73,9 +94,11 @@ export function renderEpicStoryList(epic, meta, rows) {
     const url = buildJiraIssueUrl(host, item.key);
     const label = escapeHtml(item.key || '');
     const summary = escapeHtml(item.summary || '');
-    const title = summary ? ` title="${summary}"` : '';
+    const titleText = summary ? `Open in Jira: ${item.key} — ${summary}` : `Open in Jira: ${item.key}`;
+    const title = ` title="${escapeHtml(titleText)}"`;
+    const aria = ` aria-label="Open issue ${escapeHtml(item.key || '')} in Jira"`;
     if (url) {
-      return `<a class="story-pill" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${title}>${label}</a>`;
+      return `<a class="story-pill" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${title}${aria}>${label}</a>`;
     }
     return `<span class="story-pill"${title}>${label}</span>`;
   });

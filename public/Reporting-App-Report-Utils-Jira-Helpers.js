@@ -10,6 +10,14 @@ export function buildJiraIssueUrl(host, issueKey) {
   return `${normalizeJiraHost(host)}/browse/${issueKey}`;
 }
 
+/** Returns true if the key looks like a real Jira issue key (e.g. PROJECT-123), not a synthetic label like AD-HOC or *-ad-hoc. */
+export function isJiraIssueKey(key) {
+  if (!key || typeof key !== 'string') return false;
+  const k = key.trim();
+  if (k === 'AD-HOC' || k.endsWith('-ad-hoc')) return false;
+  return /^[A-Z][A-Z0-9]*-\d+$/i.test(k);
+}
+
 export function getEpicStoryItems(epic, rows) {
   if (Array.isArray(epic.storyItems) && epic.storyItems.length > 0) {
     return epic.storyItems;

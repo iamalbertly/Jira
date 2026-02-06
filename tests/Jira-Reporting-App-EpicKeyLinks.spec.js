@@ -33,4 +33,25 @@ test.describe('Epic Key linkification & column layout', () => {
     expect(target).toBe('_blank');
     expect(rel && rel.includes('noopener')).toBeTruthy();
   });
+
+  test('ad-hoc rows show board-scoped label and are not Jira links', async ({ page }) => {
+    test.setTimeout(180000);
+    await runDefaultPreview(page);
+    await page.click('.tab-btn[data-tab="project-epic-level"]');
+    await page.waitForSelector('#tab-project-epic-level.active', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 10000 });
+
+    const content = page.locator('#project-epic-level-content');
+    const epicKeyCellsWithAdhoc = content.locator('.epic-key').filter({ hasText: '-ad-hoc' });
+    const count = await epicKeyCellsWithAdhoc.count();
+    if (count === 0) {
+      test.skip();
+      return;
+    }
+    for (let i = 0; i < count; i++) {
+      const cell = epicKeyCellsWithAdhoc.nth(i);
+      await expect(cell).toContainText('-ad-hoc');
+      await expect(cell.locator('a')).toHaveCount(0);
+    }
+  });
 });
