@@ -30,6 +30,7 @@ import { DEFAULT_WINDOW_START, DEFAULT_WINDOW_END } from './lib/Jira-Reporting-A
 const DEFAULT_SNAPSHOT_PROJECTS = ['MPSA', 'MAS'];
 const SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const SNAPSHOT_DELAY_BETWEEN_BOARDS_MS = 2000;
+const PREVIEW_SERVER_MAX_MS = 90 * 1000; // Hard safety ceiling for preview processing
 
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection', reason);
@@ -206,6 +207,62 @@ app.post('/login', (req, res) => {
   req.session.lastActivity = Date.now();
   return res.redirect(redirect);
 });
+
+function buildPreviewCacheKey({
+  selectedProjects,
+  windowStart,
+  windowEnd,
+  includeStoryPoints,
+  requireResolvedBySprintEnd,
+  includeBugsForRework,
+  includePredictability,
+  predictabilityMode,
+  includeEpicTTM,
+  includeActiveOrMissingEndDateSprints,
+}) {
+  const safeProjects = Array.isArray(selectedProjects) ? [...selectedProjects].sort() : [];
+  return `preview:${JSON.stringify({
+    projects: safeProjects,
+    windowStart,
+    windowEnd,
+    includeStoryPoints,
+    requireResolvedBySprintEnd,
+    includeBugsForRework,
+    includePredictability,
+    predictabilityMode,
+    includeEpicTTM,
+    includeActiveOrMissingEndDateSprints,
+  })}`;
+}
+
+function computeRecentSplitConfig({
+  rangeDays,
+  bypassCache,
+  requestedSplit,
+  requestedRecentDays,
+  previewMode,
+  endDate,
+}) {
+  const explicitSplit =
+    previewMode === 'recent-first'
+    || previewMode === 'recent-only'
+    || requestedSplit;
+
+  const recentBaseDays = Number.isNaN(requestedRecentDays) || requestedRecentDays <= 0
+    ? 14
+    : requestedRecentDays;
+  const recentSplitDays = Math.min(60, recentBaseDays);
+
+  const shouldSplitByRecent = !bypassCache && (explicitSplit || rangeDays > recentSplitDays);
+
+  let recentCutoffDate = null;
+  if (shouldSplitByRecent && endDate) {
+    recentCutoffDate = new Date(endDate);
+    recentCutoffDate.setDate(recentCutoffDate.getDate() - recentSplitDays);
+  }
+
+  return { shouldSplitByRecent, recentCutoffDate, recentSplitDays };
+}
 
 /**
  * Retry handler for 429 rate limit errors
@@ -497,12 +554,12 @@ app.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
 app.get('/preview.json', requireAuth, async (req, res) => {
   try {
     // Preview timing and phase tracking for transparency and partial responses
-    const MAX_PREVIEW_MS = 60 * 1000; // 1 minute soft limit to keep UI responsive
     const previewStartedAt = Date.now();
     const requestedAt = new Date().toISOString();
     const phaseLog = [];
     let isPartial = false;
     let partialReason = null;
+    let timedOut = false;
 
     const addPhase = (phase, data = {}) => {
       phaseLog.push({
@@ -547,6 +604,11 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     const includeEpicTTM = req.query.includeEpicTTM !== 'false'; // Default to true, allow override for backward compatibility
     const includeActiveOrMissingEndDateSprints = req.query.includeActiveOrMissingEndDateSprints === 'true';
     const bypassCache = req.query.bypassCache === 'true';
+    const previewModeRaw = typeof req.query.previewMode === 'string' ? req.query.previewMode : 'normal';
+    const previewMode = ['normal', 'recent-first', 'recent-only'].includes(previewModeRaw)
+      ? previewModeRaw
+      : 'normal';
+    const clientBudgetMsFromQuery = Number(req.query.clientBudgetMs);
 
     // Validate date window
     const startDate = new Date(windowStart);
@@ -580,16 +642,30 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     // Split long windows: prefer cached older sprints + live recent 2 weeks to avoid timeouts
     const requestedSplit = req.query.splitRecent === 'true' || req.query.splitRecent === '1';
     const requestedRecentDays = parseInt(req.query.recentDays, 10);
-    const RECENT_SPLIT_DAYS = Number.isNaN(requestedRecentDays) || requestedRecentDays <= 0 ? 14 : Math.min(60, requestedRecentDays);
-    const shouldSplitByRecent = (!bypassCache && rangeDays > RECENT_SPLIT_DAYS) || (!bypassCache && requestedSplit);
-    const recentCutoffDate = shouldSplitByRecent ? new Date(endDate) : null;
-    if (recentCutoffDate) {
-      recentCutoffDate.setDate(recentCutoffDate.getDate() - RECENT_SPLIT_DAYS);
-    }
+    const { shouldSplitByRecent, recentCutoffDate, recentSplitDays } = computeRecentSplitConfig({
+      rangeDays,
+      bypassCache,
+      requestedSplit,
+      requestedRecentDays,
+      previewMode,
+      endDate,
+    });
+
+    const derivedClientBudgetMs = (() => {
+      if (!Number.isNaN(clientBudgetMsFromQuery) && clientBudgetMsFromQuery > 0) {
+        return clientBudgetMsFromQuery;
+      }
+      if (previewMode === 'recent-only') return 90 * 1000;
+      if (previewMode === 'recent-first') return 75 * 1000;
+      if (rangeDays > 60) return 75 * 1000;
+      return 60 * 1000;
+    })();
+
+    const MAX_PREVIEW_MS = Math.min(PREVIEW_SERVER_MAX_MS, derivedClientBudgetMs);
 
     // Build a stable cache key for this preview request
-    const cacheKey = `preview:${JSON.stringify({
-      projects: [...selectedProjects].sort(),
+    const cacheKey = buildPreviewCacheKey({
+      selectedProjects,
       windowStart,
       windowEnd,
       includeStoryPoints,
@@ -599,7 +675,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       predictabilityMode,
       includeEpicTTM,
       includeActiveOrMissingEndDateSprints,
-    })}`;
+    });
 
     // Serve from cache if available and not bypassed
     const cachedEntry = !bypassCache ? cache.get(cacheKey) : null;
@@ -848,7 +924,11 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       // Check time budget before processing each chunk
       if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
         isPartial = true;
-        partialReason = 'Time budget exceeded while fetching sprint issues';
+        timedOut = true;
+        meta.timedOut = true;
+        if (!partialReason) {
+          partialReason = 'Time budget exceeded while fetching sprint issues';
+        }
         logger.warn('Preview time budget exceeded during issue fetching', {
           sprintCount: sprintIds.length,
           processedChunks: Math.floor(i / 3),
@@ -962,10 +1042,13 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     if (shouldSplitByRecent && skippedOldSprints.length > 0) {
       isPartial = true;
       if (!partialReason) {
-        partialReason = `Older sprints are still warming cache; showing cached data plus the most recent ${RECENT_SPLIT_DAYS} days. Use full refresh (bypass cache) to force a complete load.`;
+        partialReason = `Older sprints are still warming cache; showing cached data plus the most recent ${recentSplitDays} days. Use full refresh (bypass cache) to force a complete load.`;
+      }
+      if (cachedOldSprints.length > 0) {
+        meta.usedCacheForOlder = true;
       }
       addPhase('splitWindow', {
-        recentDays: RECENT_SPLIT_DAYS,
+        recentDays: recentSplitDays,
         cachedOldSprints: cachedOldSprints.length,
         skippedOldSprints: skippedOldSprints.length,
       });
@@ -1114,12 +1197,23 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       partialReason,
       requireResolvedBySprintEnd,
       phaseLog,
+      previewMode,
+      recentSplitDays: shouldSplitByRecent ? recentSplitDays : null,
+      recentCutoffDate: shouldSplitByRecent && recentCutoffDate ? recentCutoffDate.toISOString() : null,
+      timedOut: false,
+      usedCacheForOlder: false,
+      clientBudgetMs: derivedClientBudgetMs,
+      serverMaxPreviewMs: PREVIEW_SERVER_MAX_MS,
     };
 
     // Respect time budget before running metrics (they can be expensive)
     if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
       isPartial = true;
-      partialReason = 'Time budget exceeded before metrics; metrics were skipped';
+      timedOut = true;
+      meta.timedOut = true;
+      if (!partialReason) {
+        partialReason = 'Time budget exceeded before metrics; metrics were skipped';
+      }
       logger.warn('Preview time budget exceeded before metrics calculation', {
         elapsedMs: Date.now() - previewStartedAt,
         totalRows: allRows.length,

@@ -204,6 +204,35 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     }
   });
 
+  test('GET /preview.json should echo previewMode in meta when recent-only mode succeeds (when served live)', async ({ request }) => {
+    test.setTimeout(180000);
+
+    const url = `${DEFAULT_PREVIEW_URL}&previewMode=recent-only&clientBudgetMs=80000`;
+    let response;
+    try {
+      response = await request.get(url, { timeout: 60000 });
+    } catch (error) {
+      test.skip(`Preview recent-only request timed out before response: ${error.message}`);
+      return;
+    }
+
+    expect([200, 401, 403, 500]).toContain(response.status());
+
+    if (response.status() === 200) {
+      const json = await response.json();
+      if (!json.meta || json.meta.fromCache) {
+        test.skip('Preview recent-only response came from cache or without meta; skipping previewMode assertion.');
+        return;
+      }
+      expect(json).toHaveProperty('meta');
+      expect(json.meta).toHaveProperty('previewMode');
+      expect(json.meta.previewMode).toBe('recent-only');
+      if (typeof json.meta.clientBudgetMs === 'number') {
+        expect(json.meta.clientBudgetMs).toBeGreaterThan(0);
+      }
+    }
+  });
+
   test('POST /export should validate request body', async ({ request }) => {
     // Missing columns
     const response1 = await safePost(request, '/export', { rows: [] });

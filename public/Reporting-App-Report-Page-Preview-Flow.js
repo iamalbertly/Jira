@@ -8,6 +8,51 @@ import { updateExportFilteredState } from './Reporting-App-Report-Page-Export-Me
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 
+const RECENT_SPLIT_DEFAULT_DAYS = 14;
+const PREVIEW_TIMEOUT_LIGHT_MS = 60000;
+const PREVIEW_TIMEOUT_HEAVY_MS = 75000;
+const PREVIEW_TIMEOUT_VERY_HEAVY_MS = 90000;
+
+function classifyPreviewComplexity({
+  rangeDays,
+  projectCount,
+  includePredictability,
+  includeActiveOrMissingEndDateSprints,
+  requireResolvedBySprintEnd,
+}) {
+  const safeRangeDays = typeof rangeDays === 'number' && rangeDays > 0 ? rangeDays : 1;
+  const safeProjectCount = typeof projectCount === 'number' && projectCount > 0 ? projectCount : 1;
+
+  let score = safeRangeDays * safeProjectCount;
+
+  if (includePredictability) {
+    score *= 1.4;
+  }
+  if (includeActiveOrMissingEndDateSprints) {
+    score *= 1.2;
+  }
+  if (requireResolvedBySprintEnd) {
+    score *= 1.15;
+  }
+
+  if (safeRangeDays > 365) {
+    score *= 1.4;
+  } else if (safeRangeDays > 180) {
+    score *= 1.25;
+  }
+
+  let level = 'light';
+  if (score >= 8000) {
+    level = 'veryHeavy';
+  } else if (score >= 2500) {
+    level = 'heavy';
+  } else if (score >= 600) {
+    level = 'normal';
+  }
+
+  return { score, level };
+}
+
 function setQuickRangeButtonsDisabled(disabled) {
   document.querySelectorAll('.quick-range-btn[data-quarter], .quarter-pill').forEach((button) => {
     button.disabled = disabled;
@@ -53,6 +98,25 @@ export function initPreviewFlow() {
     if (target.getAttribute && target.getAttribute('data-action') === 'force-full-refresh') {
       if (previewBtn && !previewBtn.disabled) {
         previewBtn.dataset.bypassCache = 'true';
+        previewBtn.click();
+      }
+    }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'retry-with-smaller-range') {
+      const endInput = document.getElementById('end-date');
+      const startInput = document.getElementById('start-date');
+      if (endInput && startInput) {
+        const endValue = endInput.value || '';
+        const endDate = endValue ? new Date(endValue) : null;
+        if (endDate && !Number.isNaN(endDate.getTime())) {
+          const adjusted = new Date(endDate);
+          adjusted.setDate(adjusted.getDate() - 30);
+          const pad = (num) => String(num).padStart(2, '0');
+          const adjustedLocal = `${adjusted.getFullYear()}-${pad(adjusted.getMonth() + 1)}-${pad(adjusted.getDate())}T00:00`;
+          startInput.value = adjustedLocal;
+        }
+      }
+      if (previewBtn && !previewBtn.disabled) {
         previewBtn.click();
       }
     }
@@ -148,15 +212,51 @@ export function initPreviewFlow() {
     if (bypassCache) {
       params.bypassCache = true;
     }
+
     const startMs = params.start ? new Date(params.start).getTime() : NaN;
     const endMs = params.end ? new Date(params.end).getTime() : NaN;
     const rangeDays = (!Number.isNaN(startMs) && !Number.isNaN(endMs))
       ? Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24))
       : null;
-    if (rangeDays && rangeDays > 14) {
-      params.splitRecent = true;
-      params.recentDays = 14;
+
+    const projectCount = params.projects
+      ? params.projects.split(',').map((p) => p.trim()).filter(Boolean).length
+      : 0;
+
+    const { level: complexityLevel } = classifyPreviewComplexity({
+      rangeDays,
+      projectCount,
+      includePredictability: params.includePredictability === true || params.includePredictability === 'true',
+      includeActiveOrMissingEndDateSprints:
+        params.includeActiveOrMissingEndDateSprints === true
+        || params.includeActiveOrMissingEndDateSprints === 'true',
+      requireResolvedBySprintEnd:
+        params.requireResolvedBySprintEnd === true || params.requireResolvedBySprintEnd === 'true',
+    });
+
+    let previewMode = 'normal';
+    if (complexityLevel === 'heavy') {
+      previewMode = 'recent-first';
+    } else if (complexityLevel === 'veryHeavy') {
+      previewMode = 'recent-only';
     }
+
+    if (rangeDays && rangeDays > RECENT_SPLIT_DEFAULT_DAYS && previewMode !== 'recent-only') {
+      params.splitRecent = true;
+      params.recentDays = RECENT_SPLIT_DEFAULT_DAYS;
+    }
+    if (previewMode === 'recent-only') {
+      params.splitRecent = true;
+      params.recentDays = RECENT_SPLIT_DEFAULT_DAYS;
+    }
+
+    params.previewMode = previewMode;
+    const clientBudgetMs = previewMode === 'recent-only'
+      ? PREVIEW_TIMEOUT_VERY_HEAVY_MS
+      : (previewMode === 'recent-first' || (rangeDays && rangeDays > RECENT_SPLIT_DEFAULT_DAYS)
+        ? PREVIEW_TIMEOUT_HEAVY_MS
+        : PREVIEW_TIMEOUT_LIGHT_MS);
+    params.clientBudgetMs = clientBudgetMs;
 
     const queryString = new URLSearchParams(params).toString();
     const cacheKey = `${cachePrefix}${queryString}`;
@@ -231,7 +331,9 @@ export function initPreviewFlow() {
       updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
 
       const controller = new AbortController();
-      const timeoutMs = rangeDays && rangeDays > 14 ? 90000 : 60000;
+      const timeoutMs = typeof clientBudgetMs === 'number' && clientBudgetMs > 0
+        ? clientBudgetMs
+        : PREVIEW_TIMEOUT_LIGHT_MS;
       timeoutId = setTimeout(() => {
         controller.abort();
       }, timeoutMs);
@@ -304,9 +406,10 @@ export function initPreviewFlow() {
       }
       if (errorEl) errorEl.style.display = 'block';
 
-      let errorMsg = error.message;
+      let errorMsg = (error && error.message) ? String(error.message) : 'Failed to fetch preview. Please try again.';
       if (error && error.name === 'AbortError') {
-        errorMsg = 'Preview request timed out after 60 seconds. Try a smaller date range or fewer projects, or retry to use cached results.';
+        const seconds = Math.round(timeoutMs / 1000);
+        errorMsg = `This preview is taking longer than expected (over ${seconds}s). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history.`;
       }
 
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
@@ -315,9 +418,10 @@ export function initPreviewFlow() {
         errorEl.innerHTML = `
           <div role="alert">
             <strong>Error:</strong> ${escapeHtml(errorMsg)}
-            <br><small>If this problem persists, please check your Jira connection and try again.</small>
+            <br><small>If this problem persists, please check your Jira connection or try a narrower date range.</small>
             <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
               <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
+              <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Retry with smaller date range</button>
               <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
             </div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
@@ -328,7 +432,9 @@ export function initPreviewFlow() {
         if (hasExistingPreview) {
           statusEl.innerHTML = `
             <div class="status-banner warning">
-              Refresh failed. Showing the last successful preview. <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
+              Refresh failed. Showing the last successful preview.
+              <br><small>Tip: Try a smaller date window (for example, the last 30 days) or fewer projects to reduce load.</small>
+              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
               <button type="button" class="status-close" aria-label="Dismiss">x</button>
             </div>
           `;

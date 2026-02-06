@@ -218,6 +218,8 @@ Generates preview data from Jira.
 - `predictabilityMode` (optional): `approx` or `strict` (default: `approx`)
 - `includeEpicTTM` (mandatory): Always `true` - Epic TTM is always included in reports
 - `includeActiveOrMissingEndDateSprints` (optional): `true` or `false`
+ - `previewMode` (optional): `normal` (default), `recent-first`, or `recent-only`. Heavy queries automatically prefer `recent-first`/`recent-only` to prioritise the last 14 days while leaning on cache for older history.
+ - `clientBudgetMs` (optional): Soft time budget in milliseconds requested by the client; the server clamps this to an internal maximum and uses it as the preview time budget for partial responses.
 
 ### POST /export-excel
 Generates Excel workbook (.xlsx) with multiple sheets.

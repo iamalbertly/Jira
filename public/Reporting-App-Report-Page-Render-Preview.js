@@ -50,6 +50,10 @@ export function renderPreview() {
   const fromCache = meta.fromCache === true;
   const partial = meta.partial === true;
   const partialReason = meta.partialReason || '';
+  const previewMode = meta.previewMode || 'normal';
+  const timedOut = meta.timedOut === true;
+  const recentSplitDays = typeof meta.recentSplitDays === 'number' ? meta.recentSplitDays : null;
+  const recentCutoffDate = meta.recentCutoffDate ? new Date(meta.recentCutoffDate) : null;
   const elapsedMs = typeof meta.elapsedMs === 'number' ? meta.elapsedMs : null;
   const cachedElapsedMs = typeof meta.cachedElapsedMs === 'number' ? meta.cachedElapsedMs : null;
 
@@ -76,6 +80,18 @@ export function renderPreview() {
   } else {
     detailsLines.push('Source: Jira (live request)');
   }
+  if (previewMode && previewMode !== 'normal') {
+    const modeLabel = previewMode === 'recent-only'
+      ? 'Recent-only (last 2 weeks)'
+      : (previewMode === 'recent-first' ? 'Recent-first (recent data prioritised)' : previewMode);
+    detailsLines.push(`Preview mode: ${modeLabel}`);
+  }
+  if (timedOut) {
+    detailsLines.push('Time budget: hit (preview returned partial data before full completion)');
+  }
+  if (recentSplitDays && recentCutoffDate && !Number.isNaN(recentCutoffDate.getTime())) {
+    detailsLines.push(`Recent window: last ${recentSplitDays} days (from ${recentCutoffDate.toUTCString()})`);
+  }
   if (meta.fieldInventory) {
     const foundCount = Array.isArray(meta.fieldInventory.ebmFieldsFound) ? meta.fieldInventory.ebmFieldsFound.length : 0;
     const missingCount = Array.isArray(meta.fieldInventory.ebmFieldsMissing) ? meta.fieldInventory.ebmFieldsMissing.length : 0;
@@ -89,7 +105,7 @@ export function renderPreview() {
   }
 
   const partialNotice = partial
-    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em> because: ${partialReason || 'time budget exceeded or limits reached.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
+    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em>${timedOut ? ' due to time budget being reached' : ''}${partialReason ? ` because: ${escapeHtml(partialReason)}` : '.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
     : '';
 
   const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
@@ -138,11 +154,20 @@ export function renderPreview() {
 
   const statusEl = document.getElementById('preview-status');
   if (statusEl) {
-    if (partial) {
+    if (partial || previewMode !== 'normal') {
+      const modeBadge = previewMode === 'recent-only'
+        ? 'Recent-only'
+        : (previewMode === 'recent-first' ? 'Recent-first' : 'Full history');
+      const baseMessage = partial
+        ? `Preview is partial${partialReason ? `: ${escapeHtml(partialReason)}` : ''}`
+        : 'Preview completed with optimised windowing for faster results.';
+      const hint = partial
+        ? 'Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.'
+        : 'Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
       statusEl.innerHTML = `
         <div class="status-banner warning">
-          Preview is partial: ${partialReason || 'time budget or pagination limits reached.'}
-          <br><small>Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.</small>
+          <strong>${modeBadge}</strong> – ${baseMessage}
+          <br><small>${hint}</small>
           <div style="margin-top: 6px;">
             <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
           </div>

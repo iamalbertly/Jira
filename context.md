@@ -37,6 +37,8 @@
 ### Public API Surface – `/preview.json`
 
 - **Query parameters** (unchanged – see `README.md` for full list).
+  - `previewMode` (optional): `"normal"` (default), `"recent-first"`, or `"recent-only"`. Used to bias server behaviour toward recent live data plus cached history.
+  - `clientBudgetMs` (optional): client-side soft budget in milliseconds; server clamps this to `PREVIEW_SERVER_MAX_MS` and uses it as the preview time budget.
 - **Response meta (selected fields)**:
   - `selectedProjects: string[]`
   - `windowStart: string`
@@ -49,6 +51,13 @@
   - `partial: boolean`
   - `partialReason: string | null`
   - `requireResolvedBySprintEnd: boolean` **(surfaced so the UI can explain empty states)**
+  - `previewMode: "normal" | "recent-first" | "recent-only"`
+  - `recentSplitDays: number | null` **(days used to define the “recent” window when splitting long ranges)**
+  - `recentCutoffDate: string | null` **(ISO date representing the start of the recent window; older sprints fall strictly before this when split is on)**
+  - `timedOut: boolean` **(true when the preview stopped early because the time budget was reached)**
+  - `usedCacheForOlder: boolean` **(true when older sprints were served purely from cache during a split window)**
+  - `clientBudgetMs: number` **(the budget honoured for this request, after clamping)**
+  - `serverMaxPreviewMs: number` **(hard server-side ceiling for preview processing)**
   - `epicHygiene: { ok: boolean, pctWithoutEpic: number, epicsSpanningOverN: number, message: string | null }` **(gates Epic TTM display)**
   - `phaseLog: Array<{ phase: string; at: string; ... }>`
 - **Preview response:** `boards[].indexedDelivery: { currentSPPerDay, rollingAvgSPPerDay, sprintCount, index }`; `sprintsIncluded[]` include `sprintCalendarDays`, `sprintWorkDays`, `spPerSprintDay`, `storiesPerSprintDay`. Predictability `perSprint` includes `plannedCarryoverStories`, `plannedCarryoverSP`, `unplannedSpilloverStories`, `unplannedSpilloverSP`, `plannedCarryoverPct`, `unplannedSpilloverPct`.
