@@ -48,14 +48,14 @@ body::before {
 
 header {
   background: linear-gradient(135deg, #ffffff 0%, #f6f9fc 100%);
-  padding: 24px 26px;
-  border-radius: var(--radius-lg);
-  margin-bottom: 22px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  margin-bottom: 14px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   position: sticky; /* keep header visible while scrolling */
-  top: 12px;
-  z-index: 30;
+  top: 0;
+  z-index: 1100;
 }
 
 /* Notification toggle placed in header (compact bell with badge) */
@@ -104,8 +104,6 @@ header {
   position: sticky;
   top: 0;
   z-index: 1100;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
 }
 header .header-row {
   display: flex;
@@ -137,15 +135,21 @@ header h1 {
 }
 
 .app-nav {
-  margin-top: 10px;
-  font-size: 0.95em;
+  margin-top: 6px;
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .app-nav a {
   color: var(--primary);
   text-decoration: none;
+  padding: 4px 6px;
+  border-radius: 6px;
 }
 .app-nav a:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  background: var(--card-muted);
 }
 .app-nav .current {
   color: var(--muted);
@@ -320,9 +324,9 @@ header h1 {
   flex-direction: column;
   gap: 2px;
   align-items: flex-start;
-  border: 1px solid #cbd5e1;
-  background: #f2f4f7;
-  color: #1f2937;
+  border: 1px solid #94a3b8;
+  background: #e6edf5;
+  color: #0f172a;
 }
 .quarter-pill.is-current {
   border-color: var(--primary);
@@ -330,14 +334,14 @@ header h1 {
 }
 .quarter-pill.is-active {
   border-color: var(--primary);
-  background: var(--primary);
+  background: #0f4c81;
   color: #fff;
 }
 .quarter-pill.is-active .quick-range-period {
-  color: #e5eff9;
+  color: #e5f1ff;
 }
 .quarter-pill .quick-range-label { font-weight: 700; }
-.quarter-pill .quick-range-period { font-size: 0.75em; color: #475467; }
+.quarter-pill .quick-range-period { font-size: 0.75em; color: #1f2937; }
 .date-window-btn { padding: 6px 10px; font-size: 13px; border-radius: 6px; }
 
 /* Compact inline export fallback */

@@ -55,10 +55,10 @@ export function renderDailyCompletion(data) {
   let html = '<div class="transparency-card" id="daily-completion-card">';
   html += '<h2>Daily completion</h2>';
   if (!daily.stories || daily.stories.length === 0) {
-    html += '<p>No story completions by day in this sprint yet.</p>';
+    html += '<p>No work item completions by day in this sprint yet.</p>';
   } else {
     html += '<table class="data-table">';
-    html += '<thead><tr><th>Date</th><th>Stories</th><th>SP completed</th><th>NPS</th></tr></thead><tbody>';
+    html += '<thead><tr><th>Date</th><th>Items</th><th>SP completed</th><th>NPS</th></tr></thead><tbody>';
     for (const row of daily.stories) {
       html += '<tr>';
       html += '<td>' + escapeHtml(formatDayLabel(row.date)) + '</td>';
@@ -128,22 +128,24 @@ export function renderStories(data) {
   const stories = data.stories || [];
   const planned = data.plannedWindow || {};
   let html = '<div class="transparency-card" id="stories-card">';
-  html += '<h2>Stories in sprint</h2>';
+  html += '<h2>Work items in sprint</h2>';
   html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</strong></p>';
   if (!stories.length) {
-    html += renderEmptyStateHtml('No stories', 'No stories in this sprint.', '');
+    html += renderEmptyStateHtml('No work items', 'No work items in this sprint.', '');
   } else {
     // Prevent rendering all rows to avoid large initial DOM
     const initialLimit = 10;
     const toShow = stories.slice(0, initialLimit);
     const remaining = stories.slice(initialLimit);
 
-    html += '<table class="data-table" id="stories-table"><thead><tr><th>Story</th><th class="cell-wrap">Summary</th><th>Status</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
+    html += '<table class="data-table" id="stories-table"><thead><tr><th>Issue</th><th>Type</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
     for (const row of toShow) {
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+      html += '<td>' + escapeHtml(row.issueType || '-') + '</td>';
       html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
       html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
       html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
       html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
@@ -158,8 +160,10 @@ export function renderStories(data) {
       for (const row of remaining) {
         html += '<tr>';
         html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
+        html += '<td>' + escapeHtml(row.issueType || '-') + '</td>';
         html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
         html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+        html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
         html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
@@ -221,4 +225,3 @@ export function renderScopeChanges(data) {
   html += '</div>';
   return html;
 }
-

@@ -3,6 +3,8 @@ import { renderLeadershipPage } from './Reporting-App-Leadership-Page-Render.js'
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 
+const SHARED_DATE_RANGE_KEY = 'vodaAgileBoard_dateRange_v1';
+
 function setDefaultDates() {
   const { startInput, endInput } = leadershipDom;
   if (!startInput || !endInput) return;
@@ -22,6 +24,13 @@ function loadSavedFilters() {
       const val = String(ssotProjects).trim();
       const hasOption = Array.from(projectsSelect.options).some(o => o.value === val);
       if (hasOption) projectsSelect.value = val;
+    }
+    const sharedRangeRaw = localStorage.getItem(SHARED_DATE_RANGE_KEY);
+    if (sharedRangeRaw) {
+      const shared = JSON.parse(sharedRangeRaw);
+      if (shared?.start && startInput) startInput.value = String(shared.start).slice(0, 10);
+      if (shared?.end && endInput) endInput.value = String(shared.end).slice(0, 10);
+      return true;
     }
     const raw = localStorage.getItem(storageKey);
     if (!raw) return Boolean(ssotProjects);
@@ -53,6 +62,12 @@ function saveFilters() {
       end: endInput?.value || '',
     };
     localStorage.setItem(storageKey, JSON.stringify(payload));
+    if (payload.start && payload.end) {
+      localStorage.setItem(SHARED_DATE_RANGE_KEY, JSON.stringify({
+        start: payload.start + 'T00:00:00.000Z',
+        end: payload.end + 'T23:59:59.999Z',
+      }));
+    }
   } catch (_) {}
 }
 

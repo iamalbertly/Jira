@@ -33,13 +33,28 @@ export async function loadCurrentSprint(boardId, sprintId) {
   params.set('boardId', boardId);
   params.set('projects', getProjectsParam());
   if (sprintId) params.set('sprintId', sprintId);
-  const response = await fetch(`/api/current-sprint.json?${params.toString()}`, {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(getErrorMessage(response, body, 'Failed to load current sprint'));
+  // Prefer live data for real-time accuracy; fall back to snapshot on failure
+  params.set('live', 'true');
+  try {
+    const response = await fetch(`/api/current-sprint.json?${params.toString()}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(getErrorMessage(response, body, 'Failed to load current sprint'));
+    }
+    return body;
+  } catch (error) {
+    params.delete('live');
+    const response = await fetch(`/api/current-sprint.json?${params.toString()}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(getErrorMessage(response, body, 'Failed to load current sprint'));
+    }
+    return body;
   }
-  return body;
 }

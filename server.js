@@ -16,7 +16,7 @@ import { createAgileClient, createVersion3Client } from './lib/jiraClients.js';
 import { discoverBoardsForProjects, discoverFields } from './lib/discovery.js';
 import { fetchSprintsForBoard, filterSprintsByOverlap } from './lib/sprints.js';
 import { buildCurrentSprintPayload } from './lib/currentSprint.js';
-import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues } from './lib/issues.js';
+import { fetchSprintIssues, buildDrillDownRow, fetchBugsForSprints, fetchEpicIssues, buildSprintIssuesCacheKey, readCachedSprintIssues } from './lib/issues.js';
 import { calculateThroughput, calculateDoneComparison, calculateReworkRatio, calculatePredictability, calculateEpicTTM } from './lib/metrics.js';
 import { streamCSV, CSV_COLUMNS } from './lib/csv.js';
 import { generateExcelWorkbook, generateExcelFilename, createSummarySheetData, formatDateRangeForFilename } from './lib/excel.js';
@@ -577,6 +577,14 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       });
     }
 
+    // Split long windows: prefer cached older sprints + live recent 2 weeks to avoid timeouts
+    const RECENT_SPLIT_DAYS = 14;
+    const shouldSplitByRecent = !bypassCache && rangeDays > RECENT_SPLIT_DAYS;
+    const recentCutoffDate = shouldSplitByRecent ? new Date(endDate) : null;
+    if (recentCutoffDate) {
+      recentCutoffDate.setDate(recentCutoffDate.getDate() - RECENT_SPLIT_DAYS);
+    }
+
     // Build a stable cache key for this preview request
     const cacheKey = `preview:${JSON.stringify({
       projects: [...selectedProjects].sort(),
@@ -830,6 +838,9 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     const sprintIds = sprintsIncluded.map(s => s.id);
     const boardMap = new Map(boards.map(board => [board.id, board]));
     const totalChunks = Math.ceil(sprintIds.length / 3);
+    const skippedOldSprints = [];
+    const cachedOldSprints = [];
+    const includeSubtaskTotals = !!version3Client;
     
     for (let i = 0; i < sprintIds.length; i += 3) {
       // Check time budget before processing each chunk
@@ -863,7 +874,43 @@ app.get('/preview.json', requireAuth, async (req, res) => {
             allowedTypes.push('Bug');
           }
           // Note: Epic and Feature types can be added here if needed for future enhancements
-          
+
+          const sprintEndCandidate = sprint?.endDate || sprint?.completeDate || sprint?.startDate || null;
+          const sprintEndTime = sprintEndCandidate ? new Date(sprintEndCandidate).getTime() : NaN;
+          const isRecentSprint = !shouldSplitByRecent || !recentCutoffDate
+            ? true
+            : ((sprint?.state || '').toLowerCase() === 'active' ||
+              Number.isNaN(sprintEndTime) ||
+              sprintEndTime >= recentCutoffDate.getTime());
+
+          if (!isRecentSprint && shouldSplitByRecent) {
+            const cacheKey = buildSprintIssuesCacheKey({
+              sprintId,
+              selectedProjects,
+              requireResolvedBySprintEnd,
+              sprintEndDate: sprint.endDate,
+              allowedIssueTypes: allowedTypes,
+              includeSubtaskTotals,
+              fieldIds: fields,
+            });
+            const cachedIssues = readCachedSprintIssues(cacheKey);
+            if (Array.isArray(cachedIssues) && cachedIssues.length > 0) {
+              cachedOldSprints.push(sprintId);
+              logger.debug(`Using cached issues for older sprint ${sprintId}`, { cacheKey });
+              return cachedIssues.map(issue =>
+                buildDrillDownRow(
+                  issue,
+                  sprint,
+                  board,
+                  fields,
+                  { includeStoryPoints, includeEpicTTM }
+                )
+              );
+            }
+            skippedOldSprints.push(sprintId);
+            return [];
+          }
+
           const issues = await retryOnRateLimit(
             () =>
               fetchSprintIssues(
@@ -908,6 +955,53 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         rowsInChunk: chunkRowCount,
         totalRowsSoFar: allRows.length
       });
+    }
+
+    if (shouldSplitByRecent && skippedOldSprints.length > 0) {
+      isPartial = true;
+      if (!partialReason) {
+        partialReason = `Older sprints are still warming cache; showing cached data plus the most recent ${RECENT_SPLIT_DAYS} days. Use full refresh (bypass cache) to force a complete load.`;
+      }
+      addPhase('splitWindow', {
+        recentDays: RECENT_SPLIT_DAYS,
+        cachedOldSprints: cachedOldSprints.length,
+        skippedOldSprints: skippedOldSprints.length,
+      });
+
+      const backgroundIds = [...new Set(skippedOldSprints)];
+      if (backgroundIds.length > 0) {
+        const warmSprintsInBackground = async () => {
+          try {
+            const concurrency = 3;
+            for (let i = 0; i < backgroundIds.length; i += concurrency) {
+              const slice = backgroundIds.slice(i, i + concurrency);
+              await Promise.all(slice.map(async (sid) => {
+                const sprint = sprintMap.get(sid);
+                const allowedTypes = ['Story'];
+                if (includeBugsForRework) allowedTypes.push('Bug');
+                try {
+                  await fetchSprintIssues(
+                    sid,
+                    agileClient,
+                    selectedProjects,
+                    requireResolvedBySprintEnd,
+                    sprint?.endDate,
+                    allowedTypes,
+                    fields,
+                    version3Client
+                  );
+                } catch (err) {
+                  logger.warn('Background sprint cache warm failed', { sprintId: sid, error: err.message });
+                }
+              }));
+            }
+            logger.info('Background sprint cache warm completed', { warmed: backgroundIds.length });
+          } catch (err) {
+            logger.warn('Background sprint cache warm failed', { error: err.message });
+          }
+        };
+        setTimeout(() => { warmSprintsInBackground(); }, 0);
+      }
     }
     logger.info('Issue fetching completed', { totalRows: allRows.length, totalSprints: sprintIds.length });
     addPhase('fetchIssues', {

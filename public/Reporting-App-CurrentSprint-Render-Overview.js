@@ -57,14 +57,14 @@ export function renderSummaryCard(data) {
   let html = '<div class="transparency-card" id="sprint-summary-card">';
   html += '<div class="summary-strip">';
   html += '<div class="summary-headline">' +
-    '<strong>' + doneStories + ' of ' + totalStories + ' stories (' + totalSP + ' pts)</strong>' +
+    '<strong>' + doneStories + ' of ' + totalStories + ' work items (' + totalSP + ' pts)</strong>' +
     '<span>' + percentDone + '% done</span>' +
     '</div>';
   const stuckCount = (data.stuckCandidates || []).length;
   html += '<div class="summary-links">' +
     '<a href="#burndown-card">Burndown</a>' +
     '<span>|</span>' +
-    '<a href="#stories-card">Stories</a>' +
+    '<a href="#stories-card">Work items</a>' +
     '<span>|</span>' +
     '<a href="#scope-changes-card">Scope changes</a>' +
     (stuckCount > 0 ? '<span>|</span><a href="#stuck-card" class="stuck-prompt">' + stuckCount + ' in progress &gt;24h - Follow up</a>' : '') +
@@ -120,7 +120,7 @@ export function renderSummaryCard(data) {
   }
 
   if (previousSprint && previousSprint.name) {
-    html += '<div class="summary-prev">Previous sprint: <strong>' + escapeHtml(previousSprint.name) + '</strong> - ' + (previousSprint.doneStories ?? 0) + ' stories, ' + (previousSprint.doneSP ?? 0) + ' SP.</div>';
+    html += '<div class="summary-prev">Previous sprint: <strong>' + escapeHtml(previousSprint.name) + '</strong> - ' + (previousSprint.doneStories ?? 0) + ' work items, ' + (previousSprint.doneSP ?? 0) + ' SP.</div>';
   }
 
   html += '</div>';

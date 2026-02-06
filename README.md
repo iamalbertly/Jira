@@ -136,6 +136,8 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 - Quarter pills are more compact, higher contrast, and never show future quarters. ✅
 - Preview fetches are cache-friendly with longer TTLs and show cached results when available for faster perceived load. ✅
 - Preview generation now respects a 1-minute soft limit and will return a partial preview instead of stalling. ✅
+- Long date windows now split: cached older sprints + live last 2 weeks, with background cache warm to avoid quarterly timeouts. ✅
+- Current Sprint now defaults to live data (snapshot fallback only on errors). ✅
 - Playwright tests updated to validate the above UI behaviours and the retry flow; orchestration runner remains the same but tests now fail-fast on first error. ✅
 
 ### Preview Behaviour & Feedback
@@ -506,6 +508,7 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
 - Try enabling "Include Active/Missing End Date Sprints" if sprints are missing end dates
 - Check server logs for detailed error messages
 - Large date ranges or many sprints may return a partial preview after ~1 minute to keep the UI responsive
+- Quarterly ranges now use cached older sprints plus the most recent 2 weeks live to avoid timeouts; a full refresh can be forced with cache bypass
 
 ### Date Timezone Issues
 - All dates are handled in UTC
