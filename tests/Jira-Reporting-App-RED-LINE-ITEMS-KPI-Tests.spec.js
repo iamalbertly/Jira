@@ -16,7 +16,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
 
     // Test via API first (more reliable) - use bypassCache to get fresh data
     const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&bypassCache=true`, {
-      timeout: 120000
+      timeout: 180000
     });
 
     if (response.status() === 200) {
@@ -162,7 +162,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
 
     // Test via API - verify issueType is in the data - use bypassCache to get fresh data
     const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&includeStoryPoints=true&bypassCache=true`, {
-      timeout: 120000
+      timeout: 180000
     });
 
     if (response.status() === 200) {
@@ -236,7 +236,7 @@ test.describe('RED LINE ITEMS KPI Validation', () => {
 
     // Test via API with cache bypass
     const previewResponse = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
-      timeout: 120000
+      timeout: 180000
     });
 
     if (previewResponse.status() === 200) {

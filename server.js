@@ -1746,6 +1746,24 @@ app.post('/feedback', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/test/clear-cache - Test-only endpoint to clear all server caches.
+ * Available only when NODE_ENV=test or ALLOW_TEST_CACHE_CLEAR=1.
+ */
+const allowTestCacheClear = process.env.NODE_ENV === 'test' || process.env.ALLOW_TEST_CACHE_CLEAR === '1';
+app.post('/api/test/clear-cache', (req, res) => {
+  if (!allowTestCacheClear) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  cache.clear();
+  boardsDiscoveryCache.clear();
+  fieldsDiscoveryCache = null;
+  inFlightPreviews.clear();
+  rateLimitRegistry.clear();
+  recentActivityTimestamps.length = 0;
+  res.json({ ok: true });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', err);
@@ -1801,7 +1819,7 @@ async function refreshCurrentSprintSnapshots() {
 }
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   // Keep console.log for startup messages
   console.log(`VodaAgileBoard running on http://localhost:${PORT}`);
   console.log(`Access: ${authEnabled ? 'login at / then /report' : `report at http://localhost:${PORT}/report`}`);
@@ -1823,4 +1841,12 @@ app.listen(PORT, () => {
   // Snapshot refresh: first run after 30s, then hourly
   setTimeout(() => refreshCurrentSprintSnapshots(), 30 * 1000);
   setInterval(() => refreshCurrentSprintSnapshots(), SNAPSHOT_REFRESH_INTERVAL_MS);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error('Port already in use. Stop the other process or set PORT=...', { port: PORT, code: err.code });
+    process.exit(1);
+  }
+  throw err;
 });

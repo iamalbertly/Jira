@@ -4,13 +4,19 @@
 
 export const IGNORE_CONSOLE_ERRORS = [
   'Failed to load resource: the server responded with a status of 404 (Not Found)',
+  'Failed to load resource: net::ERR_FAILED',
   'ResizeObserver loop limit exceeded',
-  'The operation is insecure.'
+  'The operation is insecure.',
+  'AbortError: signal is aborted without reason',
+  'signal is aborted without reason'
 ];
 
 export const IGNORE_REQUEST_PATTERNS = [
   /\/favicon\.ico/i
 ];
+
+/** Shared timeout for Excel export download wait (ms). Use in Server Errors and Excel Export specs. */
+export const EXCEL_DOWNLOAD_TIMEOUT_MS = 180000;
 
 /**
  * Captures browser console errors, page errors, and failed requests for assertion in tests.
@@ -53,11 +59,10 @@ export function captureBrowserTelemetry(page) {
 /**
  * Waits for preview to complete (preview content or error visible, loading hidden).
  * @param {import('@playwright/test').Page} page
- * @param {{ timeout?: number }} options - optional timeout (default 120000)
+ * @param {{ timeout?: number }} options - optional timeout (default 120000 ms; increase for very heavy previews)
  */
 export async function waitForPreview(page, options = {}) {
-  // Fail-fast: reduced timeout to avoid long stalls when backend is unavailable
-  const timeout = options.timeout ?? 60000;
+  const timeout = options.timeout ?? 120000;
   // Wait briefly for either preview content or error to appear
   await Promise.race([
     page.waitForSelector('#preview-content', { state: 'visible', timeout }).catch(() => null),

@@ -1,3 +1,9 @@
+/**
+ * Report page preview flow: init, event handlers, fetch, and apply payload.
+ * SIZE-EXEMPT: Cohesive preview flow (DOM events, fetch, AbortController, applyPayload, timeout UI)
+ * kept in one module to avoid scattering and duplicate state handling; complexity config split to
+ * Reporting-App-Report-Page-Preview-Complexity-Config.js.
+ */
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
@@ -8,51 +14,11 @@ import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState } from './Reporting-App-Report-Page-Export-Menu.js';
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
-
-const RECENT_SPLIT_DEFAULT_DAYS = 14;
-const PREVIEW_TIMEOUT_LIGHT_MS = 60000;
-const PREVIEW_TIMEOUT_HEAVY_MS = 75000;
-const PREVIEW_TIMEOUT_VERY_HEAVY_MS = 90000;
-
-function classifyPreviewComplexity({
-  rangeDays,
-  projectCount,
-  includePredictability,
-  includeActiveOrMissingEndDateSprints,
-  requireResolvedBySprintEnd,
-}) {
-  const safeRangeDays = typeof rangeDays === 'number' && rangeDays > 0 ? rangeDays : 1;
-  const safeProjectCount = typeof projectCount === 'number' && projectCount > 0 ? projectCount : 1;
-
-  let score = safeRangeDays * safeProjectCount;
-
-  if (includePredictability) {
-    score *= 1.4;
-  }
-  if (includeActiveOrMissingEndDateSprints) {
-    score *= 1.2;
-  }
-  if (requireResolvedBySprintEnd) {
-    score *= 1.15;
-  }
-
-  if (safeRangeDays > 365) {
-    score *= 1.4;
-  } else if (safeRangeDays > 180) {
-    score *= 1.25;
-  }
-
-  let level = 'light';
-  if (score >= 8000) {
-    level = 'veryHeavy';
-  } else if (score >= 2500) {
-    level = 'heavy';
-  } else if (score >= 600) {
-    level = 'normal';
-  }
-
-  return { score, level };
-}
+import {
+  RECENT_SPLIT_DEFAULT_DAYS,
+  classifyPreviewComplexity,
+  getClientBudgetMs,
+} from './Reporting-App-Report-Page-Preview-Complexity-Config.js';
 
 function setQuickRangeButtonsDisabled(disabled) {
   document.querySelectorAll('.quick-range-btn[data-quarter], .quarter-pill').forEach((button) => {
@@ -126,6 +92,7 @@ export function initPreviewFlow() {
   previewBtn.addEventListener('click', async () => {
     let timeoutId;
     let progressInterval;
+    let timeoutMs = PREVIEW_TIMEOUT_LIGHT_MS;
     let isLoading = true;
     const cachePrefix = 'reportPreview:';
     const bypassCache = previewBtn.dataset.bypassCache === 'true';
@@ -252,11 +219,7 @@ export function initPreviewFlow() {
     }
 
     params.previewMode = previewMode;
-    const clientBudgetMs = previewMode === 'recent-only'
-      ? PREVIEW_TIMEOUT_VERY_HEAVY_MS
-      : (previewMode === 'recent-first' || (rangeDays && rangeDays > RECENT_SPLIT_DEFAULT_DAYS)
-        ? PREVIEW_TIMEOUT_HEAVY_MS
-        : PREVIEW_TIMEOUT_LIGHT_MS);
+    const clientBudgetMs = getClientBudgetMs(previewMode, rangeDays);
     params.clientBudgetMs = clientBudgetMs;
 
     const queryString = new URLSearchParams(params).toString();
@@ -332,10 +295,11 @@ export function initPreviewFlow() {
       updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
 
       const controller = new AbortController();
-      const timeoutMs = typeof clientBudgetMs === 'number' && clientBudgetMs > 0
+      timeoutMs = typeof clientBudgetMs === 'number' && clientBudgetMs > 0
         ? clientBudgetMs
         : PREVIEW_TIMEOUT_LIGHT_MS;
       timeoutId = setTimeout(() => {
+        try { emitTelemetry('preview.timeout', { timeoutMs }); } catch (_) {}
         controller.abort();
       }, timeoutMs);
 
@@ -424,14 +388,16 @@ export function initPreviewFlow() {
 
       let errorMsg = (error && error.message) ? String(error.message) : 'Failed to fetch preview. Please try again.';
       if (error && error.name === 'AbortError') {
-        const seconds = Math.round(timeoutMs / 1000);
+        // User-facing seconds must match the actual request timeout (timeoutMs drives the AbortController).
+        const seconds = (typeof timeoutMs === 'number' && timeoutMs > 0) ? Math.round(timeoutMs / 1000) : 60;
         errorMsg = `This preview is taking longer than expected (over ${seconds}s). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history.`;
       }
 
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
 
       if (errorEl) {
-        errorEl.innerHTML = `
+        try {
+          errorEl.innerHTML = `
           <div role="alert">
             <strong>Error:</strong> ${escapeHtml(errorMsg)}
             <br><small>If this problem persists, please check your Jira connection or try a narrower date range.</small>
@@ -443,6 +409,10 @@ export function initPreviewFlow() {
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
         `;
+        } catch (innerErr) {
+          console.error('Error rendering preview error UI', innerErr);
+          errorEl.innerHTML = '<div role="alert"><strong>Error:</strong> Something went wrong. Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+        }
       }
       if (statusEl) {
         if (hasExistingPreview) {
@@ -461,6 +431,10 @@ export function initPreviewFlow() {
           statusEl.style.display = 'none';
         }
       }
+      // Ensure error panel is never blank (trust).
+      if (errorEl && errorEl.style.display === 'block' && (!errorEl.textContent || errorEl.textContent.trim() === '')) {
+        errorEl.innerHTML = '<div role="alert"><strong>Error:</strong> Something went wrong. Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+      }
     } finally {
       isLoading = false;
       // Strongly ensure loading elements are hidden and steps cleared to avoid spinner hangs
@@ -475,6 +449,7 @@ export function initPreviewFlow() {
       previewBtn.disabled = false;
       setQuickRangeButtonsDisabled(false);
 
+      // Export enabled only when preview has rows; prevents export before data is ready.
       const hasRows = Array.isArray(reportState.previewRows) && reportState.previewRows.length > 0;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
       if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;

@@ -1,13 +1,11 @@
 /**
- * Excel Export Validation Tests
- * Tests Excel export functionality including file naming, multi-tab structure,
- * business-friendly column names, Excel-compatible dates, and KPI calculations
+ * SIZE-EXEMPT: Cohesive E2E spec for Excel export (file naming, tabs, columns, dates, KPI); splitting would duplicate runDefaultPreview and export flow.
+ * Excel Export Validation Tests - file naming, multi-tab structure, business-friendly columns, Excel dates, KPI calculations
  */
-
 import { test, expect } from '@playwright/test';
-import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { runDefaultPreview, captureBrowserTelemetry, IGNORE_REQUEST_PATTERNS, EXCEL_DOWNLOAD_TIMEOUT_MS } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
-const EXPORT_TIMEOUT_MS = 60000;
+const EXPORT_TIMEOUT_MS = EXCEL_DOWNLOAD_TIMEOUT_MS;
 const DIALOG_TIMEOUT_MS = 5000;
 
 async function clickExcelExportAndWait(page, timeout = EXPORT_TIMEOUT_MS) {
@@ -45,13 +43,11 @@ test.describe('Jira Reporting App - Excel Export Tests', () => {
     
     await runDefaultPreview(page);
     
-    const previewVisible = await page.locator('#preview-content').isVisible();
-    if (!previewVisible) {
-      console.log('[TEST] Preview not visible, skipping Excel filename test');
-      return;
-    }
-    
-    // Click Excel export button
+    await expect(page.locator('#preview-content')).toBeVisible();
+    await expect(page.locator('#export-excel-btn')).toBeEnabled();
+    await page.waitForTimeout(500);
+
+    const telemetry = captureBrowserTelemetry(page);
     const exportExcelBtn = page.locator('#export-excel-btn');
     if (await exportExcelBtn.isEnabled()) {
       const download = await clickExcelExportAndWait(page, EXPORT_TIMEOUT_MS);
@@ -63,6 +59,10 @@ test.describe('Jira Reporting App - Excel Export Tests', () => {
         expect(filename).toMatch(filenamePattern);
         console.log(`[TEST] Excel filename format correct: ${filename}`);
       }
+      const criticalFailures = telemetry.failedRequests.filter(
+        (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
+      );
+      expect(criticalFailures).toEqual([]);
     }
   });
 

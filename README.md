@@ -155,6 +155,10 @@ The server will start on `http://localhost:3000` (or the port specified in the `
   - If a previous preview is already visible, the UI keeps it on-screen while the new request runs and shows a refresh banner so users see immediate results.
   - The step log keeps only the most recent entries to avoid overwhelming the UI during long-running previews.
   - Partial previews include a **Force full refresh** action which re-runs the request with cache bypass.
+- **Preview client-side timeout**
+  - The report preview request has a client-side timeout (typically 60–90 seconds depending on date range and options). If the request exceeds this, the client aborts it.
+  - On timeout, the error box shows: "This preview is taking longer than expected (over Xs). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history." with **Retry now**, **Retry with smaller date range**, and **Force full refresh** buttons. The error box is never left empty.
+  - A dedicated Playwright spec (`Jira-Reporting-App-Preview-Timeout-Error-UI-Validation-Tests.spec.js`) validates that the error UI is visible, non-empty, and includes retry actions when a preview fails.
 - **Partial previews**:
   - If the backend has to stop early (for example due to time budget or pagination limits), the response is marked as partial.
   - The UI shows a warning banner near the preview summary and a matching hint near the export buttons. CSV exports will only contain the currently loaded data in this case.
@@ -308,10 +312,10 @@ This runs the test orchestration script which:
 11. Runs Refactor SSOT Validation tests
 12. Runs Boards Summary Filters Export Validation tests
 13. Runs Current Sprint and Leadership View tests
-14. Runs UX Trust Validation tests (report, current-sprint, leadership with console and UI assertions)
+14. Runs UX Trust and Export Validation tests (report, current-sprint, leadership, export; telemetry + UI)
 15. Runs Current Sprint UX and SSOT Validation tests (board pre-select, burndown summary, empty states, leadership empty preview)
-15. Terminates on first error
-16. Shows all steps in foreground with live output from each test command
+16. Terminates on first error
+17. Shows all steps in foreground with live output from each test command. Step definitions live in `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`.
 
 ### Run Specific Test Suites
 ```bash
@@ -360,7 +364,7 @@ npm run test:current-sprint-ux-ssot
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs `npm install` then a sequence of Playwright specs (API integration, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation, Linkification and Empty-state UI Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- The test orchestration script (`npm run test:all`) runs `npm install`, then (when the server is up) calls `POST /api/test/clear-cache` so no test reads stale in-memory cache. The clear-cache endpoint is available only when `NODE_ENV=test` or `ALLOW_TEST_CACHE_CLEAR=1`. It then runs a sequence of Playwright specs (API integration, Server Errors and Export Validation, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation, Linkification and Empty-state UI Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
 - Specs in `tests/` use `captureBrowserTelemetry(page)` (console errors, page errors, failed requests) and UI assertions so a step fails if the UI is wrong or the browser reports errors.
 - **Issue key linkification:** Report Done Stories and Epic TTM use Jira links for issue keys; Current Sprint (Stories, Scope changes, Items stuck, Sub-task tracking) uses shared `renderIssueKeyLink(issueKey, issueUrl)` from `Reporting-App-Shared-Dom-Escape-Helpers.js`. Backend sends `issueKey` and `issueUrl`; optional `meta.jiraHost` in current-sprint response allows client fallback when URL is missing.
 - **Empty-state SSOT:** `Reporting-App-Shared-Empty-State-Helpers.js` exports `renderEmptyStateHtml(title, message, hint)`; Report, Current Sprint, and Leadership use it for consistent "no data" messaging.
@@ -393,30 +397,41 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 |   |-- cache.js              # TTL cache implementation
 |   |-- discovery.js          # Board and field discovery
 |   |-- sprints.js            # Sprint fetching and filtering
-|   |-- issues.js             # Issue extraction and filtering
+|   |-- currentSprint.js      # Current-sprint payload (imports Notes-IO, IssueType, Burndown-Resolve)
+|   |-- issues.js             # Issue fetching, buildDrillDownRow re-export (imports Pagination-Fields, DrillDown-Row, Subtask-Time-Totals)
 |   |-- metrics.js            # Metrics calculations
 |   |-- csv.js                # CSV generation utilities
 |   |-- excel.js              # Excel generation utilities
 |   |-- columnMapping.js      # Business-friendly column name mapping
-|   |-- kpiCalculations.js    # KPI calculation functions
+|   |-- kpiCalculations.js   # KPI calculation functions
+|   |-- Jira-Reporting-App-Data-CurrentSprint-Notes-IO.js
+|   |-- Jira-Reporting-App-Data-IssueType-Classification.js
+|   |-- Jira-Reporting-App-Data-CurrentSprint-Burndown-Resolve.js
+|   |-- Jira-Reporting-App-Data-Issues-Pagination-Fields.js
+|   |-- Jira-Reporting-App-Data-Issues-DrillDown-Row.js
+|   |-- Jira-Reporting-App-Data-Issues-Subtask-Time-Totals.js
 |   `-- Jira-Reporting-App-Server-Logging-Utility.js  # Structured logging
 |-- public/
 |   |-- report.html           # General Performance report UI (modular entrypoint)
 |   |-- Reporting-App-Report-Page-Init-Controller.js  # Report page init/controller (SSOT)
 |   |-- Reporting-App-Report-Page-*.js               # Report page modules (state, filters, preview, renderers, exports)
+|   |-- Reporting-App-Report-Page-Preview-Complexity-Config.js  # Preview complexity and timeout config
 |   |-- Reporting-App-Shared-*.js                     # Shared helpers (DOM escape, formatting, boards summary, notifications, quarters)
 |   `-- styles.css            # Styling
 |-- tests/
+|   |-- JiraReporting-Tests-Shared-PreviewExport-Helpers.js  # SSOT for runDefaultPreview, waitForPreview, captureBrowserTelemetry
 |   |-- Jira-Reporting-App-E2E-User-Journey-Tests.spec.js
 |   |-- Jira-Reporting-App-API-Integration-Tests.spec.js
+|   |-- Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js  # SSOT for report/current-sprint/leadership/export
 |   |-- Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js
 |   |-- Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js
 |   |-- Jira-Reporting-App-Excel-Export-Tests.spec.js
 |   |-- Jira-Reporting-App-RED-LINE-ITEMS-KPI-Tests.spec.js
 |   |-- Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js
-|   `-- Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js
+|   `-- (other .spec.js files)
 `-- scripts/
-    `-- Jira-Reporting-App-Test-Orchestration-Runner.js
+    |-- Jira-Reporting-App-Test-Orchestration-Runner.js  # Runs steps; clear-cache, server start optional
+    `-- Jira-Reporting-App-Test-Orchestration-Steps.js   # Step definitions (getSteps(projectRoot))
 ```
 
 ## Metric guide and governance
@@ -489,6 +504,11 @@ Use metrics with explicit assumptions. Every view should make clear what is meas
 - **Correct:** Team A had more unplanned spillover (bugs/support). Check scope-change cause and sprint hygiene before comparing predictability.
 
 ## Troubleshooting
+
+### Port already in use (EADDRINUSE)
+- If you see "Port already in use" when starting the server, another process is bound to the port (e.g. a previous server instance).
+- **Fix:** Stop the other process (e.g. close the terminal running `node server.js`) or set a different port: `PORT=3001 npm start`.
+- Do not start a second server on the same port; the test orchestration reuses an existing server when the port is in use.
 
 ### "Missing required Jira credentials" Error
 - Ensure `.env` file exists and contains `JIRA_HOST`, `JIRA_EMAIL`, and `JIRA_API_TOKEN`

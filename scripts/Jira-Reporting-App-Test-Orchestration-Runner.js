@@ -9,13 +9,14 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import net from 'net';
+import { getSteps } from './Jira-Reporting-App-Test-Orchestration-Steps.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+const steps = getSteps(projectRoot);
 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
 const resolvedPort = (() => {
-  let manualServer = null;
   try {
     const parsed = new URL(baseUrl);
     if (parsed.port) return Number(parsed.port);
@@ -41,165 +42,6 @@ function isPortInUse(port) {
     socket.connect(port, '127.0.0.1');
   });
 }
-
-const steps = [
-  {
-    name: 'Install Dependencies',
-    command: 'npm',
-    args: ['install'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run API Integration Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-API-Integration-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Login Security Deploy Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/VodaAgileBoard-Login-Security-Deploy-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run E2E User Journey Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run UX Reliability Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run UX Critical Fixes Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Feedback & Date Display Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Feedback-UX-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run CSV Export Fallback Test',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-CSV-Export-Fallback.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Date Window Ordering Test',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-DateWindow-Ordering.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Throughput Merge Test',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Throughput-Merge.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Epic Key Link Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-EpicKeyLinks.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Preview Retry Test',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Preview-Retry.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Server Feedback Endpoint Test',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Server-Feedback-Endpoint.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Column Titles & Tooltips Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Column-Tooltip-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Validation Plan Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Excel Export Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Excel-Export-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Refactor SSOT Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Boards Summary Filters Export Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Boards-Summary-Filters-Export-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Current Sprint and Leadership View Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run UX Trust Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Current Sprint UX and SSOT Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Cross-Page Persistence Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Cross-Page-Persistence-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Linkification and Empty-state UI Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Linkification-EmptyState-UI-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Vodacom Quarters SSOT Sprint Order Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Vodacom-Quarters-SSOT-Sprint-Order-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run Mobile Responsive UX Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-  {
-    name: 'Run General Performance Quarters UI Validation Tests',
-    command: 'npx',
-    args: ['playwright', 'test', 'tests/Jira-Reporting-App-General-Performance-Quarters-UI-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'],
-    cwd: projectRoot,
-  },
-];
 
 function runStep(step, stepIndex, envOverrides = {}) {
   return new Promise((resolve, reject) => {
@@ -269,9 +111,36 @@ async function runAllTests() {
         cwd: projectRoot,
         stdio: 'inherit',
         shell: process.platform === 'win32',
-        env: { ...process.env, PORT: String(resolvedPort) },
+        env: { ...process.env, PORT: String(resolvedPort), NODE_ENV: 'test' },
       });
       await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Clear server caches before test steps so no test reads stale data
+    const clearCacheUrl = `${baseUrl.replace(/\/$/, '')}/api/test/clear-cache`;
+    let cacheCleared = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(clearCacheUrl, { method: 'POST', signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          cacheCleared = true;
+          console.log('[INFO] Server caches cleared.\n');
+          break;
+        }
+        if (res.status === 404) {
+          console.log('[WARN] Clear-cache endpoint not available (404). Continue without clearing.\n');
+          break;
+        }
+      } catch (err) {
+        if (attempt === 3) {
+          console.log('[WARN] Failed to clear server cache:', err.message || err, '- Continue without clearing.\n');
+        } else {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
     }
 
     for (let i = 0; i < steps.length; i++) {

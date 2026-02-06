@@ -1,6 +1,6 @@
 /**
+ * SIZE-EXEMPT: Cohesive E2E spec for Current Sprint redesign (11 UI components); splitting would duplicate setup and reduce clarity.
  * Jira Reporting App - Current Sprint Redesign Validation Test Suite
- * 
  * Comprehensive tests for all 11 new UI components:
  * 1. Fixed Header Bar
  * 2. Unified Health Dashboard

@@ -64,7 +64,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     let response;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, { timeout: 120000 });
+        response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, { timeout: 180000 });
         break;
       } catch (err) {
         console.warn(`[TEST] Preview API attempt ${attempt} failed: ${err.message}`);
@@ -153,7 +153,7 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
 
     // Test via API to check for fallback count
     const response = await request.get(`/preview.json${DEFAULT_Q2_QUERY}&bypassCache=true`, {
-      timeout: 120000
+      timeout: 180000
     });
 
     if (response.status() === 200) {

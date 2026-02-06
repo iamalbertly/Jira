@@ -7,13 +7,13 @@
     - `lib/jiraClients.js` – Jira client creation
     - `lib/discovery.js` – boards/fields discovery (uses `lib/JiraReporting-Data-JiraAPI-Pagination-Helper.js`)
     - `lib/sprints.js` – sprint fetching, overlap filtering, `getActiveSprintForBoard`, `getRecentClosedSprintForBoard` (uses pagination helper)
-    - `lib/currentSprint.js` – current-sprint transparency: `buildCurrentSprintPayload` (observed window, daily completions, scope changes, burndown context)
-    - `lib/issues.js` – issue fetching, drill-down row building, `fetchSprintIssuesForTransparency` (done + in-progress for current sprint) (uses pagination helper)
+    - `lib/currentSprint.js` – current-sprint transparency: `buildCurrentSprintPayload` (observed window, daily completions, scope changes, burndown context); imports from `lib/Jira-Reporting-App-Data-CurrentSprint-Notes-IO.js`, `lib/Jira-Reporting-App-Data-IssueType-Classification.js`, `lib/Jira-Reporting-App-Data-CurrentSprint-Burndown-Resolve.js`
+    - `lib/issues.js` – issue fetching, `fetchSprintIssuesForTransparency`, `buildDrillDownRow` (re-export); imports from `lib/Jira-Reporting-App-Data-Issues-Pagination-Fields.js`, `lib/Jira-Reporting-App-Data-Issues-DrillDown-Row.js`, `lib/Jira-Reporting-App-Data-Issues-Subtask-Time-Totals.js`
     - `lib/metrics.js` – throughput, done comparison, rework, predictability (with planned carryover / unplanned spillover), epic TTM (uses `calculateWorkDays` from `lib/kpiCalculations.js`)
     - `lib/csv.js` – CSV column list and escaping (SSOT); CSV streaming for `/export`
     - `lib/cache.js` – TTL cache for preview responses
     - `lib/Jira-Reporting-App-Server-Logging-Utility.js` – structured logging
-  - **Public API:** `GET /api/csv-columns` – returns `{ columns: CSV_COLUMNS }` (SSOT for client CSV column order). `GET /api/boards.json` – list boards for projects (for current-sprint board selector). `GET /api/current-sprint.json` – current-sprint transparency payload per board (snapshot-first; query `boardId`, optional `projects`, `live=true`). Payload includes `stuckCandidates[]` (issues in progress >24h), `previousSprint: { name, id, doneSP, doneStories } | null`. `GET /api/date-range?quarter=Q1|Q2|Q3|Q4` – latest completed Vodacom quarter range `{ start, end }` (UTC). `GET /api/quarters-list?count=8` – last N Vodacom quarters up to current `{ quarters: [{ start, end, label, period, isCurrent }, ...] }`; implemented via `getQuartersUpToCurrent` in `lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js`. `GET /api/format-date-range?start=...&end=...` – date range label for filenames (Qn-YYYY or start_to_end). `GET /api/default-window` – default report date window `{ start, end }` (SSOT from config).
+  - **Public API:** `GET /api/csv-columns` – returns `{ columns: CSV_COLUMNS }` (SSOT for client CSV column order). `GET /api/boards.json` – list boards for projects (for current-sprint board selector). `GET /api/current-sprint.json` – current-sprint transparency payload per board (snapshot-first; query `boardId`, optional `projects`, `live=true`). Payload includes `stuckCandidates[]` (issues in progress >24h), `previousSprint: { name, id, doneSP, doneStories } | null`. `GET /api/date-range?quarter=Q1|Q2|Q3|Q4` – latest completed Vodacom quarter range `{ start, end }` (UTC). `GET /api/quarters-list?count=8` – last N Vodacom quarters up to current `{ quarters: [{ start, end, label, period, isCurrent }, ...] }`; implemented via `getQuartersUpToCurrent` in `lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js`. `GET /api/format-date-range?start=...&end=...` – date range label for filenames (Qn-YYYY or start_to_end). `GET /api/default-window` – default report date window `{ start, end }` (SSOT from config). **Test-only:** `POST /api/test/clear-cache` – clears in-memory caches (preview, boards, fields, in-flight, rate limit); available only when `NODE_ENV=test` or `ALLOW_TEST_CACHE_CLEAR=1`; returns `{ ok: true }`.
   - **Routes:** `GET /report`, `GET /current-sprint` (squad transparency), `GET /sprint-leadership` (leadership view).
   - **Default window SSOT:** `lib/Jira-Reporting-App-Config-DefaultWindow.js` exports `DEFAULT_WINDOW_START`, `DEFAULT_WINDOW_END`; server and `GET /api/default-window` use it.
   - **Vodacom quarters SSOT:** `lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js` – quarter bounds, `getLatestCompletedQuarter(q)`, and `getQuartersUpToCurrent(count)`; `lib/excel.js` uses `getQuarterLabelForRange` for filename labels.
@@ -25,13 +25,14 @@
 - **Tests (`tests/*.spec.js`)**
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
   - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
+  - `Jira-Reporting-App-Server-Errors-And-Export-Validation-Tests.spec.js` – regression for EADDRINUSE handling, preview completion, Excel export, partial preview banner, and cache-clear endpoint; uses captureBrowserTelemetry and UI assertions
   - `Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js` – E2E for current-sprint page (board selector, board selection) and sprint-leadership page (date inputs, Preview)
-  - `Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js` – report, current-sprint, leadership with console (logcat-style) and realtime UI assertions; run by orchestration
+  - `Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js` – SSOT for report, current-sprint, leadership, and export (telemetry + UI); run by orchestration. `DeleteThisFile_Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js` – merged into UX-Trust-And-Export; marked for deletion, do not use.
   - `Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js` – board pre-select, burndown summary, empty states, leadership empty preview, report boards; logcat + UI; run by orchestration
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
-  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites (includes Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation steps)
+  - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites; imports steps from `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`; before test steps, calls `POST /api/test/clear-cache` (when NODE_ENV=test) so no test reads stale cache
 - **File naming:** New lib modules should follow the 5-segment convention (e.g. `Jira-Reporting-App-Sprint-Transparency-CurrentSprint.js`). Existing short names (e.g. `lib/currentSprint.js`) are not renamed in this pass to avoid import churn.
 
 ### Public API Surface – `/preview.json`
@@ -80,6 +81,8 @@
 
 - **Error banner SSOT (per view)**  
   Each view uses a single DOM node for API/validation errors: report `#error`, current-sprint `#current-sprint-error`, leadership `#leadership-error`. Do not show duplicate or overlapping error messages; use one function per view (e.g. `showError`) that writes to that node.
+- **Preview timeout error UI**
+  - Report preview has a client-side timeout (60–90s). On timeout (AbortError), the catch block in `Reporting-App-Report-Page-Preview-Flow.js` sets a friendly message and Retry / smaller range / full refresh buttons; the error UI update is guarded so the box is never left empty. Preview error UI offers three actions: Retry now, Retry with smaller date range, and Force full refresh; all are implemented in Reporting-App-Report-Page-Preview-Flow.js. Telemetry `preview.timeout` is emitted when the timeout fires. Tests: `Jira-Reporting-App-Preview-Timeout-Error-UI-Validation-Tests.spec.js` validate error panel content and retry actions.
 - **Project/Board SSOT**
   Selected projects are stored in `vodaAgileBoard_selectedProjects` (localStorage). Report persists on project checkbox change; Leadership reads/writes on load/save; Current Sprint reads on load and uses it for `/api/boards.json` and `/api/current-sprint.json` (fallback MPSA,MAS). Board selector on Current Sprint reflects the same projects as Report/Leadership.
 - **Sprint order contract**
@@ -100,10 +103,12 @@
   - After the request (success or failure):
     - `#preview-btn` is re-enabled
     - Export buttons enabled **only when there is at least one preview row**
+  - Export to Excel and More are enabled only when there is at least one preview row.
 - **Current Sprint: stuck prompt, stories table, subtask summary**
   When `stuckCandidates.length > 0`, the summary strip shows a link "X in progress >24h – Follow up" to `#stuck-card`. Stories in sprint table includes Reporter and Assignee columns; planned window line at top of Stories card. Sub-task summary in the summary card is a single line linking to `#subtask-tracking-card` (no duplicate Sub-task logged / Time tracking alerts blocks).
 - **Partial preview visibility**
   - Server already emits `meta.partial` and `meta.partialReason`.
+  - When `meta.partial === true`, the UI shows the banner in `#preview-status` and the export hint in `#export-hint` so users know the export may be partial.
   - UI now also:
     - Renders a banner in `#preview-status` when `partial === true`
     - Shows a matching export hint in `#export-hint` when partial previews have rows
@@ -144,4 +149,11 @@
 - `lib/metrics.js`
   - Marker: `// SIZE-EXEMPT: Cohesive metrics domain logic (throughput, done comparison, rework, predictability, epic TTM) is kept in a single module to avoid scattering cross-related calculations and increasing coordination bugs.`
   - Rationale: Metrics functions are tightly related and operate over the same row data; keeping them together avoids duplicated calculations and subtle drift between separate metric modules.
+- `lib/currentSprint.js`
+  - Marker: `// SIZE-EXEMPT: Payload-building compute helpers (observed window, days meta, daily completions, stories list, subtask tracking, remaining work by day, scope changes) are tightly coupled to buildCurrentSprintPayload; splitting further would scatter orchestration and increase coordination bugs.`
+  - Rationale: Notes I/O, issue-type classification, and burndown/resolve helpers are already split into `Jira-Reporting-App-Data-CurrentSprint-Notes-IO.js`, `Jira-Reporting-App-Data-IssueType-Classification.js`, and `Jira-Reporting-App-Data-CurrentSprint-Burndown-Resolve.js`; remaining compute logic stays in currentSprint for cohesion.
+- `public/Reporting-App-Report-Page-Preview-Flow.js`
+  - Marker: `// SIZE-EXEMPT: Cohesive preview flow (DOM events, fetch, AbortController, applyPayload, timeout UI) kept in one module to avoid scattering and duplicate state handling; complexity config split to Preview-Complexity-Config.js.`
+  - Rationale: Splitting fetch/apply into a second file would duplicate state and DOM references or create circular dependencies; complexity and timeout constants are already in `Reporting-App-Report-Page-Preview-Complexity-Config.js`.
+- Test specs (E2E): `Jira-Reporting-App-UX-Critical-Fixes-Tests.spec.js`, `Jira-Reporting-App-CurrentSprint-Redesign-Validation-Tests.spec.js`, `Jira-Reporting-App-Excel-Export-Tests.spec.js` each have a SIZE-EXEMPT comment; splitting would duplicate runDefaultPreview/setup and reduce clarity.
 
