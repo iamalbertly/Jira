@@ -2,8 +2,7 @@ import { formatDateForDisplay, formatDateTimeLocalForInput } from './Reporting-A
 import { toUtcIsoFromLocalInput } from './Reporting-App-Report-Utils-Data-Helpers.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
-
-const SHARED_DATE_RANGE_KEY = 'vodaAgileBoard_dateRange_v1';
+import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 
 export function updateDateDisplay() {
   const startDate = document.getElementById('start-date')?.value || '';

@@ -1,3 +1,5 @@
+import { PROJECTS_SSOT_KEY, CURRENT_SPRINT_BOARD_KEY, CURRENT_SPRINT_SPRINT_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+
 export const currentSprintDom = {
   projectsSelect: document.getElementById('current-sprint-projects'),
   boardSelect: document.getElementById('board-select'),
@@ -10,7 +12,7 @@ export const currentSprintDom = {
 };
 
 export const currentSprintKeys = {
-  projectsKey: 'vodaAgileBoard_selectedProjects',
-  boardKey: 'vodaAgileBoard_lastBoardId',
-  sprintKey: 'vodaAgileBoard_lastSprintId',
+  projectsKey: PROJECTS_SSOT_KEY,
+  boardKey: CURRENT_SPRINT_BOARD_KEY,
+  sprintKey: CURRENT_SPRINT_SPRINT_KEY,
 };

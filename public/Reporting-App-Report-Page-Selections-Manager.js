@@ -1,6 +1,5 @@
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
-
-const PROJECTS_SSOT_KEY = 'vodaAgileBoard_selectedProjects';
+import { PROJECTS_SSOT_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 
 export function getSelectedProjects() {
   return Array.from(document.querySelectorAll('.project-checkbox[data-project]:checked'))
@@ -25,6 +24,16 @@ export function updatePreviewButtonState() {
 }
 
 export function initProjectSelection() {
+  try {
+    const stored = localStorage.getItem(PROJECTS_SSOT_KEY);
+    if (stored && typeof stored === 'string') {
+      const list = stored.split(',').map(p => (p || '').trim()).filter(Boolean);
+      document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
+        const project = input.dataset?.project || '';
+        input.checked = list.includes(project);
+      });
+    }
+  } catch (_) {}
   document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
     input.addEventListener('change', updatePreviewButtonState);
   });

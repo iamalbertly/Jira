@@ -23,13 +23,19 @@ export function syncProjectsSelect(value) {
   const { projectsSelect } = currentSprintDom;
   if (!projectsSelect) return false;
   const target = (value || '').trim();
+  if (!target) return false;
   const options = Array.from(projectsSelect.options || []);
   const match = options.find(opt => opt.value === target);
   if (match) {
     projectsSelect.value = target;
     return true;
   }
-  return false;
+  const opt = document.createElement('option');
+  opt.value = target;
+  opt.textContent = 'Current: ' + target.replace(/,/g, ', ');
+  projectsSelect.appendChild(opt);
+  projectsSelect.value = target;
+  return true;
 }
 
 export function persistProjectsSelection(value) {

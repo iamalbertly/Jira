@@ -1,4 +1,4 @@
-import { currentSprintDom } from './Reporting-App-CurrentSprint-Page-Context.js';
+import { currentSprintDom, currentSprintKeys } from './Reporting-App-CurrentSprint-Page-Context.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { updateNotificationStore } from './Reporting-App-CurrentSprint-Notifications-Helpers.js';
 import { showLoading, showError, showContent, clearError } from './Reporting-App-CurrentSprint-Page-Status.js';
@@ -245,8 +245,9 @@ function init() {
   if (projectsSelect) {
     projectsSelect.addEventListener('change', onProjectsChange);
   }
+  const { projectsKey } = currentSprintKeys;
   window.addEventListener('storage', (event) => {
-    if (event.key === 'vodaAgileBoard_selectedProjects') {
+    if (event.key === projectsKey) {
       syncProjectsSelect(event.newValue || '');
       onProjectsChange();
     }

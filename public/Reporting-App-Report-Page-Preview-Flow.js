@@ -1,6 +1,7 @@
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
+import { LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
@@ -396,6 +397,19 @@ export function initPreviewFlow() {
 
       updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
       applyPreviewPayload(responseJson);
+      try {
+        const params = collectFilterParams();
+        if (params?.projects && params?.start && params?.end) {
+          localStorage.setItem(LAST_QUERY_KEY, JSON.stringify({
+            projects: params.projects,
+            start: params.start,
+            end: params.end,
+          }));
+          if (typeof window.__refreshReportingContextBar === 'function') {
+            window.__refreshReportingContextBar();
+          }
+        }
+      } catch (_) {}
       const boards = responseJson?.boards || [];
       try { emitTelemetry('preview.complete', { rows: reportState.previewRows.length || 0, boards: (boards || []).length || 0 }); } catch (_) {}
     } catch (error) {
@@ -453,7 +467,6 @@ export function initPreviewFlow() {
       try {
         hideLoadingIfVisible();
         clearLoadingSteps();
-        forceHideLoading();
       } catch (e) {}
 
       if (timeoutId) clearTimeout(timeoutId);

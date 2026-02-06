@@ -2,6 +2,7 @@
  * Ensures consistent header layout and wires feedback FAB and toggle into header.
  */
 import { initFeedbackPanel } from './Reporting-App-Report-UI-Feedback.js';
+import { getContextDisplayString } from './Reporting-App-Shared-Context-From-Storage.js';
 
 export function ensureSharedHeader() {
   try {
@@ -10,6 +11,27 @@ export function ensureSharedHeader() {
     if (!header) return;
 
     header.classList.add('app-header');
+
+    // Context bar: one line showing current projects and date range (SSOT / last query)
+    let contextBar = header.querySelector('[data-context-bar]');
+    if (!contextBar) {
+      contextBar = document.createElement('div');
+      contextBar.setAttribute('data-context-bar', 'true');
+      contextBar.className = 'subtitle';
+      contextBar.style.cssText = 'margin: 0.25rem 0 0; font-size: 0.875rem; color: #6c757d;';
+      const row = header.querySelector('.header-row');
+      if (row) row.after(contextBar);
+      else header.appendChild(contextBar);
+    }
+    contextBar.textContent = getContextDisplayString();
+
+    /**
+     * Call after persisting last query (e.g. after successful preview) to update the bar without reload.
+     */
+    window.__refreshReportingContextBar = function refreshContextBar() {
+      const bar = document.querySelector('header [data-context-bar]');
+      if (bar) bar.textContent = getContextDisplayString();
+    };
 
     // Ensure feedback toggle exists and is positioned in header-row right side
     let feedbackToggle = document.getElementById('feedback-toggle');

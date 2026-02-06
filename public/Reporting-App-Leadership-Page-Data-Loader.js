@@ -2,8 +2,8 @@ import { leadershipDom, leadershipKeys } from './Reporting-App-Leadership-Page-C
 import { renderLeadershipPage } from './Reporting-App-Leadership-Page-Render.js';
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
-
-const SHARED_DATE_RANGE_KEY = 'vodaAgileBoard_dateRange_v1';
+import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { getValidLastQuery, getFallbackContext } from './Reporting-App-Shared-Context-From-Storage.js';
 
 function setDefaultDates() {
   const { startInput, endInput } = leadershipDom;
@@ -22,8 +22,17 @@ function loadSavedFilters() {
     const ssotProjects = localStorage.getItem(projectsKey);
     if (ssotProjects && projectsSelect) {
       const val = String(ssotProjects).trim();
-      const hasOption = Array.from(projectsSelect.options).some(o => o.value === val);
-      if (hasOption) projectsSelect.value = val;
+      const options = Array.from(projectsSelect.options);
+      const hasOption = options.some(o => o.value === val);
+      if (hasOption) {
+        projectsSelect.value = val;
+      } else if (val) {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = 'Current: ' + val.replace(/,/g, ', ');
+        projectsSelect.appendChild(opt);
+        projectsSelect.value = val;
+      }
     }
     const sharedRangeRaw = localStorage.getItem(SHARED_DATE_RANGE_KEY);
     if (sharedRangeRaw) {
@@ -187,6 +196,16 @@ export function initLeadershipDefaults() {
   if (!loadSavedFilters()) {
     setDefaultDates();
   }
+}
+
+/**
+ * If we have valid stored context (last query or projects + date range), trigger preview once.
+ * Call after initLeadershipFilters() so the UI is wired.
+ */
+export function tryAutoRunPreviewOnce() {
+  const ctx = getValidLastQuery() || getFallbackContext();
+  if (!ctx || !ctx.projects || !ctx.start || !ctx.end) return;
+  loadPreview();
 }
 
 export function renderLeadershipLoading() {
