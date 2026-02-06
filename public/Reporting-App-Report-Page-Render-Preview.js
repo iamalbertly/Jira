@@ -130,17 +130,26 @@ export function renderPreview() {
     reportSubtitleEl.textContent = `Projects: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}`;
   }
 
+  const appliedFiltersEl = document.getElementById('applied-filters-summary');
+  if (appliedFiltersEl) {
+    const opts = [];
+    if (meta.requireResolvedBySprintEnd) opts.push('Require resolved by sprint end');
+    if (meta.includePredictability) opts.push('Include Predictability');
+    appliedFiltersEl.textContent = `Applied: ${selectedProjectsLabel} · ${windowStartLocal} – ${windowEndLocal}${opts.length ? ' · ' + opts.join(', ') : ''}`;
+  }
+
   if (previewMeta) {
     const generatedUtc = meta.generatedAt ? new Date(meta.generatedAt).toISOString() : new Date().toISOString();
+    const generatedShort = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
     previewMeta.innerHTML = `
-      <div class="meta-info">
-        <strong>Projects:</strong> ${escapeHtml(selectedProjectsLabel)}<br>
-        <strong>Date Window (Local):</strong> ${escapeHtml(windowStartLocal)} to ${escapeHtml(windowEndLocal)}<br>
+      <div class="meta-info-summary">
+        <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} · Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)} · Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} · Generated: ${escapeHtml(generatedShort)}</span>
+        <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Details</button>
+      </div>
+      <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
         <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
-        <strong>Summary:</strong> Boards: ${boardsCount} | Included sprints: ${sprintsCount} | Done stories: ${rowsCount} | Unusable sprints: ${unusableCount}<br>
         <strong>Example story:</strong> ${sampleLabel}<br>
-        <strong>Generated:</strong> ${escapeHtml(generatedUtc)} UTC<br>
-        <strong>Details:</strong> ${escapeHtml(detailsLines.join(' � '))}
+        <strong>Details:</strong> ${escapeHtml(detailsLines.join(' · '))}
         ${partialNotice}
       </div>
     `;
@@ -148,7 +157,7 @@ export function renderPreview() {
 
   const stickyEl = document.getElementById('preview-summary-sticky');
   if (stickyEl) {
-    stickyEl.textContent = `Preview: ${selectedProjectsLabel} � ${windowStartLocal} to ${windowEndLocal}`;
+    stickyEl.textContent = `Preview: ${selectedProjectsLabel} · ${windowStartLocal} to ${windowEndLocal}`;
     stickyEl.setAttribute('aria-hidden', 'false');
   }
 
@@ -176,8 +185,10 @@ export function renderPreview() {
         <div class="status-banner warning">
           <strong>${modeBadge}</strong> – ${baseMessage}
           <br><small>${hint}</small>
-          <div style="margin-top: 6px;">
-            <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
+          <div style="margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" data-action="retry-preview" class="btn btn-compact">Retry</button>
+            <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Smaller range</button>
+            <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Full refresh</button>
           </div>
           <button type="button" class="status-close" aria-label="Dismiss">x</button>
         </div>
@@ -192,6 +203,8 @@ export function renderPreview() {
   const hasRows = rowsCount > 0;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
   if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;
+  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
+  if (headerExportBtn) headerExportBtn.disabled = !hasRows;
 
   const exportHint = document.getElementById('export-hint');
   if (exportHint) {
@@ -206,6 +219,23 @@ export function renderPreview() {
     } else {
       exportHint.innerHTML = '';
     }
+  }
+
+  const partialExportTitle = 'Export contains only loaded (partial) data.';
+  if (exportExcelBtn) {
+    exportExcelBtn.title = partial ? partialExportTitle : '';
+    if (partial) exportExcelBtn.setAttribute('aria-label', partialExportTitle);
+    else exportExcelBtn.removeAttribute('aria-label');
+  }
+  if (exportDropdownTrigger) {
+    exportDropdownTrigger.title = partial ? partialExportTitle : '';
+    if (partial) exportDropdownTrigger.setAttribute('aria-label', partialExportTitle);
+    else exportDropdownTrigger.removeAttribute('aria-label');
+  }
+  if (headerExportBtn) {
+    headerExportBtn.title = partial ? partialExportTitle : '';
+    if (partial) headerExportBtn.setAttribute('aria-label', partialExportTitle);
+    else headerExportBtn.removeAttribute('aria-label');
   }
 
   updateDateDisplay();

@@ -66,11 +66,9 @@ export function renderCurrentSprintPage(data) {
   html += renderStories(data);
   html += '</div>';
 
-  // BELOW THE FOLD: Stuck items, Risks & Insights
+  // BELOW THE FOLD: Stuck items (always show for stable layout), Risks & Insights
   html += '<div class="sprint-cards-column full-width">';
-  if ((data.stuckCandidates || []).length > 0) {
-    html += renderStuckCandidates(data);
-  }
+  html += renderStuckCandidates(data);
   html += renderRisksAndInsights(data);
   html += '</div>';
 

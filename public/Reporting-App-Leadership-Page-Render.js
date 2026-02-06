@@ -55,9 +55,11 @@ export function renderLeadershipPage(data) {
   const projectsLabel = meta.projects ? meta.projects.replace(/,/g, ', ') : '-';
   const rangeStart = meta.windowStart ? formatDateShort(meta.windowStart) : '-';
   const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
+  const generatedAt = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
-  let html = '<p class="metrics-hint"><strong>Context:</strong> Projects ' + escapeHtml(projectsLabel) + ' · Range ' + escapeHtml(rangeStart) + ' to ' + escapeHtml(rangeEnd) + ' · Completion anchored to resolution date.</p>';
-  html += '<p class="metrics-hint">Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.</p>';
+  let html = '<p class="metrics-hint"><strong>Context:</strong> Projects ' + escapeHtml(projectsLabel) + ' | Range ' + escapeHtml(rangeStart) + ' – ' + escapeHtml(rangeEnd) + '</p>';
+  html += '<p class="metrics-hint">View generated: ' + escapeHtml(generatedAt) + '</p>';
+  html += '<p class="metrics-hint">Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.</p>';
 
   html += '<div class="leadership-card">';
   html += '<h2>Boards - normalized delivery</h2>';
@@ -98,6 +100,7 @@ export function renderLeadershipPage(data) {
       html += '</tr>';
     }
     html += '</tbody></table>';
+    html += '<div style="margin-top: 12px;"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
   }
   html += '</div>';
 

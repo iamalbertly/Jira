@@ -127,6 +127,38 @@ function refreshBoards(preferredId, preferredSprintId) {
   const requestId = ++__lastBoardsRefreshRequestId;
   const { boardSelect } = currentSprintDom;
   showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
+  function setBoardSelectCouldntLoad() {
+    if (!boardSelect) return;
+    boardSelect.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = "Couldn't load boards";
+    boardSelect.appendChild(opt);
+  }
+
+  function appendRetryToError() {
+    try {
+      const { errorEl } = currentSprintDom;
+      if (errorEl && !errorEl.querySelector('.retry-btn')) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-primary btn-sm retry-btn';
+        retry.textContent = 'Retry';
+        retry.style.marginLeft = '8px';
+        retry.addEventListener('click', () => {
+          try { if (typeof window !== 'undefined') window.__retryClicked = (window.__retryClicked || 0) + 1; } catch (_) {}
+          retry.disabled = true;
+          retry.textContent = 'Retrying...';
+          clearError();
+          refreshBoards(preferredId, preferredSprintId).finally(() => {
+            try { retry.disabled = false; retry.textContent = 'Retry'; } catch (_) {}
+          });
+        });
+        errorEl.appendChild(retry);
+      }
+    } catch (_) {}
+  }
+
   return loadBoards()
     .then((res) => {
       // Ignore if a newer refresh was started
@@ -160,36 +192,19 @@ function refreshBoards(preferredId, preferredSprintId) {
             showRenderedContent(data);
           });
       }
-      showError('No boards found for the selected projects. Check Jira access or try different projects.');
+      setBoardSelectCouldntLoad();
+      showError("Couldn't load boards. Check Jira access or try different projects.");
+      appendRetryToError();
       return null;
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load boards.';
+      setBoardSelectCouldntLoad();
       showError(msg);
       if ((msg || '').includes('Session expired')) {
         addLoginLink();
       }
-      // Append a retry button so the user can manually retry without a full page reload
-      try {
-        const { errorEl } = currentSprintDom;
-        if (errorEl && !errorEl.querySelector('.retry-btn')) {
-          const retry = document.createElement('button');
-          retry.type = 'button';
-          retry.className = 'btn btn-primary btn-sm retry-btn';
-          retry.textContent = 'Retry';
-          retry.style.marginLeft = '8px';
-          retry.addEventListener('click', () => {
-            try { if (typeof window !== 'undefined') window.__retryClicked = (window.__retryClicked || 0) + 1; } catch (_) {}
-            retry.disabled = true;
-            retry.textContent = 'Retrying...';
-            clearError();
-            refreshBoards(preferredId, preferredSprintId).finally(() => {
-              try { retry.disabled = false; retry.textContent = 'Retry'; } catch (_) {}
-            });
-          });
-          errorEl.appendChild(retry);
-        }
-      } catch (_) {}
+      appendRetryToError();
       return null;
     });
 }

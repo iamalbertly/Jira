@@ -55,7 +55,7 @@ export function renderHeaderBar(data) {
   html += '<div class="header-bar-left">';
   html += '<div class="header-sprint-name">' + escapeHtml(sprint.name || 'Sprint ' + sprint.id) + '</div>';
   html += '<div class="header-sprint-dates">';
-  html += formatDate(planned.start || sprint.startDate) + ' ? ' + formatDate(planned.end || sprint.endDate);
+  html += formatDate(planned.start || sprint.startDate) + ' – ' + formatDate(planned.end || sprint.endDate);
   html += '</div>';
   html += '</div>';
 

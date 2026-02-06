@@ -9,7 +9,7 @@ export function renderUnusableSprintsTab(unusable) {
       content,
       'No unusable sprints',
       'All sprints in the selected date range have valid start and end dates.',
-      'Sprints are marked as unusable if they are missing start or end dates. Enable "Include Active/Missing End Date Sprints" to include sprints with missing end dates.'
+      'What to do next: In Jira, add start/end dates to sprints that need reporting, or enable "Include Active/Missing End Date Sprints" in Advanced options.'
     );
     return;
   }

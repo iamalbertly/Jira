@@ -26,6 +26,20 @@ function setQuickRangeButtonsDisabled(disabled) {
   });
 }
 
+function showReportError(shortText, detailsText) {
+  const errorEl = reportDom.errorEl;
+  if (!errorEl) return;
+  errorEl.style.display = 'block';
+  const detailsEscaped = detailsText ? escapeHtml(detailsText) : '';
+  errorEl.innerHTML = `
+    <div role="alert">
+      <strong>${escapeHtml(shortText)}</strong>
+      ${detailsEscaped ? `<button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false">Details</button><div class="error-details" hidden>${detailsEscaped}</div>` : ''}
+      <button type="button" class="error-close" aria-label="Dismiss">x</button>
+    </div>
+  `;
+}
+
 export function initPreviewFlow() {
   const { previewBtn, exportDropdownTrigger, exportExcelBtn, loadingEl, errorEl, previewContent } = reportDom;
   if (!previewBtn) return;
@@ -87,6 +101,41 @@ export function initPreviewFlow() {
         previewBtn.click();
       }
     }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'toggle-preview-meta-details') {
+      const detailsEl = document.getElementById('preview-meta-details');
+      if (detailsEl) {
+        const isHidden = detailsEl.hidden;
+        detailsEl.hidden = !isHidden;
+        if (target.getAttribute('aria-expanded') !== null) target.setAttribute('aria-expanded', String(!isHidden));
+        target.textContent = isHidden ? 'Hide details' : 'Details';
+      }
+    }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'trigger-export-excel') {
+      const excelBtn = document.getElementById('export-excel-btn');
+      if (excelBtn && !excelBtn.disabled) excelBtn.click();
+    }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'toggle-error-details') {
+      const detailsEl = target.nextElementSibling;
+      if (detailsEl && detailsEl.classList && detailsEl.classList.contains('error-details')) {
+        const isHidden = detailsEl.hidden;
+        detailsEl.hidden = !isHidden;
+        target.setAttribute('aria-expanded', String(!isHidden));
+        target.textContent = isHidden ? 'Hide details' : 'Details';
+      }
+    }
+
+    if (target.getAttribute && target.getAttribute('data-action') === 'toggle-done-stories-optional-columns') {
+      const tab = document.getElementById('tab-done-stories');
+      if (tab) {
+        const show = !tab.classList.contains('show-optional-columns');
+        tab.classList.toggle('show-optional-columns', show);
+        target.setAttribute('aria-expanded', String(show));
+        target.textContent = show ? 'Show fewer columns' : 'Show more columns';
+      }
+    }
   });
 
   previewBtn.addEventListener('click', async () => {
@@ -104,6 +153,7 @@ export function initPreviewFlow() {
     const prevExportExcelDisabled = exportExcelBtn ? exportExcelBtn.disabled : true;
 
     previewBtn.disabled = true;
+    previewBtn.textContent = 'Loading…';
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
     updateExportHint();
@@ -143,17 +193,9 @@ export function initPreviewFlow() {
       params = collectFilterParams();
     } catch (error) {
       if (loadingEl) loadingEl.style.display = 'none';
-      if (errorEl) {
-        errorEl.style.display = 'block';
-        errorEl.innerHTML = `
-          <div role="alert">
-            <strong>Error:</strong> ${escapeHtml(error.message)}
-            <br><small>Please fix the filters above and try again.</small>
-            <button type="button" class="error-close" aria-label="Dismiss">x</button>
-          </div>
-        `;
-      }
+      showReportError('Check filters', (error && typeof error.message === 'string') ? error.message : 'Please fix the filters above and try again.');
       previewBtn.disabled = false;
+      previewBtn.textContent = 'Preview report';
       setQuickRangeButtonsDisabled(false);
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = prevExportFilteredDisabled;
       if (exportExcelBtn) exportExcelBtn.disabled = prevExportExcelDisabled;
@@ -390,19 +432,23 @@ export function initPreviewFlow() {
 
       let errorMsg = (error && error.message) ? String(error.message) : 'Failed to fetch preview. Please try again.';
       if (error && error.name === 'AbortError') {
-        // User-facing seconds must match the actual request timeout (timeoutMs drives the AbortController).
         const seconds = (typeof timeoutMs === 'number' && timeoutMs > 0) ? Math.round(timeoutMs / 1000) : 60;
         errorMsg = `This preview is taking longer than expected (over ${seconds}s). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history.`;
       }
 
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
 
+      let shortText = 'Server error';
+      if (error && error.name === 'AbortError') shortText = 'Preview timed out';
+      else if (/fetch|network|failed to fetch/i.test(errorMsg || '')) shortText = 'Request failed';
+
       if (errorEl) {
         try {
           errorEl.innerHTML = `
           <div role="alert">
-            <strong>Error:</strong> ${escapeHtml(errorMsg)}
-            <br><small>If this problem persists, please check your Jira connection or try a narrower date range.</small>
+            <strong>${escapeHtml(shortText)}</strong>
+            <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false">Details</button>
+            <div class="error-details" hidden>${escapeHtml(errorMsg)}</div>
             <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
               <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
               <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Retry with smaller date range</button>
@@ -413,7 +459,7 @@ export function initPreviewFlow() {
         `;
         } catch (innerErr) {
           console.error('Error rendering preview error UI', innerErr);
-          errorEl.innerHTML = '<div role="alert"><strong>Error:</strong> Something went wrong. Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+          errorEl.innerHTML = '<div role="alert"><strong>Server error.</strong> Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
         }
       }
       if (statusEl) {
@@ -449,6 +495,7 @@ export function initPreviewFlow() {
       if (progressInterval) clearInterval(progressInterval);
 
       previewBtn.disabled = false;
+      previewBtn.textContent = 'Preview report';
       setQuickRangeButtonsDisabled(false);
 
       // Export enabled only when preview has rows; prevents export before data is ready.
