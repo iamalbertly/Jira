@@ -140,7 +140,7 @@ function setQuarterStripEnabled(enabled) {
 }
 
 async function loadPreview() {
-  const { endInput } = leadershipDom;
+  const { startInput, endInput, projectsSelect } = leadershipDom;
   const url = buildPreviewUrl();
   saveFilters();
   showLoading('Loading preview...');
@@ -160,7 +160,9 @@ async function loadPreview() {
       setQuarterStripEnabled(true);
       return;
     }
+    meta.windowStart = startInput?.value ? new Date(startInput.value + 'T00:00:00.000Z').toISOString() : '';
     meta.windowEnd = endInput?.value ? new Date(endInput.value + 'T23:59:59.999Z').toISOString() : new Date().toISOString();
+    meta.projects = projectsSelect?.value || '';
     const predictabilityPerSprint = body.metrics?.predictability?.perSprint || null;
     const boardSummaries = buildBoardSummaries(boards, sprintsIncluded, rows, meta, predictabilityPerSprint);
     body.boardSummaries = boardSummaries;

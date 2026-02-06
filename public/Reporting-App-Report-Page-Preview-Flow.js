@@ -11,7 +11,7 @@ import { LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
-import { updateExportFilteredState } from './Reporting-App-Report-Page-Export-Menu.js';
+import { updateExportFilteredState, updateExportHint } from './Reporting-App-Report-Page-Export-Menu.js';
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import {
@@ -106,6 +106,7 @@ export function initPreviewFlow() {
     previewBtn.disabled = true;
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
+    updateExportHint();
     setQuickRangeButtonsDisabled(true);
 
     if (loadingEl) {
@@ -276,6 +277,7 @@ export function initPreviewFlow() {
       if (previewContent) previewContent.style.display = 'block';
       if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
+      updateExportHint();
       updateExportFilteredState();
     };
 
@@ -453,6 +455,7 @@ export function initPreviewFlow() {
       const hasRows = Array.isArray(reportState.previewRows) && reportState.previewRows.length > 0;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
       if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;
+      updateExportHint();
     }
   });
 }

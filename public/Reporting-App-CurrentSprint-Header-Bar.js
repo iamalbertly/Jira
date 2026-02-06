@@ -55,7 +55,7 @@ export function renderHeaderBar(data) {
   html += '<div class="header-bar-left">';
   html += '<div class="header-sprint-name">' + escapeHtml(sprint.name || 'Sprint ' + sprint.id) + '</div>';
   html += '<div class="header-sprint-dates">';
-  html += formatDate(planned.start || sprint.startDate) + ' → ' + formatDate(planned.end || sprint.endDate);
+  html += formatDate(planned.start || sprint.startDate) + ' ? ' + formatDate(planned.end || sprint.endDate);
   html += '</div>';
   html += '</div>';
 
@@ -76,10 +76,11 @@ export function renderHeaderBar(data) {
   html += '</div>';
 
   // Right section: Status badge, last-updated and refresh
-  const generatedAt = meta && (meta.generatedAt || meta.snapshotAt) ? new Date(meta.generatedAt || meta.snapshotAt).toISOString() : null;
+  const generatedAt = meta && (meta.generatedAt || meta.snapshotAt) ? new Date(meta.generatedAt || meta.snapshotAt) : null;
+  const updatedLabel = generatedAt ? generatedAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '';
   html += '<div class="header-bar-right">';
   html += '<div class="status-badge ' + statusClass + '">' + statusBadge + '</div>';
-  html += '<div class="header-updated">' + (generatedAt ? ('Updated: <small class="last-updated">' + escapeHtml(generatedAt) + ' UTC</small>') : '') + '</div>';
+  html += '<div class="header-updated">' + (updatedLabel ? ('Data as of <small class="last-updated">' + escapeHtml(updatedLabel) + '</small>') : '') + '</div>';
   html += '<button class="btn btn-compact header-refresh-btn" title="Refresh sprint data">Refresh</button>';
   html += '</div>';
 
@@ -120,3 +121,6 @@ export function wireHeaderBarHandlers() {
     });
   }
 }
+
+
+

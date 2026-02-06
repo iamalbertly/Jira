@@ -246,6 +246,38 @@ header h1 {
   margin-bottom: 18px;
 }
 
+.project-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selection-status {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.advanced-options {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filters-actions {
+  position: sticky;
+  bottom: 12px;
+  padding-top: 12px;
+  background: var(--card);
+}
+
 .filter-group {
   margin-bottom: 24px;
   padding-bottom: 18px;
@@ -531,6 +563,12 @@ header h1 {
 .export-dropdown-item:disabled {
   color: var(--muted);
   cursor: not-allowed;
+}
+
+.export-hint {
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: var(--muted);
 }
 
 /* Preview Area */
@@ -1619,6 +1657,19 @@ header h1 {
   background: #fee2e2;
   color: #7f1d1d;
   border: 1px solid #fecaca;
+}
+
+.badge-estimated {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  vertical-align: middle;
 }
 
 /* Grid Layout System */

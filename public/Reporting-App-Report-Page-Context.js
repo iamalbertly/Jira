@@ -3,6 +3,7 @@ export const reportDom = {
   exportExcelBtn: document.getElementById('export-excel-btn'),
   exportDropdownTrigger: document.getElementById('export-dropdown-trigger'),
   exportDropdownMenu: document.getElementById('export-dropdown-menu'),
+  exportHint: document.getElementById('export-hint'),
   loadingEl: document.getElementById('loading'),
   errorEl: document.getElementById('error'),
   previewContent: document.getElementById('preview-content'),

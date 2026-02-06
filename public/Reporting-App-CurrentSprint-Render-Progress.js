@@ -206,7 +206,7 @@ export function wireProgressShowMoreHandlers() {
 export function renderScopeChanges(data) {
   const changes = data.scopeChanges || [];
   let html = '<div class="transparency-card" id="scope-changes-card">';
-  html += '<h2>Scope changes (after sprint start)</h2>';
+  html += '<h2>Scope changes (after sprint start) <span class="badge-estimated">Estimated</span></h2>';
   if (!changes.length) {
     html += '<p>No scope added after sprint start (by created date).</p>';
   } else {

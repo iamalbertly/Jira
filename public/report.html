@@ -50,6 +50,18 @@
         
         <div class="filter-group">
           <h3>Projects</h3>
+          <div class="project-tools">
+            <div class="search-input-wrap">
+              <input type="text" id="project-search" placeholder="Filter projects..." aria-label="Filter projects">
+              <button type="button" class="search-clear-btn" data-target="project-search" aria-label="Clear project filter" title="Clear">×</button>
+            </div>
+            <div class="project-actions">
+              <button type="button" id="projects-select-all" class="btn btn-secondary btn-compact">Select all</button>
+              <button type="button" id="projects-select-none" class="btn btn-secondary btn-compact">Select none</button>
+            </div>
+            <div id="projects-selection-status" class="selection-status"></div>
+            <div id="projects-no-match" class="selection-status" style="display: none;">No projects match your search.</div>
+          </div>
           <label class="checkbox-label">
             <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
             <span class="project-code">MPSA</span>
@@ -132,35 +144,38 @@
         <div class="filter-group">
           <h3>Options</h3>
           <p class="options-note"><small><strong>Note:</strong> Story Points, Epic TTM, and Bugs/Rework are always included in reports.</small></p>
-          <label class="toggle-label">
-            <input type="checkbox" id="require-resolved-by-sprint-end">
-            <span>Require Resolved by Sprint End</span>
-          </label>
-          <label class="toggle-label">
-            <input type="checkbox" id="include-predictability">
-            <span>Include Predictability</span>
-          </label>
-          <div id="predictability-mode-group" style="display: none; margin-left: 20px; margin-top: 8px;">
-            <label class="radio-label">
-              <input type="radio" name="predictability-mode" value="approx" checked>
-              <span>Approximation</span>
+          <button type="button" id="advanced-options-toggle" class="btn btn-secondary btn-compact" aria-expanded="false" aria-controls="advanced-options">Advanced options</button>
+          <div id="advanced-options" class="advanced-options" hidden>
+            <label class="toggle-label">
+              <input type="checkbox" id="require-resolved-by-sprint-end">
+              <span>Require Resolved by Sprint End</span>
             </label>
-            <label class="radio-label">
-              <input type="radio" name="predictability-mode" value="strict">
-              <span>Strict</span>
+            <label class="toggle-label">
+              <input type="checkbox" id="include-predictability">
+              <span>Include Predictability</span>
+            </label>
+            <div id="predictability-mode-group" style="display: none; margin-left: 20px; margin-top: 8px;">
+              <label class="radio-label">
+                <input type="radio" name="predictability-mode" value="approx" checked>
+                <span>Approximation</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="predictability-mode" value="strict">
+                <span>Strict</span>
+              </label>
+            </div>
+            <label class="toggle-label">
+              <input type="checkbox" id="include-active-or-missing-end-date-sprints">
+              <span>Include Active/Missing End Date Sprints</span>
             </label>
           </div>
-          <label class="toggle-label">
-            <input type="checkbox" id="include-active-or-missing-end-date-sprints">
-            <span>Include Active/Missing End Date Sprints</span>
-          </label>
         </div>
 
-        <div class="button-group">
+        <div class="button-group filters-actions">
           <button id="preview-btn" class="btn btn-primary">Generate Report</button>
           <div class="export-split-group">
             <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export to Excel (all data)</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>More â–¾</button>
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>More &#9662;</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
               <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
@@ -201,7 +216,7 @@
               <div class="boards-controls done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
-                  <button type="button" class="search-clear-btn" data-target="boards-search-box" aria-label="Clear boards search" title="Clear">Ã—</button>
+                  <button type="button" class="search-clear-btn" data-target="boards-search-box" aria-label="Clear boards search" title="Clear">×</button>
                 </div>
                 <div class="project-pills" id="boards-project-pills"></div>
               </div>
@@ -215,7 +230,7 @@
               <div class="sprints-controls done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
-                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">Ã—</button>
+                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">×</button>
                 </div>
                 <div class="project-pills" id="sprints-project-pills"></div>
               </div>
@@ -229,7 +244,7 @@
               <div class="done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="search-box" placeholder="Search by key or summary..." aria-label="Search done stories">
-                  <button type="button" class="search-clear-btn" data-target="search-box" aria-label="Clear done stories search" title="Clear">Ã—</button>
+                  <button type="button" class="search-clear-btn" data-target="search-box" aria-label="Clear done stories search" title="Clear">×</button>
                 </div>
                 <div class="project-pills" id="project-pills"></div>
               </div>
@@ -255,3 +270,7 @@
   <script type="module" src="Reporting-App-Report-Page-Init-Controller.js"></script>
 </body>
 </html>
+
+
+
+

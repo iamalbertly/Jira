@@ -2,6 +2,13 @@ import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 
+export function updateExportHint() {
+  const { exportExcelBtn, exportDropdownTrigger, exportHint } = reportDom;
+  if (!exportHint) return;
+  const disabled = (exportExcelBtn ? exportExcelBtn.disabled : true) && (exportDropdownTrigger ? exportDropdownTrigger.disabled : true);
+  exportHint.textContent = disabled ? 'Run a report to enable export.' : '';
+}
+
 export function updateExportFilteredState() {
   const { exportDropdownMenu } = reportDom;
   if (!exportDropdownMenu) return;
@@ -10,6 +17,7 @@ export function updateExportFilteredState() {
   const hasRows = Array.isArray(reportState.visibleRows) && reportState.visibleRows.length > 0;
   if (csvFiltered) csvFiltered.disabled = !hasRows;
   if (excelFiltered) excelFiltered.disabled = !hasRows;
+  updateExportHint();
 }
 
 export function initExportMenu() {
@@ -51,4 +59,5 @@ export function initExportMenu() {
   });
 
   updateExportFilteredState();
+  updateExportHint();
 }

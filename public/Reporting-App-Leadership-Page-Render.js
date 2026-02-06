@@ -34,11 +34,11 @@ function gradeFromSignals(onTimePct, predictabilityPct) {
   const metrics = [onTimePct, predictabilityPct].filter(v => v != null && !Number.isNaN(v));
   if (!metrics.length) return null;
   const score = metrics.reduce((sum, v) => sum + v, 0) / metrics.length;
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
-  if (score >= 70) return 'C';
-  if (score >= 60) return 'D';
-  return 'F';
+  if (score >= 90) return 'Strong';
+  if (score >= 80) return 'Stable';
+  if (score >= 70) return 'Watch';
+  if (score >= 60) return 'At risk';
+  return 'Critical';
 }
 
 export function renderLeadershipPage(data) {
@@ -52,7 +52,12 @@ export function renderLeadershipPage(data) {
   const windowEndDate = parseISO(windowEnd) || new Date();
   const windowEndIso = windowEndDate.toISOString();
 
-  let html = '<p class="metrics-hint"><strong>Assumption:</strong> Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Do not use to rank teams.</p>';
+  const projectsLabel = meta.projects ? meta.projects.replace(/,/g, ', ') : '-';
+  const rangeStart = meta.windowStart ? formatDateShort(meta.windowStart) : '-';
+  const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
+
+  let html = '<p class="metrics-hint"><strong>Context:</strong> Projects ' + escapeHtml(projectsLabel) + ' · Range ' + escapeHtml(rangeStart) + ' to ' + escapeHtml(rangeEnd) + ' · Completion anchored to resolution date.</p>';
+  html += '<p class="metrics-hint">Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.</p>';
 
   html += '<div class="leadership-card">';
   html += '<h2>Boards - normalized delivery</h2>';
@@ -111,12 +116,13 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<h2>Velocity (SP/day) and trend</h2>';
   html += '<p class="metrics-hint">Rolling averages by sprint end date. Difference compares against the previous window of the same length.</p>';
-  html += '<table class="data-table"><thead><tr><th>Window</th><th>Sprints</th><th>Avg SP/day</th><th>Difference</th><th>On-time %</th><th>Grade</th></tr></thead><tbody>';
+  html += '<table class="data-table"><thead><tr><th>Window</th><th>Sprints</th><th>Avg SP/day</th><th>Difference</th><th>On-time %</th><th>Signal</th><th>Data quality</th></tr></thead><tbody>';
   for (const row of velocityWindows) {
     const label = row.months === 1 ? '1 month' : row.months + ' months';
     const diffText = row.diff != null ? formatNumber(row.diff, 1, '-') + '%' : '-';
     const onTimeText = row.current?.onTimePct != null ? formatNumber(row.current.onTimePct, 1, '-') + '%' : '-';
     const gradeText = row.grade || '-';
+    const quality = row.current?.sprintCount != null && row.current.sprintCount < 3 ? 'Low sample' : 'OK';
     html += '<tr>';
     html += '<td>' + label + '</td>';
     html += '<td>' + (row.current?.sprintCount ?? 0) + '</td>';
@@ -124,6 +130,7 @@ export function renderLeadershipPage(data) {
     html += '<td>' + diffText + '</td>';
     html += '<td>' + onTimeText + '</td>';
     html += '<td title="Based on on-time % and predictability; not for performance review.">' + gradeText + '</td>';
+    html += '<td>' + quality + '</td>';
     html += '</tr>';
   }
   html += '</tbody></table></div>';
