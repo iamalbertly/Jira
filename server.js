@@ -32,6 +32,14 @@ const SNAPSHOT_REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const SNAPSHOT_DELAY_BETWEEN_BOARDS_MS = 2000;
 const PREVIEW_SERVER_MAX_MS = 90 * 1000; // Hard safety ceiling for preview processing
 
+// In-memory coordination state (single-process by design)
+const rateLimitRegistry = new Map(); // operation -> { cooldownUntil }
+const inFlightPreviews = new Map(); // cacheKey -> Promise<void>
+const recentActivityTimestamps = []; // timestamps for basic load heuristics
+const DISCOVERY_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const boardsDiscoveryCache = new Map(); // key -> { boards, expiresAt }
+let fieldsDiscoveryCache = null; // { fields, expiresAt }
+
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection', reason);
 });
@@ -114,6 +122,27 @@ async function upsertCurrentSprintNotes(boardId, sprintId, payload) {
   notes.updatedAt = entry.updatedAt;
 
   await mkdir(path.dirname(CURRENT_SPRINT_NOTES_FILE), { recursive: true });
+
+  // Optimistic concurrency: merge with latest version on disk to avoid clobbering concurrent updates.
+  try {
+    const latest = await readCurrentSprintNotesFile();
+    if (latest.updatedAt && latest.updatedAt !== notes.updatedAt) {
+      const merged = {
+        updatedAt: notes.updatedAt,
+        items: {
+          ...(latest.items || {}),
+          ...(notes.items || {}),
+        },
+      };
+      await writeFile(CURRENT_SPRINT_NOTES_FILE, JSON.stringify(merged, null, 2), 'utf8');
+      return entry;
+    }
+  } catch (mergeError) {
+    logger.warn('Current-sprint notes optimistic merge failed, falling back to direct write', {
+      error: mergeError.message,
+    });
+  }
+
   await writeFile(CURRENT_SPRINT_NOTES_FILE, JSON.stringify(notes, null, 2), 'utf8');
 
   return entry;
@@ -265,12 +294,26 @@ function computeRecentSplitConfig({
 }
 
 /**
- * Retry handler for 429 rate limit errors
+ * Retry handler for 429 rate limit errors with shared cooldown coordination.
  * @param {Function} fn - async function to execute
  * @param {number} maxRetries - maximum number of retries
  * @param {string} operation - label for logging (boards/sprints/issues/bugs/fields)
  */
 async function retryOnRateLimit(fn, maxRetries = 3, operation = 'unknown') {
+  const now = Date.now();
+  const key = operation || 'unknown';
+  const existing = rateLimitRegistry.get(key);
+
+  // Short-circuit if this operation is currently in a cooldown window.
+  if (existing && existing.cooldownUntil > now) {
+    const remainingMs = existing.cooldownUntil - now;
+    const err = new Error(`Rate limit cooldown in effect for ${key}`);
+    err.code = 'RATE_LIMIT_COOLDOWN';
+    err.operation = key;
+    err.cooldownRemainingMs = remainingMs;
+    throw err;
+  }
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
@@ -281,20 +324,80 @@ async function retryOnRateLimit(fn, maxRetries = 3, operation = 'unknown') {
                         error.response?.status ||
                         (error.cause?.status);
       
-      if (statusCode === 429 && attempt < maxRetries - 1) {
-        const retryAfter = error.cause?.response?.headers?.['retry-after'] || 
+      if (statusCode === 429) {
+        const retryAfterHeader = error.cause?.response?.headers?.['retry-after'] || 
                           error.response?.headers?.['retry-after'] ||
                           Math.pow(2, attempt);
-        // Cap backoff to 30 seconds to avoid multi-minute stalls
-        const delaySeconds = Math.min(parseInt(retryAfter, 10) || 0, 30) || Math.min(Math.pow(2, attempt), 30);
+        const parsed = parseInt(retryAfterHeader, 10);
+        const delaySecondsFromHeader = Number.isNaN(parsed) ? 0 : parsed;
+        const delaySeconds = Math.min(delaySecondsFromHeader || Math.pow(2, attempt), 30);
         const delay = delaySeconds * 1000;
-        logger.warn(`Rate limited on ${operation}, retrying after ${delay}ms`, { attempt: attempt + 1, maxRetries, operation, statusCode, retryAfter: delaySeconds });
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
+        const cooldownMs = Math.max(delay * 2, 10_000); // enforce a shared cooldown window
+        rateLimitRegistry.set(key, { cooldownUntil: Date.now() + cooldownMs });
+
+        if (attempt < maxRetries - 1) {
+          logger.warn(`Rate limited on ${operation}, retrying after ${delay}ms`, {
+            attempt: attempt + 1,
+            maxRetries,
+            operation,
+            statusCode,
+            retryAfter: delaySeconds,
+            cooldownMs,
+          });
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
       }
       throw error;
     }
   }
+}
+
+function recordActivity() {
+  const now = Date.now();
+  recentActivityTimestamps.push(now);
+  const cutoff = now - 5 * 60 * 1000; // keep last 5 minutes
+  while (recentActivityTimestamps.length && recentActivityTimestamps[0] < cutoff) {
+    recentActivityTimestamps.shift();
+  }
+}
+
+function isSystemBusy() {
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const recent = recentActivityTimestamps.filter(ts => now - ts <= windowMs);
+  // Heuristic: more than 10 heavy requests per minute is considered busy.
+  return recent.length > 10;
+}
+
+async function discoverBoardsWithCache(projectKeys, agileClient) {
+  const key = JSON.stringify([...projectKeys].sort());
+  const now = Date.now();
+  const cached = boardsDiscoveryCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.boards;
+  }
+  const boards = await retryOnRateLimit(
+    () => discoverBoardsForProjects(projectKeys, agileClient),
+    3,
+    'discoverBoards'
+  );
+  boardsDiscoveryCache.set(key, { boards, expiresAt: now + DISCOVERY_TTL_MS });
+  return boards;
+}
+
+async function discoverFieldsWithCache(version3Client) {
+  const now = Date.now();
+  if (fieldsDiscoveryCache && fieldsDiscoveryCache.expiresAt > now) {
+    return fieldsDiscoveryCache.fields;
+  }
+  const fields = await retryOnRateLimit(
+    () => discoverFields(version3Client),
+    3,
+    'discoverFields'
+  );
+  fieldsDiscoveryCache = { fields, expiresAt: now + DISCOVERY_TTL_MS };
+  return fields;
 }
 
 /**
@@ -396,11 +499,7 @@ app.get('/api/boards.json', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'At least one project required', code: 'NO_PROJECTS' });
     }
     const agileClient = createAgileClient();
-    const boards = await retryOnRateLimit(
-      () => discoverBoardsForProjects(selectedProjects, agileClient),
-      3,
-      'discoverBoards'
-    );
+    const boards = await discoverBoardsWithCache(selectedProjects, agileClient);
     const list = boards.map(b => ({
       id: b.id,
       name: b.name,
@@ -445,11 +544,8 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
 
     const agileClient = createAgileClient();
     const version3Client = createVersion3Client();
-    const boards = await retryOnRateLimit(
-      () => discoverBoardsForProjects(selectedProjects, agileClient),
-      3,
-      'discoverBoardsForCurrentSprint'
-    );
+    recordActivity();
+    const boards = await discoverBoardsWithCache(selectedProjects, agileClient);
     const board = boards.find(b => b.id === boardId);
     if (!board) {
       return res.status(404).json({
@@ -478,7 +574,7 @@ app.get('/api/current-sprint.json', requireAuth, async (req, res) => {
       }
     }
 
-    const fields = await retryOnRateLimit(() => discoverFields(version3Client), 3, 'discoverFields');
+    const fields = await discoverFieldsWithCache(version3Client);
 
     const completionAnchor = (req.query.completionAnchor || 'resolution').toLowerCase();
     const supportedAnchors = ['resolution', 'lastsubtask', 'statusdone'];
@@ -677,6 +773,22 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       includeActiveOrMissingEndDateSprints,
     });
 
+    // If another identical preview is already in-flight, wait for it to complete and then prefer cache.
+    let isPreviewOwner = false;
+    let ownerResolve = null;
+    if (!bypassCache) {
+      const existingPromise = inFlightPreviews.get(cacheKey);
+      if (existingPromise) {
+        await existingPromise.catch(() => {});
+      } else {
+        isPreviewOwner = true;
+        const ownerPromise = new Promise((resolve) => {
+          ownerResolve = resolve;
+        });
+        inFlightPreviews.set(cacheKey, ownerPromise);
+      }
+    }
+
     // Serve from cache if available and not bypassed
     const cachedEntry = !bypassCache ? cache.get(cacheKey) : null;
     if (cachedEntry) {
@@ -766,6 +878,8 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         },
       };
 
+      recordActivity();
+      if (isPreviewOwner && ownerResolve) ownerResolve();
       return res.json(cachedResponse);
     }
 
@@ -794,20 +908,12 @@ app.get('/preview.json', requireAuth, async (req, res) => {
 
     // Discovery
     logger.info('Starting board discovery', { projects: selectedProjects });
-    const boards = await retryOnRateLimit(
-      () => discoverBoardsForProjects(selectedProjects, agileClient),
-      3,
-      'discoverBoardsForProjects'
-    );
+    const boards = await discoverBoardsWithCache(selectedProjects, agileClient);
     logger.info('Board discovery completed', { boardCount: boards.length });
     addPhase('discoverBoards', { boardCount: boards.length });
 
     logger.info('Starting field discovery');
-    const fields = await retryOnRateLimit(
-      () => discoverFields(version3Client),
-      3,
-      'discoverFields'
-    );
+    const fields = await discoverFieldsWithCache(version3Client);
     logger.info('Field discovery completed', { 
       storyPointsFieldId: fields.storyPointsFieldId ? 'found' : 'not found',
       epicLinkFieldId: fields.epicLinkFieldId ? 'found' : 'not found'
@@ -861,6 +967,12 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       ebmFieldsMissing,
     };
 
+    // Connection cancellation flag for long-running sections
+    let cancelled = false;
+    req.on('close', () => {
+      cancelled = true;
+    });
+
     // Fetch sprints for all boards (chunked to limit concurrency)
     logger.info('Fetching sprints for boards', { boardCount: boards.length });
     const allSprints = [];
@@ -871,6 +983,10 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     }
 
     for (const chunk of boardChunks) {
+      if (cancelled) {
+        logger.warn('Preview request cancelled during sprint fetching', { cacheKey });
+        break;
+      }
       const chunkPromises = chunk.map(async (board) => {
         logger.debug(`Fetching sprints for board ${board.id} (${board.name})`);
         const sprints = await retryOnRateLimit(
@@ -925,7 +1041,6 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       if (!isPartial && Date.now() - previewStartedAt > MAX_PREVIEW_MS) {
         isPartial = true;
         timedOut = true;
-        meta.timedOut = true;
         if (!partialReason) {
           partialReason = 'Time budget exceeded while fetching sprint issues';
         }
@@ -935,6 +1050,11 @@ app.get('/preview.json', requireAuth, async (req, res) => {
           totalChunks,
           elapsedMs: Date.now() - previewStartedAt,
         });
+        break;
+      }
+
+      if (cancelled) {
+        logger.warn('Preview request cancelled during issue fetching', { cacheKey });
         break;
       }
 
@@ -1044,9 +1164,6 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       if (!partialReason) {
         partialReason = `Older sprints are still warming cache; showing cached data plus the most recent ${recentSplitDays} days. Use full refresh (bypass cache) to force a complete load.`;
       }
-      if (cachedOldSprints.length > 0) {
-        meta.usedCacheForOlder = true;
-      }
       addPhase('splitWindow', {
         recentDays: recentSplitDays,
         cachedOldSprints: cachedOldSprints.length,
@@ -1058,7 +1175,16 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         const warmSprintsInBackground = async () => {
           try {
             const concurrency = 3;
+            const startedAt = Date.now();
+            const maxRuntimeMs = 2 * 60 * 1000; // 2 minutes hard cap
             for (let i = 0; i < backgroundIds.length; i += concurrency) {
+              if (Date.now() - startedAt > maxRuntimeMs || isSystemBusy()) {
+                logger.warn('Stopping background sprint cache warm due to budget/load', {
+                  warmed: i,
+                  total: backgroundIds.length,
+                });
+                break;
+              }
               const slice = backgroundIds.slice(i, i + concurrency);
               await Promise.all(slice.map(async (sid) => {
                 const sprint = sprintMap.get(sid);
@@ -1201,7 +1327,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       recentSplitDays: shouldSplitByRecent ? recentSplitDays : null,
       recentCutoffDate: shouldSplitByRecent && recentCutoffDate ? recentCutoffDate.toISOString() : null,
       timedOut: false,
-      usedCacheForOlder: false,
+      usedCacheForOlder: shouldSplitByRecent && cachedOldSprints.length > 0,
       clientBudgetMs: derivedClientBudgetMs,
       serverMaxPreviewMs: PREVIEW_SERVER_MAX_MS,
     };
@@ -1218,7 +1344,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         elapsedMs: Date.now() - previewStartedAt,
         totalRows: allRows.length,
       });
-    } else {
+    } else if (!cancelled) {
       if (includeStoryPoints) {
         metrics.throughput = calculateThroughput(allRows, includeStoryPoints);
       }
@@ -1467,17 +1593,18 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       });
     }
 
+    recordActivity();
     res.json(responsePayload);
 
   } catch (error) {
     logger.error('Error generating preview', error);
 
-    const isPreviewError = error instanceof PreviewError;
-    const errorCode = isPreviewError ? error.code : 'PREVIEW_ERROR';
-    const httpStatus = isPreviewError ? error.httpStatus : 500;
+    const isPreviewError = error instanceof PreviewError || error?.code === 'RATE_LIMIT_COOLDOWN';
+    const errorCode = isPreviewError ? (error.code || 'PREVIEW_ERROR') : 'PREVIEW_ERROR';
+    const httpStatus = isPreviewError ? (error.httpStatus || 503) : 500;
     const userMessage =
       isPreviewError
-        ? error.message
+        ? (error.message || 'An error occurred while generating the preview.')
         : (error.message || 'An unexpected error occurred while generating the preview.');
 
     res.status(httpStatus).json({
@@ -1486,6 +1613,15 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       message: userMessage,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  } finally {
+    const entry = inFlightPreviews.get(cacheKey);
+    if (entry && typeof entry === 'object' && entry !== null && entry.ownerResolve === ownerResolve) {
+      // no-op: kept for potential future richer structure
+    }
+    if (isPreviewOwner) {
+      if (ownerResolve) ownerResolve();
+      inFlightPreviews.delete(cacheKey);
+    }
   }
 });
 
@@ -1628,10 +1764,15 @@ async function refreshCurrentSprintSnapshots() {
     return;
   }
   try {
+    if (isSystemBusy()) {
+      logger.info('Skipping current-sprint snapshot refresh because system is busy');
+      return;
+    }
+
     const agileClient = createAgileClient();
     const version3Client = createVersion3Client();
-    const boards = await discoverBoardsForProjects(DEFAULT_SNAPSHOT_PROJECTS, agileClient);
-    const fields = await discoverFields(version3Client);
+    const boards = await discoverBoardsWithCache(DEFAULT_SNAPSHOT_PROJECTS, agileClient);
+    const fields = await discoverFieldsWithCache(version3Client);
     const fieldOpts = {
       storyPointsFieldId: fields.storyPointsFieldId,
       epicLinkFieldId: fields.epicLinkFieldId,

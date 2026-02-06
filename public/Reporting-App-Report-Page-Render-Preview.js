@@ -105,7 +105,7 @@ export function renderPreview() {
   }
 
   const partialNotice = partial
-    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em>${timedOut ? ' due to time budget being reached' : ''}${partialReason ? ` because: ${escapeHtml(partialReason)}` : '.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
+    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em>${timedOut ? ' because the server time budget was reached' : ''}${partialReason ? `: ${escapeHtml(partialReason)}` : '.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
     : '';
 
   const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
@@ -158,12 +158,20 @@ export function renderPreview() {
       const modeBadge = previewMode === 'recent-only'
         ? 'Recent-only'
         : (previewMode === 'recent-first' ? 'Recent-first' : 'Full history');
-      const baseMessage = partial
-        ? `Preview is partial${partialReason ? `: ${escapeHtml(partialReason)}` : ''}`
-        : 'Preview completed with optimised windowing for faster results.';
-      const hint = partial
-        ? 'Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.'
-        : 'Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
+      let baseMessage;
+      let hint;
+      if (partial) {
+        if (timedOut) {
+          baseMessage = 'Preview is partial because the server time budget was reached.';
+          hint = 'Data may be incomplete; try a smaller date range, fewer projects, or disabling the heaviest options before trying again.';
+        } else {
+          baseMessage = `Preview is partial${partialReason ? `: ${escapeHtml(partialReason)}` : ''}`;
+          hint = 'Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.';
+        }
+      } else {
+        baseMessage = 'Preview completed with optimised windowing for faster results.';
+        hint = 'Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
+      }
       statusEl.innerHTML = `
         <div class="status-banner warning">
           <strong>${modeBadge}</strong> – ${baseMessage}

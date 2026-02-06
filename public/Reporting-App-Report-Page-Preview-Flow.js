@@ -376,6 +376,8 @@ export function initPreviewFlow() {
           displayMessage = 'Unable to fetch boards. Please verify project access and try again.';
         } else if (errorCode === 'RATE_LIMIT_ERROR') {
           displayMessage = 'Jira API rate limit exceeded. Please wait a moment and try again.';
+        } else if (errorCode === 'RATE_LIMIT_COOLDOWN') {
+          displayMessage = 'Jira API has recently rate limited this report. Please wait around a minute and try again, or narrow the date range.';
         } else if (errorCode === 'NETWORK_ERROR') {
           displayMessage = 'Network error. Please check your connection and try again.';
         }
