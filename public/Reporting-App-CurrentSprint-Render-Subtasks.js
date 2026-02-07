@@ -7,7 +7,8 @@ export function renderStuckCandidates(data) {
   html += '<h2>Items stuck &gt; 24 hours</h2>';
   html += '<p class="meta-row"><small>Based on last status category change (fallback to last update).</small></p>';
   if (!stuck.length) {
-    html += '<p>No items stuck beyond 24 hours in the current snapshot.</p>';
+    html += '<p>0 items in progress &gt;24h.</p>';
+    html += '<p class="meta-row"><small>No issues in progress &gt;24h. Check back if work is blocked.</small></p>';
   } else {
     // Limit initial rows to reduce DOM nodes
     const initialLimit = 10;

@@ -63,6 +63,14 @@ function hydrateSharedDateRange(startInput, endInput) {
   }
 }
 
+function updateCustomRangeLabelVisibility() {
+  const label = document.getElementById('custom-range-label');
+  if (!label) return;
+  const strip = document.querySelector('.quarter-strip-inner');
+  const hasActivePill = strip && strip.querySelector('.quarter-pill.is-active');
+  label.style.display = hasActivePill ? 'none' : '';
+}
+
 export function initDateRangeControls(onApply) {
   const startInput = document.getElementById('start-date');
   const endInput = document.getElementById('end-date');
@@ -79,7 +87,10 @@ export function initDateRangeControls(onApply) {
       updateDateDisplay();
       persistSharedDateRange();
     },
+    onClearSelection: updateCustomRangeLabelVisibility,
+    onQuartersLoaded: updateCustomRangeLabelVisibility,
     onApply: () => {
+      updateCustomRangeLabelVisibility();
       persistSharedDateRange();
       if (typeof onApply === 'function') onApply();
     },

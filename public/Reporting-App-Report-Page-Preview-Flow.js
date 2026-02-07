@@ -5,6 +5,8 @@
  * Reporting-App-Report-Page-Preview-Complexity-Config.js.
  */
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
+import { persistDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
+import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
@@ -16,6 +18,7 @@ import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import {
   RECENT_SPLIT_DEFAULT_DAYS,
+  PREVIEW_TIMEOUT_LIGHT_MS,
   classifyPreviewComplexity,
   getClientBudgetMs,
 } from './Reporting-App-Report-Page-Preview-Complexity-Config.js';
@@ -38,6 +41,31 @@ function showReportError(shortText, detailsText) {
       <button type="button" class="error-close" aria-label="Dismiss">x</button>
     </div>
   `;
+}
+
+/**
+ * When filters change while preview is visible, clear preview and show message so user does not mistake stale data for new selection.
+ */
+export function clearPreviewOnFilterChange() {
+  const { previewContent, errorEl, exportExcelBtn, exportDropdownTrigger } = reportDom;
+  if (!previewContent || previewContent.style.display === 'none') return;
+  previewContent.style.display = 'none';
+  reportState.previewData = null;
+  reportState.previewRows = [];
+  reportState.visibleRows = [];
+  reportState.visibleBoardRows = [];
+  reportState.visibleSprintRows = [];
+  reportState.previewHasRows = false;
+  reportState.predictabilityPerSprint = null;
+  if (errorEl) {
+    errorEl.style.display = 'block';
+    errorEl.innerHTML = '<div role="alert"><strong>Filters changed.</strong> Run Preview to update.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+  }
+  if (exportExcelBtn) exportExcelBtn.disabled = true;
+  if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
+  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
+  if (headerExportBtn) headerExportBtn.disabled = true;
+  updateExportHint();
 }
 
 export function initPreviewFlow() {
@@ -113,8 +141,7 @@ export function initPreviewFlow() {
     }
 
     if (target.getAttribute && target.getAttribute('data-action') === 'trigger-export-excel') {
-      const excelBtn = document.getElementById('export-excel-btn');
-      if (excelBtn && !excelBtn.disabled) excelBtn.click();
+      triggerExcelExport();
     }
 
     if (target.getAttribute && target.getAttribute('data-action') === 'toggle-error-details') {
@@ -134,6 +161,7 @@ export function initPreviewFlow() {
         tab.classList.toggle('show-optional-columns', show);
         target.setAttribute('aria-expanded', String(show));
         target.textContent = show ? 'Show fewer columns' : 'Show more columns';
+        persistDoneStoriesOptionalColumnsPreference(show);
       }
     }
   });

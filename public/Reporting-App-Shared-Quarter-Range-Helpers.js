@@ -150,6 +150,8 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
     formatInputValue = formatDateTimeLocalForInput,
     updateDateDisplay,
     onApply,
+    onClearSelection,
+    onQuartersLoaded,
   } = options;
   const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
   if (!container || !startInput || !endInput) return;
@@ -162,6 +164,7 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
       b.classList.remove('is-active');
       b.setAttribute('aria-pressed', 'false');
     });
+    if (options.onClearSelection && typeof options.onClearSelection === 'function') options.onClearSelection();
   };
 
   const applyQuarter = (q) => {
@@ -206,6 +209,7 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         fallback.setAttribute('aria-live', 'polite');
         fallback.textContent = 'Enter dates manually.';
         container.appendChild(fallback);
+        if (onQuartersLoaded && typeof onQuartersLoaded === 'function') onQuartersLoaded();
         return;
       }
       // Ensure quarters are shown most-recent-first (end date desc)
@@ -233,5 +237,6 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         });
         container.appendChild(btn);
       });
+      if (onQuartersLoaded && typeof onQuartersLoaded === 'function') onQuartersLoaded();
     });
 }

@@ -41,6 +41,14 @@ export function renderCurrentSprintPage(data) {
   // NEW: Sprint carousel navigation
   html += renderSprintCarousel(data);
 
+  // Section quick links (jump to cards)
+  html += '<div class="sprint-section-links" role="navigation" aria-label="Jump to section">';
+  html += '<a href="#burndown-card">Burndown</a><span aria-hidden="true"> | </span>';
+  html += '<a href="#scope-changes-card">Scope</a><span aria-hidden="true"> | </span>';
+  html += '<a href="#stories-card">Work items</a><span aria-hidden="true"> | </span>';
+  html += '<a href="#stuck-card">Stuck</a>';
+  html += '</div>';
+
   // Redesigned page layout using CSS Grid
   html += '<div class="current-sprint-grid-layout">';
 
@@ -107,8 +115,7 @@ export function renderCurrentSprintPage(data) {
   // Export button (floats above content)
   html += renderExportButton();
 
-  // Backward compat: Render old cards for any downstream dependencies
-  // These are now hidden via CSS in the legacy section above
+  // Legacy summary/card is hidden via CSS; section nav is header bar "Issues in sprint" + carousel section links (Burndown | Scope | Work items | Stuck).
   html += renderSprintTabs(data);
   html += renderSummaryCard(data);
   html += renderAssumptions(data);

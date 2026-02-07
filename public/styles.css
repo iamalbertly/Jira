@@ -402,6 +402,13 @@ header h1 {
   border-color: var(--primary);
 }
 
+.custom-range-label {
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-left: 8px;
+  display: inline-block;
+}
+
 .date-display {
   margin-top: 8px;
   padding: 10px 12px;
@@ -668,6 +675,17 @@ header h1 {
   border-top: 1px solid var(--border);
 }
 
+.meta-details-toggle-btn {
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.partial-data-inline {
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
 .applied-filters-summary {
   font-size: 0.85em;
   color: var(--muted);
@@ -681,8 +699,26 @@ header h1 {
   border-radius: 8px;
   font-size: 0.9em;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+
+.status-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-banner-actions-label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.status-banner-message {
+  flex: 1;
+  min-width: 200px;
 }
 
 .status-close,
@@ -705,6 +741,8 @@ header h1 {
   font-size: 0.9em;
   color: var(--muted);
   border: 1px solid var(--border);
+  user-select: text;
+  -webkit-user-select: text;
   border-radius: var(--radius);
   white-space: pre-wrap;
   word-break: break-word;
@@ -779,6 +817,40 @@ header h1 {
 
 .tab-pane,
 .transparency-card,
+.leadership-context-line {
+  margin-bottom: 12px;
+}
+
+.leadership-range-hint {
+  cursor: help;
+}
+
+.leadership-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.leadership-card-header h2 {
+  margin: 0;
+}
+
+.leadership-export-wrap {
+  flex-shrink: 0;
+}
+
+.leadership-boards-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.leadership-boards-table th.sortable:hover {
+  text-decoration: underline;
+}
+
 .leadership-card {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1670,6 +1742,16 @@ header h1 {
   gap: 4px;
 }
 
+.header-metric-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.header-metric-link:hover {
+  text-decoration: underline;
+}
+
 .metric-label {
   font-size: 0.75rem;
   color: var(--muted);
@@ -2250,6 +2332,24 @@ header h1 {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 20px;
+}
+
+.sprint-section-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 0.9em;
+}
+
+.sprint-section-links a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.sprint-section-links a:hover {
+  text-decoration: underline;
 }
 
 .sprint-carousel {

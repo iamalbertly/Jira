@@ -57,12 +57,20 @@ export function renderLeadershipPage(data) {
   const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
   const generatedAt = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
-  let html = '<p class="metrics-hint"><strong>Context:</strong> Projects ' + escapeHtml(projectsLabel) + ' | Range ' + escapeHtml(rangeStart) + ' – ' + escapeHtml(rangeEnd) + '</p>';
-  html += '<p class="metrics-hint">View generated: ' + escapeHtml(generatedAt) + '</p>';
-  html += '<p class="metrics-hint">Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.</p>';
+  const rangeTooltip = 'Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.';
+  const rangeStartAttr = meta.windowStart ? formatDateShort(meta.windowStart) : '';
+  const rangeEndAttr = meta.windowEnd ? formatDateShort(meta.windowEnd) : '';
+  const projectsAttr = (meta.projects || '').replace(/,/g, '-').replace(/\s+/g, '') || '';
+  let html = '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
+  html += '<p class="metrics-hint leadership-context-line">';
+  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' – ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt);
+  html += '</p>';
 
   html += '<div class="leadership-card">';
+  html += '<div class="leadership-card-header">';
   html += '<h2>Boards - normalized delivery</h2>';
+  html += '<div class="leadership-export-wrap"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
+  html += '</div>';
   if (boards.length === 0) {
     html += renderEmptyStateHtml(
       'No boards',
@@ -70,9 +78,16 @@ export function renderLeadershipPage(data) {
       ''
     );
   } else {
-    html += '<table class="data-table"><thead><tr>';
-    html += '<th>Board</th><th>Projects</th><th>Sprints</th><th>Done Stories</th><th>Done SP</th>';
-    html += '<th>SP / Day</th><th>Stories / Day</th><th>Indexed Delivery</th><th>On-time %</th>';
+    html += '<table class="data-table leadership-boards-table"><thead><tr>';
+    html += '<th class="sortable" data-sort="board" scope="col">Board</th>';
+    html += '<th class="sortable" data-sort="projects" scope="col">Projects</th>';
+    html += '<th class="sortable" data-sort="sprints" scope="col">Sprints</th>';
+    html += '<th class="sortable" data-sort="doneStories" scope="col">Done Stories</th>';
+    html += '<th class="sortable" data-sort="doneSP" scope="col">Done SP</th>';
+    html += '<th class="sortable" data-sort="spPerDay" scope="col">SP / Day</th>';
+    html += '<th class="sortable" data-sort="storiesPerDay" scope="col">Stories / Day</th>';
+    html += '<th class="sortable" data-sort="indexedDelivery" scope="col" title="Current SP/day vs own baseline (last 6 closed sprints). Ratio, not %.">Indexed Delivery</th>';
+    html += '<th class="sortable" data-sort="onTime" scope="col">On-time %</th>';
     html += '</tr></thead><tbody>';
     for (const board of boards) {
       const summary = (data.boardSummaries || new Map()).get(board.id);
@@ -100,7 +115,6 @@ export function renderLeadershipPage(data) {
       html += '</tr>';
     }
     html += '</tbody></table>';
-    html += '<div style="margin-top: 12px;"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
   }
   html += '</div>';
 
@@ -132,7 +146,7 @@ export function renderLeadershipPage(data) {
     html += '<td>' + (row.current?.avg != null ? formatNumber(row.current.avg, 2, '-') : '-') + '</td>';
     html += '<td>' + diffText + '</td>';
     html += '<td>' + onTimeText + '</td>';
-    html += '<td title="Based on on-time % and predictability; not for performance review.">' + gradeText + '</td>';
+    html += '<td title="Grade: Based on on-time % and predictability. Strong ≥90%, Critical &lt;60%. Not for performance review.">' + gradeText + '</td>';
     html += '<td>' + quality + '</td>';
     html += '</tr>';
   }

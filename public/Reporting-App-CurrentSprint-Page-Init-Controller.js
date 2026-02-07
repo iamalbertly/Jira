@@ -193,14 +193,14 @@ function refreshBoards(preferredId, preferredSprintId) {
           });
       }
       setBoardSelectCouldntLoad();
-      showError("Couldn't load boards. Check Jira access or try different projects.");
+      showError("Couldn't load boards. Check selected projects above, then Retry.");
       appendRetryToError();
       return null;
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load boards.';
       setBoardSelectCouldntLoad();
-      showError(msg);
+      showError(msg + ' Check selected projects above, then Retry.');
       if ((msg || '').includes('Session expired')) {
         addLoginLink();
       }
@@ -248,6 +248,11 @@ function init() {
   // Listen for refresh events from header bar or other components
   document.addEventListener('refreshSprint', () => {
     if (!currentBoardId) return;
+    const refreshBtn = document.querySelector('.header-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Refreshing…';
+    }
     showLoading('Refreshing sprint...');
     loadCurrentSprint(currentBoardId, currentSprintId)
       .then((data) => {
@@ -255,6 +260,12 @@ function init() {
       })
       .catch((err) => {
         showError(err.message || 'Failed to refresh sprint.');
+      })
+      .finally(() => {
+        if (refreshBtn) {
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = 'Refresh';
+        }
       });
   });
   if (projectsSelect) {

@@ -128,7 +128,7 @@ export function renderStories(data) {
   const stories = data.stories || [];
   const planned = data.plannedWindow || {};
   let html = '<div class="transparency-card" id="stories-card">';
-  html += '<h2>Work items in sprint</h2>';
+  html += '<h2>Issues in this sprint</h2>';
   html += '<p class="meta-row"><span>Planned:</span> <strong>' + formatDate(planned.start) + ' - ' + formatDate(planned.end) + '</strong></p>';
   if (!stories.length) {
     html += renderEmptyStateHtml('No work items', 'No work items in this sprint.', '');

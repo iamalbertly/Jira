@@ -1,4 +1,4 @@
-export function initTabs(updateExportFilteredState) {
+export function initTabs(updateExportFilteredState, onTabActivate) {
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabPanes = document.querySelectorAll('.tab-pane');
   const tabsContainer = document.querySelector('.tabs');
@@ -26,6 +26,7 @@ export function initTabs(updateExportFilteredState) {
       if (firstFocusable) firstFocusable.focus();
     }
     if (updateExportFilteredState) updateExportFilteredState();
+    if (onTabActivate && typeof onTabActivate === 'function') onTabActivate(tabName);
   }
 
   tabButtons.forEach((btn) => {

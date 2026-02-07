@@ -73,6 +73,11 @@ export function renderHeaderBar(data) {
   html += '<span class="metric-label">Progress</span>';
   html += '<span class="metric-value">' + donePercentage + '%</span>';
   html += '</div>';
+  const issuesCount = (data.stories || []).length;
+  html += '<a href="#stories-card" class="header-metric header-metric-link" title="Jump to issues in this sprint">';
+  html += '<span class="metric-label">Issues in sprint</span>';
+  html += '<span class="metric-value">' + issuesCount + '</span>';
+  html += '</a>';
   html += '</div>';
 
   // Right section: Status badge, last-updated and refresh

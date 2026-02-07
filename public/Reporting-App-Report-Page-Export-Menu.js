@@ -2,6 +2,15 @@ import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 
+/**
+ * Triggers Excel export by programmatically clicking the sidebar Export to Excel button.
+ * Used by both the sidebar and the preview-header Export button.
+ */
+export function triggerExcelExport() {
+  const { exportExcelBtn } = reportDom;
+  if (exportExcelBtn && !exportExcelBtn.disabled) exportExcelBtn.click();
+}
+
 export function updateExportHint() {
   const { exportExcelBtn, exportDropdownTrigger, exportHint } = reportDom;
   if (!exportHint) return;

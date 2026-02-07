@@ -15,6 +15,7 @@ import {
   renderUnusableSprintsTab,
   updateExportFilteredState,
 } from './Reporting-App-Report-Page-Render-Registry.js';
+import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
 
 export function renderPreview() {
   const { previewData, previewRows, visibleRows, visibleBoardRows, visibleSprintRows } = reportState;
@@ -144,7 +145,7 @@ export function renderPreview() {
     previewMeta.innerHTML = `
       <div class="meta-info-summary">
         <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} · Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)} · Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} · Generated: ${escapeHtml(generatedShort)}</span>
-        <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Details</button>
+        <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Details</button>
       </div>
       <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
         <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
@@ -183,13 +184,13 @@ export function renderPreview() {
       }
       statusEl.innerHTML = `
         <div class="status-banner warning">
-          <strong>${modeBadge}</strong> – ${baseMessage}
-          <br><small>${hint}</small>
-          <div style="margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <div class="status-banner-actions">
+            <span class="status-banner-actions-label">Actions:</span>
             <button type="button" data-action="retry-preview" class="btn btn-compact">Retry</button>
             <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Smaller range</button>
             <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Full refresh</button>
           </div>
+          <div class="status-banner-message"><strong>${modeBadge}</strong> – ${baseMessage}<br><small>${hint}</small></div>
           <button type="button" class="status-close" aria-label="Dismiss">x</button>
         </div>
       `;
@@ -236,6 +237,18 @@ export function renderPreview() {
     headerExportBtn.title = partial ? partialExportTitle : '';
     if (partial) headerExportBtn.setAttribute('aria-label', partialExportTitle);
     else headerExportBtn.removeAttribute('aria-label');
+    const exportWrap = headerExportBtn.parentElement;
+    if (exportWrap) {
+      const existing = exportWrap.querySelector('.partial-data-inline');
+      if (existing) existing.remove();
+      if (partial) {
+        const span = document.createElement('span');
+        span.className = 'partial-data-inline';
+        span.setAttribute('aria-hidden', 'true');
+        span.textContent = ' (partial data)';
+        headerExportBtn.after(span);
+      }
+    }
   }
 
   updateDateDisplay();
@@ -247,6 +260,19 @@ export function renderPreview() {
     renderSprintsTab(visibleSprintRows, previewData.metrics);
     renderDoneStoriesTab(visibleRows);
     renderUnusableSprintsTab(previewData.sprintsUnusable);
+    applyDoneStoriesOptionalColumnsPreference();
+
+    const boardsCountForTab = previewData.boards?.length ?? 0;
+    const sprintsCountForTab = previewData.sprintsIncluded?.length ?? 0;
+    const unusableCountForTab = previewData.sprintsUnusable?.length ?? 0;
+    const tabBoards = document.getElementById('tab-btn-project-epic-level');
+    const tabSprints = document.getElementById('tab-btn-sprints');
+    const tabDoneStories = document.getElementById('tab-btn-done-stories');
+    const tabUnusable = document.getElementById('tab-btn-unusable-sprints');
+    if (tabBoards) tabBoards.textContent = 'Project & Epic Level (' + boardsCountForTab + ')';
+    if (tabSprints) tabSprints.textContent = 'Sprints (' + sprintsCountForTab + ')';
+    if (tabDoneStories) tabDoneStories.textContent = 'Done Stories (' + visibleRows.length + ')';
+    if (tabUnusable) tabUnusable.textContent = 'Unusable Sprints (' + unusableCountForTab + ')';
 
     requestAnimationFrame(() => {
       const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');

@@ -105,7 +105,7 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('current-sprint stuck: when data loaded, Stuck or in progress >24h section present', async ({ page }) => {
+  test('current-sprint stuck: when data loaded, #stuck-card section present and visible', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
 
@@ -120,8 +120,10 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
       return;
     }
     await page.waitForTimeout(3000);
-    const body = await page.locator('body').textContent();
-    expect(body).toMatch(/Stuck|in progress >24h|0 items/);
+    const stuckCard = page.locator('#stuck-card');
+    await expect(stuckCard).toBeVisible();
+    const cardText = await stuckCard.textContent();
+    expect(cardText).toMatch(/Items stuck|in progress|0 items/);
 
     assertTelemetryClean(telemetry);
   });

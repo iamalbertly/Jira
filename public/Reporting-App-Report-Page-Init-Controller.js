@@ -2,10 +2,12 @@ import { initFeedbackPanel } from './Reporting-App-Report-UI-Feedback.js';
 import { initTabs } from './Reporting-App-Report-UI-Tabs.js';
 import { initProjectSelection, getSelectedProjects } from './Reporting-App-Report-Page-Selections-Manager.js';
 import { initDateRangeControls } from './Reporting-App-Report-Page-DateRange-Controller.js';
-import { initPreviewFlow } from './Reporting-App-Report-Page-Preview-Flow.js';
+import { initPreviewFlow, clearPreviewOnFilterChange } from './Reporting-App-Report-Page-Preview-Flow.js';
 import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear.js';
 import { initExportMenu } from './Reporting-App-Report-Page-Export-Menu.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
+import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
+import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
 
 function updateAppliedFiltersSummary() {
   const el = document.getElementById('applied-filters-summary');
@@ -27,25 +29,46 @@ function updateAppliedFiltersSummary() {
   }
 }
 
+function hydrateFromLastQuery() {
+  const ctx = getValidLastQuery();
+  if (!ctx) return;
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  if (startInput && ctx.start) startInput.value = ctx.start.slice(0, 16);
+  if (endInput && ctx.end) endInput.value = ctx.end.slice(0, 16);
+  const projects = (ctx.projects || '').split(',').map((p) => (p || '').trim()).filter(Boolean);
+  document.querySelectorAll('.project-checkbox[data-project]').forEach((input) => {
+    const project = input.dataset?.project || '';
+    input.checked = projects.includes(project);
+  });
+}
+
 function initReportPage() {
   initFeedbackPanel();
-  initTabs(() => initExportMenu());
+  initTabs(() => initExportMenu(), (tabName) => {
+    if (tabName === 'done-stories') applyDoneStoriesOptionalColumnsPreference();
+  });
   initProjectSelection();
-  updateAppliedFiltersSummary();
   initDateRangeControls(() => {
     const previewBtn = document.getElementById('preview-btn');
     if (previewBtn) previewBtn.click();
   });
+  hydrateFromLastQuery();
+  updateAppliedFiltersSummary();
   initExportMenu();
   initPreviewFlow();
   initSearchClearButtons();
   renderNotificationDock();
 
-  document.getElementById('start-date')?.addEventListener('change', updateAppliedFiltersSummary);
-  document.getElementById('end-date')?.addEventListener('change', updateAppliedFiltersSummary);
+  function onFilterChange() {
+    updateAppliedFiltersSummary();
+    clearPreviewOnFilterChange();
+  }
+  document.getElementById('start-date')?.addEventListener('change', onFilterChange);
+  document.getElementById('end-date')?.addEventListener('change', onFilterChange);
   document.getElementById('require-resolved-by-sprint-end')?.addEventListener('change', updateAppliedFiltersSummary);
   document.getElementById('include-predictability')?.addEventListener('change', updateAppliedFiltersSummary);
-  document.querySelectorAll('.project-checkbox').forEach((cb) => cb.addEventListener('change', updateAppliedFiltersSummary));
+  document.querySelectorAll('.project-checkbox').forEach((cb) => cb.addEventListener('change', onFilterChange));
 
   // Delegated click handlers for small CTA buttons inside Metrics/Boards etc.
   document.addEventListener('click', (ev) => {
