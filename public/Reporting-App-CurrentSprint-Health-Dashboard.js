@@ -144,9 +144,9 @@ export function renderHealthDashboard(data) {
     html += '</div>';
   }
 
-  // Action buttons
+  // Action buttons (snapshot already visible above; Details = optional expand, Copy = clipboard)
   html += '<div class="health-actions">';
-  html += '<button class="btn btn-compact health-detail-btn" data-action="expand-details" title="Show detailed metrics">Details</button>';
+  html += '<button class="btn btn-compact health-detail-btn" data-action="expand-details" title="Show more detailed metrics">More details</button>';
   html += '<button class="btn btn-compact health-copy-btn" data-action="copy-metrics" title="Copy metrics as text">Copy Metrics</button>';
   html += '</div>';
 

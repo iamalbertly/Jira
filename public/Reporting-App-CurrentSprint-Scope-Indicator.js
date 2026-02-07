@@ -48,8 +48,36 @@ export function renderScopeIndicator(data) {
     html += '</span>';
   }
 
-  html += '<button class="scope-details-btn" aria-label="View scope changes details">Details</button>';
+  const jiraHost = data?.meta?.jiraHost || data?.meta?.host || '';
+  const showInline = scopeChanges.length <= 10;
+  const inlineLimit = 10;
+  const itemsToShow = showInline ? scopeChanges : scopeChanges.slice(0, inlineLimit);
+
+  if (scopeChanges.length > 10) {
+    html += '<button class="scope-details-btn scope-view-all-btn" aria-label="View all scope changes">View all (' + scopeChanges.length + ')</button>';
+  } else if (scopeChanges.length > 0) {
+    html += '<button class="scope-details-btn scope-view-all-btn" aria-label="View scope details" style="display: none;">Details</button>';
+  }
   html += '</div>';
+
+  if (itemsToShow.length > 0) {
+    html += '<div class="scope-inline-table-wrap"><table class="scope-inline-table"><thead><tr><th>Issue</th><th>Type</th><th>SP</th><th>Status</th></tr></thead><tbody>';
+    itemsToShow.forEach(issue => {
+      const key = issue.key || issue.issueKey || '';
+      const url = issue.issueUrl || buildJiraIssueUrl(jiraHost, key);
+      html += '<tr>';
+      html += '<td>' + renderIssueKeyLink(key, url) + '</td>';
+      html += '<td>' + escapeHtml(issue.issuetype || '-') + '</td>';
+      html += '<td>' + (issue.storyPoints || '-') + '</td>';
+      html += '<td>' + escapeHtml(issue.status || '-') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    if (scopeChanges.length > inlineLimit) {
+      html += '<p class="scope-inline-more"><small>Showing first ' + inlineLimit + '. Use View all for full list.</small></p>';
+    }
+    html += '</div>';
+  }
 
   return html;
 }
@@ -113,18 +141,17 @@ export function renderScopeModal(data) {
 }
 
 /**
- * Wire scope indicator handlers
+ * Wire scope indicator handlers (View all opens modal when many items)
  */
 export function wireScopeIndicatorHandlers() {
   const indicator = document.querySelector('#scope-indicator');
   if (!indicator) return;
-  const detailsBtn = indicator.querySelector('.scope-details-btn');
-  if (detailsBtn) {
+  const viewAllBtn = indicator.querySelector('.scope-view-all-btn');
+  if (viewAllBtn && viewAllBtn.style.display !== 'none') {
     let modalController = null;
-    detailsBtn.addEventListener('click', () => {
+    viewAllBtn.addEventListener('click', () => {
       const modalEl = document.querySelector('#scope-modal');
       if (!modalEl) return;
-      // initialize modal behavior once
       if (!modalController) {
         modalController = createModalBehavior('#scope-modal', {
           onOpen: () => { modalEl.style.display = 'flex'; },

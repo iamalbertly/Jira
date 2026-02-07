@@ -40,7 +40,7 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('report preview flow: collapsed meta line, Details toggle, export in header when has rows', async ({ page }) => {
+  test('report preview flow: collapsed meta line, Technical details toggle, export in header when has rows', async ({ page }) => {
     test.setTimeout(240000);
     const telemetry = captureBrowserTelemetry(page);
     await runDefaultPreview(page);
@@ -52,7 +52,7 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
       return;
     }
     await expect(page.locator('.meta-summary-line, .meta-info-summary')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('[data-action="toggle-preview-meta-details"], #preview-meta-details-toggle')).toContainText(/Details|Hide details/);
+    await expect(page.locator('[data-action="toggle-preview-meta-details"], #preview-meta-details-toggle')).toContainText(/Technical details|Hide technical details/);
     const headerExport = page.locator('#preview-header-export-excel-btn');
     await expect(headerExport).toBeVisible();
 

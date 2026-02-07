@@ -155,6 +155,10 @@ export function renderPreview() {
     outcomeLineEl.innerHTML = escapeHtml(rowsCount + ' done stories · ' + sprintsCount + ' sprints · ' + boardsCount + ' boards in window' + partialSuffix) + prevRunHtml;
   }
 
+  const phaseLog = Array.isArray(meta.phaseLog) ? meta.phaseLog : [];
+  const phaseLogHtml = phaseLog.length > 0
+    ? '<br><strong>Phase log:</strong> ' + phaseLog.map(p => escapeHtml((p.phase || '') + (p.at ? ' @ ' + p.at : ''))).join(' · ')
+    : '';
   if (previewMeta) {
     const generatedUtc = meta.generatedAt ? new Date(meta.generatedAt).toISOString() : new Date().toISOString();
     const generatedShort = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
@@ -166,12 +170,13 @@ export function renderPreview() {
     previewMeta.innerHTML = `
       <div class="meta-info-summary">
         <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} · Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)} · Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} · ${escapeHtml(generatedLabel)}</span>
-        <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Details</button>
+        <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Technical details</button>
       </div>
       <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
         <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
         <strong>Example story:</strong> ${sampleLabel}<br>
         <strong>Details:</strong> ${escapeHtml(detailsLines.join(' · '))}
+        ${phaseLogHtml}
         ${partialNotice}
       </div>
     `;
@@ -199,10 +204,8 @@ export function renderPreview() {
         <div class="status-banner warning">
           <div class="status-banner-message">${escapeHtml(bannerMessage)}</div>
           <div class="status-banner-actions">
-            <span class="status-banner-actions-label">Actions:</span>
-            <button type="button" data-action="retry-preview" class="btn btn-compact">Retry</button>
-            <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Try smaller range</button>
-            <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Full refresh</button>
+            <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller range</button>
+            <button type="button" data-action="force-full-refresh" class="btn btn-compact">Full refresh</button>
           </div>
           <button type="button" class="status-close" aria-label="Dismiss">x</button>
         </div>
@@ -294,6 +297,10 @@ export function renderPreview() {
     if (tabSprints) tabSprints.textContent = 'Sprints (' + sprintsCountForTab + ')';
     if (tabDoneStories) tabDoneStories.textContent = 'Done Stories (' + visibleRows.length + ')';
     if (tabUnusable) tabUnusable.textContent = 'Unusable Sprints (' + unusableCountForTab + ')';
+
+    if (visibleRows.length > 0 && tabDoneStories && !tabDoneStories.classList.contains('active')) {
+      tabDoneStories.click();
+    }
 
     requestAnimationFrame(() => {
       const projectEpicLevelBtn = document.querySelector('.export-section-btn[data-section="project-epic-level"]');

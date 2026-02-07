@@ -79,19 +79,23 @@ function initProjectSearch() {
 function initAdvancedOptionsToggle() {
   const toggleBtn = document.getElementById('advanced-options-toggle');
   const panel = document.getElementById('advanced-options');
-  if (!toggleBtn || !panel) return;
-  const storageKey = 'reportAdvancedOptionsOpen';
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    toggleBtn.textContent = open ? 'Hide advanced options' : 'Advanced options';
-    try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch (_) {}
-  };
-  setOpen(false);
-  toggleBtn.addEventListener('click', () => {
-    const isOpen = toggleBtn.getAttribute('aria-expanded') === 'true';
-    setOpen(!isOpen);
-  });
+  if (!panel) return;
+  if (toggleBtn) {
+    const storageKey = 'reportAdvancedOptionsOpen';
+    const setOpen = (open) => {
+      panel.hidden = !open;
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggleBtn.textContent = open ? 'Hide options' : 'Options';
+      try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch (_) {}
+    };
+    setOpen(false);
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = toggleBtn.getAttribute('aria-expanded') === 'true';
+      setOpen(!isOpen);
+    });
+  } else {
+    panel.hidden = false;
+  }
 }
 
 export function initProjectSelection() {

@@ -12,7 +12,7 @@ export function applyDoneStoriesOptionalColumnsPreference() {
     if (tab) tab.classList.toggle('show-optional-columns', show);
     if (btn) {
       btn.setAttribute('aria-expanded', show ? 'true' : 'false');
-      btn.textContent = show ? 'Show fewer columns' : 'Show more columns';
+      btn.textContent = show ? 'Show fewer columns' : 'Show more columns (4)';
     }
   } catch (_) {}
 }

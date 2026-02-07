@@ -12,7 +12,7 @@
       <div class="header-row">
         <div>
           <h1>General Performance</h1>
-          <p id="report-subtitle" class="subtitle">Select projects and date range, then click Generate Report.</p>
+          <p id="report-subtitle" class="subtitle">Select projects and date range, then click Preview report.</p>
         </div>
         <button id="feedback-toggle" class="btn btn-secondary btn-compact">Give Feedback</button>
       </div>
@@ -149,8 +149,7 @@
         <div class="filter-group">
           <h3>Options</h3>
           <p class="options-note"><small><strong>Note:</strong> Story Points, Epic TTM, and Bugs/Rework are always included in reports.</small></p>
-          <button type="button" id="advanced-options-toggle" class="btn btn-secondary btn-compact" aria-expanded="false" aria-controls="advanced-options">Advanced options</button>
-          <div id="advanced-options" class="advanced-options" hidden>
+          <div id="advanced-options" class="advanced-options">
             <label class="toggle-label">
               <input type="checkbox" id="require-resolved-by-sprint-end">
               <span>Require Resolved by Sprint End</span>
@@ -177,10 +176,11 @@
         </div>
 
         <div id="applied-filters-summary" class="applied-filters-summary" aria-live="polite"></div>
+        <p id="range-hint" class="range-hint" style="display: none;" aria-live="polite"><small>Large ranges may be slow. For faster results, try last quarter.</small></p>
         <div class="button-group filters-actions">
           <button id="preview-btn" class="btn btn-primary">Preview report</button>
           <div class="export-split-group">
-            <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export</button>
+            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled>Export</button>
             <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled>Options &#9662;</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
@@ -242,7 +242,7 @@
               <div class="sprints-controls done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
-                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">×</button>
+                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">?</button>
                 </div>
                 <div class="project-pills" id="sprints-project-pills"></div>
               </div>
@@ -259,7 +259,7 @@
                   <button type="button" class="search-clear-btn" data-target="search-box" aria-label="Clear done stories search" title="Clear">?</button>
                 </div>
                 <div class="project-pills" id="project-pills"></div>
-                <button type="button" class="btn btn-secondary btn-compact" id="done-stories-columns-toggle" data-action="toggle-done-stories-optional-columns" aria-expanded="false">Show more columns</button>
+                <button type="button" class="btn btn-secondary btn-compact" id="done-stories-columns-toggle" data-action="toggle-done-stories-optional-columns" aria-expanded="false" title="Subtask Est, Spent, Remaining, Variance">Show more columns (4)</button>
               </div>
               <div id="done-stories-content"></div>
               <div id="done-stories-totals" class="totals-bar"></div>

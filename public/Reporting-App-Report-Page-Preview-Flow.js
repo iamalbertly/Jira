@@ -14,6 +14,7 @@ import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingI
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState, updateExportHint } from './Reporting-App-Report-Page-Export-Menu.js';
+import { updateRangeHint } from './Reporting-App-Report-Page-DateRange-Controller.js';
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import {
@@ -60,6 +61,10 @@ export function clearPreviewOnFilterChange() {
   if (errorEl) {
     errorEl.style.display = 'block';
     errorEl.innerHTML = '<div role="alert"><strong>Filters changed.</strong> Run Preview to update. <button type="button" class="btn btn-primary btn-compact" data-action="retry-preview">Preview report</button> <button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+    const previewBtn = reportDom.previewBtn;
+    if (previewBtn && typeof previewBtn.focus === 'function') {
+      try { previewBtn.focus(); } catch (_) {}
+    }
   }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
@@ -114,15 +119,18 @@ export function initPreviewFlow() {
     if (target.getAttribute && target.getAttribute('data-action') === 'retry-with-smaller-range') {
       const endInput = document.getElementById('end-date');
       const startInput = document.getElementById('start-date');
+      const pad = (num) => String(num).padStart(2, '0');
       if (endInput && startInput) {
         const endValue = endInput.value || '';
-        const endDate = endValue ? new Date(endValue) : null;
+        const endDate = endValue ? new Date(endValue) : new Date();
         if (endDate && !Number.isNaN(endDate.getTime())) {
-          const adjusted = new Date(endDate);
-          adjusted.setDate(adjusted.getDate() - 30);
-          const pad = (num) => String(num).padStart(2, '0');
-          const adjustedLocal = `${adjusted.getFullYear()}-${pad(adjusted.getMonth() + 1)}-${pad(adjusted.getDate())}T00:00`;
-          startInput.value = adjustedLocal;
+          const newEnd = new Date(endDate);
+          const newStart = new Date(newEnd);
+          newStart.setDate(newStart.getDate() - 30);
+          const startStr = `${newStart.getFullYear()}-${pad(newStart.getMonth() + 1)}-${pad(newStart.getDate())}T00:00`;
+          const endStr = `${newEnd.getFullYear()}-${pad(newEnd.getMonth() + 1)}-${pad(newEnd.getDate())}T23:59`;
+          startInput.value = startStr;
+          endInput.value = endStr;
         }
       }
       if (previewBtn && !previewBtn.disabled) {
@@ -136,7 +144,7 @@ export function initPreviewFlow() {
         const isHidden = detailsEl.hidden;
         detailsEl.hidden = !isHidden;
         if (target.getAttribute('aria-expanded') !== null) target.setAttribute('aria-expanded', String(!isHidden));
-        target.textContent = isHidden ? 'Hide details' : 'Details';
+        target.textContent = isHidden ? 'Hide technical details' : 'Technical details';
       }
     }
 
@@ -150,7 +158,7 @@ export function initPreviewFlow() {
         const isHidden = detailsEl.hidden;
         detailsEl.hidden = !isHidden;
         target.setAttribute('aria-expanded', String(!isHidden));
-        target.textContent = isHidden ? 'Hide details' : 'Details';
+        target.textContent = isHidden ? 'Hide technical details' : 'Technical details';
       }
     }
 
@@ -160,7 +168,7 @@ export function initPreviewFlow() {
         const show = !tab.classList.contains('show-optional-columns');
         tab.classList.toggle('show-optional-columns', show);
         target.setAttribute('aria-expanded', String(show));
-        target.textContent = show ? 'Show fewer columns' : 'Show more columns';
+        target.textContent = show ? 'Show fewer columns' : 'Show more columns (4)';
         persistDoneStoriesOptionalColumnsPreference(show);
       }
     }
@@ -322,6 +330,7 @@ export function initPreviewFlow() {
       }
 
       try {
+        sessionStorage.setItem('report-has-run-preview', '1');
         const prev = reportState.previewData;
         if (prev && (prev.rows || []).length >= 0) {
           const prevRows = (prev.rows || []).length;
@@ -356,6 +365,7 @@ export function initPreviewFlow() {
       if (previewContent) previewContent.style.display = 'block';
       try {
         window.dispatchEvent(new CustomEvent('report-preview-shown', { detail: { hasRows: reportState.previewHasRows } }));
+        updateRangeHint();
       } catch (_) {}
       if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
@@ -496,13 +506,13 @@ export function initPreviewFlow() {
             : `
           <div role="alert">
             <strong>${escapeHtml(shortText)}</strong>
-            <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false">Details</button>
-            <div class="error-details" hidden>${escapeHtml(errorMsg)}</div>
-            <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
-              <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Retry with smaller date range</button>
-              <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button>
+            <p style="margin: 8px 0 0 0;">${escapeHtml(errorMsg)}</p>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller date range</button>
+              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry same range</button>
             </div>
+            <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">Technical details</button>
+            <div class="error-details" hidden><pre style="margin: 4px 0; white-space: pre-wrap;">${escapeHtml(errorMsg)}</pre><button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button></div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
         `;

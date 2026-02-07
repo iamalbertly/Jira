@@ -133,15 +133,12 @@ function initReportPage() {
   });
 
   window.addEventListener('report-preview-shown', (ev) => {
-    const hasRows = ev.detail && ev.detail.hasRows;
-    if (!hasRows || !panel || !panelBody || !collapsedBar) return;
+    if (!panel || !panelBody || !collapsedBar) return;
     try {
       if (sessionStorage.getItem(FILTERS_COLLAPSED_KEY) === '1') {
         setFiltersPanelCollapsed(true);
-        return;
       }
     } catch (_) {}
-    setFiltersPanelCollapsed(true);
   });
 
   setTimeout(applyStoredFiltersCollapsed, 0);

@@ -30,7 +30,7 @@ test.describe('Preview timeout and error UI validation', () => {
 
     await expect(page.locator('#error')).toBeVisible({ timeout: 15000 });
     const errorText = await page.locator('#error').textContent();
-    expect(errorText).toContain('Error');
+    expect(errorText).toMatch(/Error|Request failed|timed out/i);
     const hasAction = /Retry|smaller|refresh/i.test(errorText || '');
     expect(hasAction).toBeTruthy();
 

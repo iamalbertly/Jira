@@ -91,7 +91,7 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-export-wrap"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
   html += '</div>';
   if (boards.length === 0) {
-    const hint = 'Check that the selected projects have sprints in this date range. Try a more recent quarter (e.g. current quarter).';
+    const hint = 'Try selecting the current quarter or ensure MPSA, MAS are selected. Check that the selected projects have sprints in this date range.';
     html += renderEmptyStateHtml(
       'No boards',
       'No boards in this window. ' + hint,

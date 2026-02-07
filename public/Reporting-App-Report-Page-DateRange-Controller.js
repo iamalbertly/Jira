@@ -71,27 +71,55 @@ function updateCustomRangeLabelVisibility() {
   label.style.display = hasActivePill ? 'none' : '';
 }
 
+const RANGE_HINT_KEY = 'report-has-run-preview';
+
+export function updateRangeHint() {
+  const hintEl = document.getElementById('range-hint');
+  if (!hintEl) return;
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  let rangeDays = 0;
+  if (startVal && endVal) {
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      rangeDays = Math.round((end - start) / (24 * 60 * 60 * 1000));
+    }
+  }
+  try {
+    const hasRun = sessionStorage.getItem(RANGE_HINT_KEY) === '1';
+    hintEl.style.display = (rangeDays > 90 || !hasRun) ? 'block' : 'none';
+  } catch (_) {
+    hintEl.style.display = rangeDays > 90 ? 'block' : 'none';
+  }
+}
+
 export function initDateRangeControls(onApply) {
   const startInput = document.getElementById('start-date');
   const endInput = document.getElementById('end-date');
   hydrateSharedDateRange(startInput, endInput);
-  if (startInput) startInput.addEventListener('change', updateDateDisplay);
-  if (endInput) endInput.addEventListener('change', updateDateDisplay);
+  if (startInput) startInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); });
+  if (endInput) endInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); });
   if (startInput) startInput.addEventListener('change', persistSharedDateRange);
   if (endInput) endInput.addEventListener('change', persistSharedDateRange);
   updateDateDisplay();
+  updateRangeHint();
 
   initQuarterStrip('.quarter-strip-inner', startInput, endInput, {
     formatInputValue: formatDateTimeLocalForInput,
     updateDateDisplay: () => {
       updateDateDisplay();
       persistSharedDateRange();
+      updateRangeHint();
     },
-    onClearSelection: updateCustomRangeLabelVisibility,
-    onQuartersLoaded: updateCustomRangeLabelVisibility,
+    onClearSelection: () => { updateCustomRangeLabelVisibility(); updateRangeHint(); },
+    onQuartersLoaded: () => { updateCustomRangeLabelVisibility(); updateRangeHint(); },
     onApply: () => {
       updateCustomRangeLabelVisibility();
       persistSharedDateRange();
+      updateRangeHint();
       if (typeof onApply === 'function') onApply();
     },
   });
