@@ -62,7 +62,12 @@ test.describe('Server errors and export validation', () => {
       test.skip(true, 'Preview not visible; may require Jira credentials');
       return;
     }
-    await expect(page.locator('#export-excel-btn')).toBeEnabled();
+    const sidebarExport = page.locator('#export-excel-btn');
+    const headerExport = page.locator('#preview-header-export-excel-btn');
+    const headerVisible = await headerExport.isVisible().catch(() => false);
+    const exportBtn = headerVisible ? headerExport : sidebarExport;
+    await expect(exportBtn).toBeEnabled();
+    await exportBtn.scrollIntoViewIfNeeded().catch(() => {});
     await page.waitForTimeout(500);
 
     const telemetry = captureBrowserTelemetry(page);
@@ -73,7 +78,7 @@ test.describe('Server errors and export validation', () => {
       if (text && text.trim().length > 0) return { type: 'clearState' };
       throw new Error('Error visible but empty');
     })();
-    await page.click('#export-excel-btn');
+    await exportBtn.click();
 
     let result = await Promise.race([
       downloadPromise.then((d) => ({ type: 'download', value: d })),

@@ -35,9 +35,9 @@ function addLoginLink() {
   const { errorEl } = currentSprintDom;
   if (!errorEl || errorEl.querySelector('a.nav-link')) return;
   const link = document.createElement('a');
-  link.href = '/';
+  link.href = '/?redirect=/current-sprint';
   link.className = 'nav-link';
-  link.textContent = 'Log in again';
+  link.textContent = 'Sign in';
   link.style.marginLeft = '8px';
   errorEl.appendChild(document.createTextNode(' '));
   errorEl.appendChild(link);
@@ -193,14 +193,14 @@ function refreshBoards(preferredId, preferredSprintId) {
           });
       }
       setBoardSelectCouldntLoad();
-      showError("Couldn't load boards. Check selected projects above, then Retry.");
+      showError("Couldn't load boards.");
       appendRetryToError();
       return null;
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load boards.';
       setBoardSelectCouldntLoad();
-      showError(msg + ' Check selected projects above, then Retry.');
+      showError(msg || "Couldn't load boards.");
       if ((msg || '').includes('Session expired')) {
         addLoginLink();
       }
@@ -209,8 +209,43 @@ function refreshBoards(preferredId, preferredSprintId) {
     });
 }
 
+function normalizeProjects(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value.split(',').map(p => (p || '').trim()).filter(Boolean).sort().join(',');
+}
+
+function updateProjectHint() {
+  const hintEl = document.getElementById('current-sprint-project-hint');
+  if (!hintEl) return;
+  const current = normalizeProjects(getProjectsParam());
+  const stored = normalizeProjects(getStoredProjects() || '');
+  if (!stored) {
+    hintEl.innerHTML = '';
+    return;
+  }
+  if (current === stored) {
+    hintEl.innerHTML = '<span class="same-as-report-label">Same as Report</span>';
+    return;
+  }
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-secondary btn-compact';
+  btn.textContent = 'Use Report selection';
+  btn.addEventListener('click', () => {
+    syncProjectsSelect(stored);
+    persistProjectsSelection(stored);
+    updateProjectHint();
+    currentBoardId = null;
+    currentSprintId = null;
+    refreshBoards(getPreferredBoardId(), getPreferredSprintId());
+  });
+  hintEl.innerHTML = '';
+  hintEl.appendChild(btn);
+}
+
 function onProjectsChange() {
   persistProjectsSelection(getProjectsParam());
+  updateProjectHint();
   currentBoardId = null;
   currentSprintId = null;
   return refreshBoards(getPreferredBoardId(), getPreferredSprintId());
@@ -243,6 +278,7 @@ function init() {
       showError(err.message || 'Failed to load current sprint.');
     });
 
+  updateProjectHint();
   if (boardSelect) boardSelect.addEventListener('change', onBoardChange);
   if (contentEl) contentEl.addEventListener('click', onSprintTabClick);
   // Listen for refresh events from header bar or other components

@@ -48,11 +48,23 @@ export function renderHeaderBar(data) {
     }
   }
 
+  const issuesCount = (data.stories || []).length;
+  const remainingText = remainingLabel === '-' ? remainingLabel : (remainingLabel === 'Sprint ended' || remainingLabel === '<1 day' ? remainingLabel : remainingLabel + ' left');
+  const outcomeParts = [
+    escapeHtml(sprint.name || 'Sprint ' + sprint.id) + ': ' + donePercentage + '% done',
+    remainingText,
+    issuesCount + ' issues'
+  ];
+  const outcomeLine = outcomeParts.join(' · ');
+
   // Build HTML
   let html = '<div class="current-sprint-header-bar" data-sprint-id="' + (sprint.id || '') + '">';
+  html += '<div class="sprint-outcome-line" aria-live="polite">' + outcomeLine + '</div>';
   
-  // Left section: Sprint info
+  const boardName = (data.board && data.board.name) ? data.board.name : '';
+  // Left section: Sprint info + board scope
   html += '<div class="header-bar-left">';
+  if (boardName) html += '<div class="header-board-label" aria-label="Current board">Board: ' + escapeHtml(boardName) + '</div>';
   html += '<div class="header-sprint-name">' + escapeHtml(sprint.name || 'Sprint ' + sprint.id) + '</div>';
   html += '<div class="header-sprint-dates">';
   html += formatDate(planned.start || sprint.startDate) + ' – ' + formatDate(planned.end || sprint.endDate);
@@ -73,7 +85,6 @@ export function renderHeaderBar(data) {
   html += '<span class="metric-label">Progress</span>';
   html += '<span class="metric-value">' + donePercentage + '%</span>';
   html += '</div>';
-  const issuesCount = (data.stories || []).length;
   html += '<a href="#stories-card" class="header-metric header-metric-link" title="Jump to issues in this sprint">';
   html += '<span class="metric-label">Issues in sprint</span>';
   html += '<span class="metric-value">' + issuesCount + '</span>';

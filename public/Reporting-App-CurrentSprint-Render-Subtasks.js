@@ -5,10 +5,11 @@ export function renderStuckCandidates(data) {
   const stuck = data.stuckCandidates || [];
   let html = '<div class="transparency-card" id="stuck-card">';
   html += '<h2>Items stuck &gt; 24 hours</h2>';
+  html += '<p class="section-definition"><small>Stuck: issues in progress &gt;24h.</small></p>';
   html += '<p class="meta-row"><small>Based on last status category change (fallback to last update).</small></p>';
   if (!stuck.length) {
     html += '<p>0 items in progress &gt;24h.</p>';
-    html += '<p class="meta-row"><small>No issues in progress &gt;24h. Check back if work is blocked.</small></p>';
+    html += '<p class="meta-row"><small>No issues in progress &gt;24h. Check back if work is blocked. Nothing stuck. If something is blocked, it will appear here after 24h.</small></p>';
   } else {
     // Limit initial rows to reduce DOM nodes
     const initialLimit = 10;

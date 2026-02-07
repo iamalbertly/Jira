@@ -106,7 +106,7 @@ export function renderPreview() {
   }
 
   const partialNotice = partial
-    ? `<br><span class="partial-warning"><strong>Note:</strong> This preview is <em>partial</em>${timedOut ? ' because the server time budget was reached' : ''}${partialReason ? `: ${escapeHtml(partialReason)}` : '.'} Data may be incomplete; consider narrowing the date range or reducing options and trying again.</span>`
+    ? `<br><span class="partial-warning">This preview may be incomplete (time limit). Use a smaller date range for full data. You can export what's shown or try a smaller range.</span>`
     : '';
 
   const selectedProjectsLabel = meta.selectedProjects.length > 0 ? meta.selectedProjects.join(', ') : 'None';
@@ -139,12 +139,33 @@ export function renderPreview() {
     appliedFiltersEl.textContent = `Applied: ${selectedProjectsLabel} · ${windowStartLocal} – ${windowEndLocal}${opts.length ? ' · ' + opts.join(', ') : ''}`;
   }
 
+  const outcomeLineEl = document.getElementById('preview-outcome-line');
+  if (outcomeLineEl) {
+    const partialSuffix = partial ? ' (partial)' : '';
+    let prevRunHtml = '';
+    try {
+      const lastRun = sessionStorage.getItem('report-last-run');
+      if (lastRun) {
+        const obj = JSON.parse(lastRun);
+        const prevStories = typeof obj.doneStories === 'number' ? obj.doneStories : 0;
+        const prevSprints = typeof obj.sprintsCount === 'number' ? obj.sprintsCount : 0;
+        prevRunHtml = '<span class="preview-previous-run" aria-live="polite"> Previous run: ' + prevStories + ' done stories, ' + prevSprints + ' sprints.</span>';
+      }
+    } catch (_) {}
+    outcomeLineEl.innerHTML = escapeHtml(rowsCount + ' done stories · ' + sprintsCount + ' sprints · ' + boardsCount + ' boards in window' + partialSuffix) + prevRunHtml;
+  }
+
   if (previewMeta) {
     const generatedUtc = meta.generatedAt ? new Date(meta.generatedAt).toISOString() : new Date().toISOString();
     const generatedShort = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    const generatedAtMs = meta.generatedAt ? new Date(meta.generatedAt).getTime() : Date.now();
+    const ageMs = Date.now() - generatedAtMs;
+    const generatedLabel = ageMs >= 0 && ageMs < 3600000
+      ? (Math.round(ageMs / 60000) < 1 ? 'Generated: just now' : 'Generated: ' + Math.round(ageMs / 60000) + ' min ago')
+      : 'Generated: ' + generatedShort;
     previewMeta.innerHTML = `
       <div class="meta-info-summary">
-        <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} · Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)} · Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} · Generated: ${escapeHtml(generatedShort)}</span>
+        <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} · Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)} · Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} · ${escapeHtml(generatedLabel)}</span>
         <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Details</button>
       </div>
       <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
@@ -165,32 +186,32 @@ export function renderPreview() {
   const statusEl = document.getElementById('preview-status');
   if (statusEl) {
     if (partial || previewMode !== 'normal') {
-      const modeBadge = previewMode === 'recent-only'
-        ? 'Recent-only'
-        : (previewMode === 'recent-first' ? 'Recent-first' : 'Full history');
-      let baseMessage;
-      let hint;
+      let bannerMessage;
       if (partial) {
-        if (timedOut) {
-          baseMessage = 'Preview is partial because the server time budget was reached.';
-          hint = 'Data may be incomplete; try a smaller date range, fewer projects, or disabling the heaviest options before trying again.';
-        } else {
-          baseMessage = `Preview is partial${partialReason ? `: ${escapeHtml(partialReason)}` : ''}`;
-          hint = 'Data may be incomplete; consider narrowing the date range or disabling heavy options before trying again.';
-        }
+        bannerMessage = "This preview may be incomplete (time limit). Use a smaller date range for full data. You can export what's shown or try a smaller range.";
+      } else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {
+        const days = recentSplitDays || 14;
+        bannerMessage = `Showing recent ${days} days live; older data from cache. You can export as-is or use Full refresh for a complete run.`;
       } else {
-        baseMessage = 'Preview completed with optimised windowing for faster results.';
-        hint = 'Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
+        bannerMessage = 'Preview completed with optimised windowing for faster results. Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
       }
       statusEl.innerHTML = `
         <div class="status-banner warning">
+          <div class="status-banner-message">${escapeHtml(bannerMessage)}</div>
           <div class="status-banner-actions">
             <span class="status-banner-actions-label">Actions:</span>
             <button type="button" data-action="retry-preview" class="btn btn-compact">Retry</button>
-            <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Smaller range</button>
+            <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Try smaller range</button>
             <button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Full refresh</button>
           </div>
-          <div class="status-banner-message"><strong>${modeBadge}</strong> – ${baseMessage}<br><small>${hint}</small></div>
+          <button type="button" class="status-close" aria-label="Dismiss">x</button>
+        </div>
+      `;
+      statusEl.style.display = 'block';
+    } else if (meta.requireResolvedBySprintEnd === true && rowsCount === 0) {
+      statusEl.innerHTML = `
+        <div class="status-banner info">
+          <div class="status-banner-message">No stories met "Resolved by sprint end". Turn off the option or check Jira.</div>
           <button type="button" class="status-close" aria-label="Dismiss">x</button>
         </div>
       `;
@@ -215,7 +236,7 @@ export function renderPreview() {
       `;
     } else if (partial) {
       exportHint.innerHTML = `
-        <small>Note: Preview is partial; CSV exports will only contain currently loaded data.</small>
+        <small>Preview may be incomplete. You can export what's shown or try a smaller date range for full data.</small>
       `;
     } else {
       exportHint.innerHTML = '';

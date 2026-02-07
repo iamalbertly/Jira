@@ -8,7 +8,8 @@
   <style>
     .login-container { max-width: 360px; margin: 2rem auto; padding: 1.5rem; }
     .login-container h1 { margin-bottom: 0.5rem; }
-    .login-container .subtitle { color: #666; margin-bottom: 1.5rem; }
+    .login-container .subtitle { color: #666; margin-bottom: 1rem; }
+    .login-outcome-line { font-size: 0.95rem; color: #444; margin-bottom: 1.5rem; }
     .login-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
     .login-form input[type="text"], .login-form input[type="password"] { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
     .login-form button { width: 100%; padding: 0.6rem; cursor: pointer; }
@@ -20,10 +21,10 @@
   <div class="container login-container">
     <header>
       <h1>VodaAgileBoard</h1>
-      <p class="subtitle">Sprint insights from Jira for Voda squads - sign in to generate reports for your teams.</p>
-      <p class="subtitle" style="margin-top: 0.5rem;">After sign-in you can open <strong>Sprint Report</strong>, <strong>Current Sprint (Squad)</strong>, or <strong>Sprint Leadership</strong> from the app.</p>
+      <p class="subtitle">Sprint insights from Jira for Voda squads. Sign in to continue.</p>
+      <p class="login-outcome-line">After sign-in you can run reports, view current sprint health, and leadership trends.</p>
     </header>
-    <form class="login-form" action="/login" method="post">
+    <form class="login-form" action="/login" method="post" id="login-form">
       <div id="login-error" class="login-error" style="display: none;"></div>
       <label for="username">Username</label>
       <input type="text" id="username" name="username" autocomplete="username" required>
@@ -34,7 +35,7 @@
         <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
       </div>
       <input type="hidden" name="redirect" value="">
-      <button type="submit">Sign in</button>
+      <button type="submit" id="login-submit">Sign in</button>
     </form>
   </div>
   <script>
@@ -44,16 +45,20 @@
     var err = q.get('error');
     if (err) {
       var el = document.getElementById('login-error');
-      if (err === 'invalid') {
-        el.textContent = 'Invalid username or password. Check your details or contact your admin.';
-      } else if (err === 'bot') {
-        el.textContent = 'Invalid request. Please try again from your browser.';
-      } else if (err === 'timeout') {
-        el.textContent = 'Your session expired. Please sign in again.';
-      } else {
-        el.textContent = 'Something went wrong. Please try again or contact your admin.';
-      }
+      var context = 'Sign-in failed';
+      if (err === 'invalid') context = 'Sign-in failed';
+      else if (err === 'bot') context = 'Security check did not pass';
+      else if (err === 'timeout') context = 'Session expired';
+      el.textContent = context + '. Check your credentials or request access from your admin.';
       el.style.display = 'block';
+    }
+    var form = document.getElementById('login-form');
+    var submitBtn = document.getElementById('login-submit');
+    if (form && submitBtn) {
+      form.addEventListener('submit', function () {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in…';
+      });
     }
   </script>
 </body>

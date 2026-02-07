@@ -44,10 +44,14 @@
 
     <div class="main-layout">
       <!-- Filters Panel -->
-      <aside class="filters-panel">
+      <aside class="filters-panel" id="filters-panel">
+        <div class="filters-panel-collapsed-bar" id="filters-panel-collapsed-bar" style="display: none;" aria-hidden="true">
+          <span id="filters-collapsed-summary" class="filters-collapsed-summary"></span>
+          <button type="button" class="btn btn-secondary btn-compact" data-action="toggle-filters" aria-label="Expand filters">Edit filters</button>
+        </div>
+        <div class="filters-panel-body" id="filters-panel-body">
         <h2>Filters</h2>
-        <p class="filters-tip"><small>Start here: 1) choose projects, 2) adjust dates, 3) click <strong>Preview report</strong>, 4) use Excel export to share with your stakeholders.</small></p>
-        
+        <p class="filters-tip"><small>Start here: 1) choose projects, 2) adjust dates, 3) click <strong>Preview report</strong>, 4) use Excel export.</small></p>
         <div class="filter-group">
           <h3>Projects</h3>
           <div class="project-tools">
@@ -176,8 +180,8 @@
         <div class="button-group filters-actions">
           <button id="preview-btn" class="btn btn-primary">Preview report</button>
           <div class="export-split-group">
-            <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export to Excel (all data)</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="Export options" disabled>More &#9662;</button>
+            <button id="export-excel-btn" class="btn btn-secondary" title="Export all preview data to Excel." disabled>Export</button>
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled>Options &#9662;</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
               <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
@@ -185,6 +189,7 @@
             </div>
           </div>
           <div id="export-hint" class="export-hint"></div>
+        </div>
         </div>
       </aside>
 
@@ -199,10 +204,11 @@
         <div id="error" class="error" style="display: none;"></div>
 
         <div id="preview-content" style="display: none;">
+          <div id="preview-outcome-line" class="preview-outcome-line" aria-live="polite"></div>
           <div class="preview-header">
             <div id="preview-meta"></div>
             <div class="preview-header-export-wrap">
-              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export to Excel">Export to Excel</button>
+              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export">Export</button>
             </div>
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
@@ -214,6 +220,7 @@
             <button id="tab-btn-done-stories" class="tab-btn" data-tab="done-stories" role="tab" aria-selected="false" aria-controls="tab-done-stories" tabindex="-1">Done Stories</button>
             <button id="tab-btn-unusable-sprints" class="tab-btn" data-tab="unusable-sprints" role="tab" aria-selected="false" aria-controls="tab-unusable-sprints" tabindex="-1">Unusable Sprints</button>
           </div>
+          <p class="tab-hint" id="tab-outcome-hint"><small>Export from any tab; Done Stories is the main list for stakeholders.</small></p>
 
           <!-- Tab Content -->
           <div class="tab-content">
@@ -235,7 +242,7 @@
               <div class="sprints-controls done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
-                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">?</button>
+                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">×</button>
                 </div>
                 <div class="project-pills" id="sprints-project-pills"></div>
               </div>

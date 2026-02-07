@@ -148,6 +148,20 @@ async function loadPreview() {
     const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401) {
+        showError('Session expired. Sign in again to continue. ');
+        const errorEl = document.getElementById('leadership-error');
+        if (errorEl) {
+          const link = document.createElement('a');
+          link.href = '/?redirect=/sprint-leadership';
+          link.className = 'nav-link';
+          link.textContent = 'Sign in';
+          link.style.marginLeft = '4px';
+          errorEl.appendChild(link);
+        }
+        setQuarterStripEnabled(true);
+        return;
+      }
       const msg = (body && (body.message || body.error)) || response.statusText || 'Preview failed';
       throw new Error(msg);
     }

@@ -1,7 +1,7 @@
 import { getProjectsParam } from './Reporting-App-CurrentSprint-Page-Storage.js';
 
 export function getErrorMessage(response, body, fallback) {
-  if (response.status === 401) return 'Session expired. Please log in again.';
+  if (response.status === 401) return 'Session expired. Sign in again to continue.';
   if (response.status === 429) return 'Data may be incomplete due to rate limits; try again later.';
   return (body && (body.message || body.error)) || response.statusText || fallback;
 }

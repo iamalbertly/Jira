@@ -31,7 +31,7 @@ export function renderCurrentSprintPage(data) {
   updateHeader(data.sprint);
 
   let html = '';
-  
+  html += '<p class="current-sprint-outcome-line" aria-live="polite">Sprint health at a glance. Use Burndown and Stuck for standup.</p>';
   // NEW: Header bar (sticky) with sprint metadata
   html += renderHeaderBar(data);
   

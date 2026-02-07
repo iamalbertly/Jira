@@ -233,6 +233,23 @@ header h1 {
   top: 20px;
 }
 
+.filters-panel.collapsed {
+  min-width: 200px;
+  max-width: 260px;
+}
+
+.filters-panel-collapsed-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filters-panel-collapsed-bar .filters-collapsed-summary {
+  font-size: 0.9rem;
+  color: var(--muted, #555);
+  line-height: 1.3;
+}
+
 .filters-panel h2 {
   margin-bottom: 18px;
   color: var(--primary);
@@ -269,6 +286,9 @@ header h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.advanced-options[hidden] {
+  display: none !important;
 }
 
 .filters-actions {
@@ -634,6 +654,22 @@ header h1 {
   margin-bottom: 20px;
 }
 
+.preview-outcome-line {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.tab-hint {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.preview-previous-run {
+  font-weight: normal;
+  color: var(--muted, #666);
+  font-size: 0.9rem;
+  margin-left: 0.5em;
+}
+
 .preview-header {
   margin-bottom: 20px;
   padding-bottom: 15px;
@@ -821,6 +857,24 @@ header h1 {
   margin-bottom: 12px;
 }
 
+.leadership-outcome-line {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--primary, #1a1a1a);
+}
+
+.leadership-sort-label {
+  font-size: 0.9rem;
+  color: var(--muted, #666);
+  margin-bottom: 8px;
+}
+
+.leadership-boards-table th.sortable.sort-asc .sort-indicator,
+.leadership-boards-table th.sortable.sort-desc .sort-indicator {
+  margin-left: 4px;
+}
+
 .leadership-range-hint {
   cursor: help;
 }
@@ -829,6 +883,11 @@ header h1 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card);
+  padding-bottom: 8px;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
@@ -1703,6 +1762,32 @@ header h1 {
   flex-wrap: wrap;
 }
 
+.current-sprint-outcome-line {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+.current-sprint-project-hint {
+  margin-left: 8px;
+  font-size: 0.9rem;
+}
+.current-sprint-project-hint .same-as-report-label {
+  color: var(--muted);
+}
+.section-definition {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.sprint-outcome-line {
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--primary-strong, #1a1a1a);
+}
+
 .header-bar-left {
   flex: 0 1 auto;
   min-width: 250px;
@@ -1721,6 +1806,12 @@ header h1 {
 .header-sprint-name:hover {
   color: var(--accent);
   background: var(--bg-accent);
+}
+
+.header-board-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 2px;
 }
 
 .header-sprint-dates {

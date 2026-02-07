@@ -76,7 +76,35 @@ function initLeadershipPage() {
       return dir === 'asc' ? (aVal < bVal ? -1 : aVal > bVal ? 1 : 0) : (bVal < aVal ? -1 : bVal > aVal ? 1 : 0);
     });
     rows.forEach((r) => tbody.appendChild(r));
+    updateLeadershipSortIndicator(table, colIndex, dir);
   });
+}
+
+const LEADERSHIP_COL_LABELS = ['Board', 'Projects', 'Sprints', 'Done Stories', 'Done SP', 'SP / Day', 'Stories / Day', 'Indexed Delivery', 'On-time %'];
+
+function updateLeadershipSortIndicator(table, colIndex, dir) {
+  const thead = table && table.querySelector('thead');
+  if (!thead) return;
+  const ths = thead.querySelectorAll('th.sortable');
+  ths.forEach((th) => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    const oldSpan = th.querySelector('.sort-indicator');
+    if (oldSpan) oldSpan.remove();
+  });
+  const activeTh = ths[colIndex];
+  if (activeTh) {
+    activeTh.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+    const span = document.createElement('span');
+    span.className = 'sort-indicator';
+    span.setAttribute('aria-hidden', 'true');
+    span.textContent = dir === 'asc' ? ' \u25B2' : ' \u25BC';
+    activeTh.appendChild(span);
+  }
+  const labelEl = document.getElementById('leadership-sort-label');
+  if (labelEl) {
+    const colName = LEADERSHIP_COL_LABELS[colIndex] || ('Column ' + (colIndex + 1));
+    labelEl.textContent = 'Sorted by ' + colName + (dir === 'asc' ? ' \u25B2' : ' \u25BC');
+  }
 }
 
 if (document.readyState === 'loading') {

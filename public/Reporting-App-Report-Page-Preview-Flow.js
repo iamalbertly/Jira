@@ -59,7 +59,7 @@ export function clearPreviewOnFilterChange() {
   reportState.predictabilityPerSprint = null;
   if (errorEl) {
     errorEl.style.display = 'block';
-    errorEl.innerHTML = '<div role="alert"><strong>Filters changed.</strong> Run Preview to update.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+    errorEl.innerHTML = '<div role="alert"><strong>Filters changed.</strong> Run Preview to update. <button type="button" class="btn btn-primary btn-compact" data-action="retry-preview">Preview report</button> <button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
   }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
@@ -214,7 +214,7 @@ export function initPreviewFlow() {
     }
 
     clearLoadingSteps();
-    updateLoadingMessage('Preparing request...', 'Collecting filter parameters');
+    updateLoadingMessage('Preparing request...', 'Finding boards and sprints');
 
     let params;
     try {
@@ -321,6 +321,15 @@ export function initPreviewFlow() {
         payload.meta.fromCache = true;
       }
 
+      try {
+        const prev = reportState.previewData;
+        if (prev && (prev.rows || []).length >= 0) {
+          const prevRows = (prev.rows || []).length;
+          const prevSprints = (prev.sprintsIncluded || []).length;
+          const prevUnusable = (prev.sprintsUnusable || []).length;
+          sessionStorage.setItem('report-last-run', JSON.stringify({ doneStories: prevRows, sprintsCount: prevSprints, unusableCount: prevUnusable, at: Date.now() }));
+        }
+      } catch (_) {}
       reportState.previewData = payload;
       reportState.previewRows = reportState.previewData.rows || [];
       reportState.visibleRows = [...reportState.previewRows];
@@ -345,6 +354,9 @@ export function initPreviewFlow() {
         loadingEl.setAttribute('aria-hidden', 'true');
       }
       if (previewContent) previewContent.style.display = 'block';
+      try {
+        window.dispatchEvent(new CustomEvent('report-preview-shown', { detail: { hasRows: reportState.previewHasRows } }));
+      } catch (_) {}
       if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
       if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
       updateExportHint();
@@ -364,7 +376,7 @@ export function initPreviewFlow() {
     }
 
     try {
-      updateLoadingMessage('Fetching data from Jira...', 'Sending request to server');
+      updateLoadingMessage('Fetching data from Jira...', 'Loading done stories');
 
       const controller = new AbortController();
       timeoutMs = typeof clientBudgetMs === 'number' && clientBudgetMs > 0
@@ -392,16 +404,19 @@ export function initPreviewFlow() {
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
 
-      updateLoadingMessage('Processing response...', 'Received data from server');
+      updateLoadingMessage('Processing response...', 'Computing metrics');
 
       const { data: responseJson, text: responseText } = await readResponseJson(response);
 
       if (!response.ok) {
         const errorMsg = responseJson?.message || responseJson?.error || responseText || 'Failed to fetch preview';
         const errorCode = responseJson?.code || 'UNKNOWN_ERROR';
+        const is401 = response.status === 401;
 
         let displayMessage = errorMsg;
-        if (errorCode === 'NO_PROJECTS_SELECTED') {
+        if (is401) {
+          displayMessage = 'Session expired. Sign in again to continue.';
+        } else if (errorCode === 'NO_PROJECTS_SELECTED') {
           displayMessage = 'Please select at least one project before generating a preview.';
         } else if (errorCode === 'INVALID_DATE_FORMAT') {
           displayMessage = 'Invalid date format. Please ensure dates are properly formatted.';
@@ -420,10 +435,12 @@ export function initPreviewFlow() {
         }
 
         try { emitTelemetry('preview.error', { code: errorCode, message: displayMessage }); } catch (_) {}
-        throw new Error(displayMessage);
+        const err = new Error(displayMessage);
+        if (is401) err.sessionExpired = true;
+        throw err;
       }
 
-      updateLoadingMessage('Rendering preview...', 'Processing preview data');
+      updateLoadingMessage('Rendering preview...', null);
 
       if (!responseJson) {
         throw new Error('Preview response was not valid JSON. Please check server logs and try again.');
@@ -431,7 +448,7 @@ export function initPreviewFlow() {
 
       writeCachedPreview(responseJson);
 
-      updateLoadingMessage('Finalizing...', 'Rendering tables and metrics');
+      updateLoadingMessage('Finalizing...', null);
       applyPreviewPayload(responseJson);
       try {
         const params = collectFilterParams();
@@ -467,12 +484,16 @@ export function initPreviewFlow() {
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
 
       let shortText = 'Server error';
-      if (error && error.name === 'AbortError') shortText = 'Preview timed out';
+      if (error && error.sessionExpired) shortText = 'Session expired';
+      else if (error && error.name === 'AbortError') shortText = 'Preview timed out';
       else if (/fetch|network|failed to fetch/i.test(errorMsg || '')) shortText = 'Request failed';
 
       if (errorEl) {
         try {
-          errorEl.innerHTML = `
+          const redirectReport = escapeHtml(window.location.pathname === '/report' ? '/report' : '/report');
+          const sessionExpiredHtml = error && error.sessionExpired
+            ? `<div role="alert"><strong>Session expired.</strong> Sign in again to continue. <a href="/?redirect=${redirectReport}">Sign in</a><button type="button" class="error-close" aria-label="Dismiss">x</button></div>`
+            : `
           <div role="alert">
             <strong>${escapeHtml(shortText)}</strong>
             <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false">Details</button>
@@ -485,6 +506,7 @@ export function initPreviewFlow() {
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
         `;
+          errorEl.innerHTML = sessionExpiredHtml;
         } catch (innerErr) {
           console.error('Error rendering preview error UI', innerErr);
           errorEl.innerHTML = '<div role="alert"><strong>Server error.</strong> Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';

@@ -66,18 +66,39 @@ export function renderLeadershipPage(data) {
   html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' – ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt);
   html += '</p>';
 
+  let outcomeLine = '';
+  if (boards.length > 0) {
+    const summaries = data.boardSummaries || new Map();
+    let onTime80Plus = 0;
+    let needAttention = 0;
+    for (const board of boards) {
+      const summary = summaries.get(board.id);
+      const doneStories = summary?.doneStories || 0;
+      const doneByEnd = summary?.doneBySprintEnd || 0;
+      const onTimePct = doneStories > 0 ? (doneByEnd / doneStories) * 100 : null;
+      if (onTimePct != null && onTimePct >= 80) onTime80Plus++;
+      if (onTimePct == null || onTimePct < 80) needAttention++;
+    }
+    outcomeLine = boards.length + ' boards · ' + onTime80Plus + ' on-time ≥80% · ' + needAttention + ' need attention.';
+  }
+  if (outcomeLine) {
+    html += '<p class="leadership-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</p>';
+  }
+
   html += '<div class="leadership-card">';
   html += '<div class="leadership-card-header">';
   html += '<h2>Boards - normalized delivery</h2>';
   html += '<div class="leadership-export-wrap"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
   html += '</div>';
   if (boards.length === 0) {
+    const hint = 'Check that the selected projects have sprints in this date range. Try a more recent quarter (e.g. current quarter).';
     html += renderEmptyStateHtml(
       'No boards',
-      'No boards in this window. Adjust date range or projects.',
-      ''
+      'No boards in this window. ' + hint,
+      'Adjust date range or projects.'
     );
   } else {
+    html += '<div id="leadership-sort-label" class="leadership-sort-label" aria-live="polite"></div>';
     html += '<table class="data-table leadership-boards-table"><thead><tr>';
     html += '<th class="sortable" data-sort="board" scope="col">Board</th>';
     html += '<th class="sortable" data-sort="projects" scope="col">Projects</th>';
@@ -86,7 +107,7 @@ export function renderLeadershipPage(data) {
     html += '<th class="sortable" data-sort="doneSP" scope="col">Done SP</th>';
     html += '<th class="sortable" data-sort="spPerDay" scope="col">SP / Day</th>';
     html += '<th class="sortable" data-sort="storiesPerDay" scope="col">Stories / Day</th>';
-    html += '<th class="sortable" data-sort="indexedDelivery" scope="col" title="Current SP/day vs own baseline (last 6 closed sprints). Ratio, not %.">Indexed Delivery</th>';
+    html += '<th class="sortable" data-sort="indexedDelivery" scope="col" title="Current SP/day vs this board\'s baseline (last 6 sprints).">Indexed Delivery</th>';
     html += '<th class="sortable" data-sort="onTime" scope="col">On-time %</th>';
     html += '</tr></thead><tbody>';
     for (const board of boards) {

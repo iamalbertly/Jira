@@ -93,6 +93,58 @@ function initReportPage() {
       if (boardsSearch) boardsSearch.focus();
     }
   });
+
+  const FILTERS_COLLAPSED_KEY = 'report-filters-collapsed';
+  const panel = document.getElementById('filters-panel');
+  const panelBody = document.getElementById('filters-panel-body');
+  const collapsedBar = document.getElementById('filters-panel-collapsed-bar');
+  const collapsedSummary = document.getElementById('filters-collapsed-summary');
+  const appliedSummary = document.getElementById('applied-filters-summary');
+
+  function setFiltersPanelCollapsed(collapsed) {
+    if (!panel || !panelBody || !collapsedBar) return;
+    try {
+      if (collapsed) sessionStorage.setItem(FILTERS_COLLAPSED_KEY, '1');
+      else sessionStorage.removeItem(FILTERS_COLLAPSED_KEY);
+    } catch (_) {}
+    panel.classList.toggle('collapsed', collapsed);
+    panelBody.style.display = collapsed ? 'none' : '';
+    collapsedBar.style.display = collapsed ? 'block' : 'none';
+    collapsedBar.setAttribute('aria-hidden', collapsed ? 'false' : 'true');
+    if (collapsed && collapsedSummary && appliedSummary) collapsedSummary.textContent = appliedSummary.textContent || 'Applied filters';
+  }
+
+  function applyStoredFiltersCollapsed() {
+    if (!panel || !panelBody || !collapsedBar) return;
+    const previewContent = document.getElementById('preview-content');
+    const isPreviewVisible = previewContent && previewContent.style.display !== 'none';
+    try {
+      const stored = sessionStorage.getItem(FILTERS_COLLAPSED_KEY);
+      if (stored === '1' && isPreviewVisible) setFiltersPanelCollapsed(true);
+    } catch (_) {}
+  }
+
+  document.addEventListener('click', (ev) => {
+    const toggle = ev.target.closest && ev.target.closest('[data-action="toggle-filters"]');
+    if (toggle && panel) {
+      ev.preventDefault();
+      setFiltersPanelCollapsed(false);
+    }
+  });
+
+  window.addEventListener('report-preview-shown', (ev) => {
+    const hasRows = ev.detail && ev.detail.hasRows;
+    if (!hasRows || !panel || !panelBody || !collapsedBar) return;
+    try {
+      if (sessionStorage.getItem(FILTERS_COLLAPSED_KEY) === '1') {
+        setFiltersPanelCollapsed(true);
+        return;
+      }
+    } catch (_) {}
+    setFiltersPanelCollapsed(true);
+  });
+
+  setTimeout(applyStoredFiltersCollapsed, 0);
 }
 
 if (document.readyState === 'loading') {

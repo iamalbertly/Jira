@@ -87,9 +87,7 @@ function initAdvancedOptionsToggle() {
     toggleBtn.textContent = open ? 'Hide advanced options' : 'Advanced options';
     try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch (_) {}
   };
-  let initialOpen = false;
-  try { initialOpen = localStorage.getItem(storageKey) === '1'; } catch (_) {}
-  setOpen(initialOpen);
+  setOpen(false);
   toggleBtn.addEventListener('click', () => {
     const isOpen = toggleBtn.getAttribute('aria-expanded') === 'true';
     setOpen(!isOpen);
