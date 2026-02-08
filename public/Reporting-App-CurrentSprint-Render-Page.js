@@ -74,10 +74,10 @@ export function renderCurrentSprintPage(data) {
   html += renderStories(data);
   html += '</div>';
 
-  // BELOW THE FOLD: Stuck items (always show for stable layout), Risks & Insights
-  html += '<div class="sprint-cards-column full-width">';
-  html += renderStuckCandidates(data);
-  html += renderRisksAndInsights(data);
+  // BELOW THE FOLD: Merge related risk surfaces into one row to reduce scroll/click friction.
+  html += '<div class="sprint-cards-row risks-row">';
+  html += '<div class="card-column risks-stuck-column">' + renderStuckCandidates(data) + '</div>';
+  html += '<div class="card-column risks-insights-column">' + renderRisksAndInsights(data) + '</div>';
   html += '</div>';
 
   // LEGACY (kept for backward compatibility): Notifications, Sprint windows, Sub-task tracking

@@ -57,6 +57,34 @@ export function captureBrowserTelemetry(page) {
 }
 
 /**
+ * Asserts no critical telemetry: failed requests (after ignore patterns and optional preview abort),
+ * page errors, and unexpected console errors. Use after captureBrowserTelemetry in specs.
+ * @param {{ consoleErrors: string[], pageErrors: string[], failedRequests: Array<{ url: string }> }} telemetry
+ * @param {{ excludePreviewAbort?: boolean }} options - set excludePreviewAbort: true when test aborts preview.json (error-path tests)
+ */
+export function assertTelemetryClean(telemetry, options = {}) {
+  const { excludePreviewAbort = false } = options;
+  const isAbortFailure = (failureText = '') => /ERR_ABORTED|NS_BINDING_ABORTED|aborted/i.test(String(failureText || ''));
+  const criticalFailures = (telemetry.failedRequests || []).filter(
+    (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
+      && (!excludePreviewAbort || !r.url.includes('preview.json'))
+      && !isAbortFailure(r.failure)
+  );
+  const unexpectedConsole = (telemetry.consoleErrors || []).filter(
+    (t) => !IGNORE_CONSOLE_ERRORS.some((ignored) => t === ignored || t.includes(ignored))
+  );
+  if (telemetry.pageErrors && telemetry.pageErrors.length > 0) {
+    throw new Error(`Expected no page errors. Got: ${JSON.stringify(telemetry.pageErrors)}`);
+  }
+  if (unexpectedConsole.length > 0) {
+    throw new Error(`Unexpected console errors: ${JSON.stringify(unexpectedConsole)}`);
+  }
+  if (criticalFailures.length > 0) {
+    throw new Error(`Critical request failures: ${JSON.stringify(criticalFailures.map((r) => r.url))}`);
+  }
+}
+
+/**
  * Waits for preview to complete (preview content or error visible, loading hidden).
  * @param {import('@playwright/test').Page} page
  * @param {{ timeout?: number }} options - optional timeout (default 120000 ms; increase for very heavy previews)

@@ -45,6 +45,7 @@ function isPortInUse(port) {
 
 function runStep(step, stepIndex, envOverrides = {}) {
   return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
     let args = step.args || [];
     if (process.env.TEST_LAST_FAILED === '1' || process.env.TEST_LAST_FAILED === 'true') {
       const isPlaywright = step.command === 'npx' && args.some(a => a === 'playwright');
@@ -68,12 +69,14 @@ function runStep(step, stepIndex, envOverrides = {}) {
 
     proc.on('close', (code) => {
       if (code !== 0) {
+        const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(1);
         console.error(`\n${'='.repeat(60)}`);
-        console.error(`FAILED: Step ${stepIndex + 1} (${step.name}) exited with code ${code}`);
+        console.error(`FAILED: Step ${stepIndex + 1} (${step.name}) exited with code ${code} after ${elapsedSec}s`);
         console.error(`${'='.repeat(60)}\n`);
         reject(new Error(`Step ${step.name} failed with exit code ${code}`));
       } else {
-        console.log(`\nOK Step ${stepIndex + 1} (${step.name}) completed successfully\n`);
+        const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(1);
+        console.log(`\nOK Step ${stepIndex + 1} (${step.name}) completed successfully in ${elapsedSec}s\n`);
         resolve();
       }
     });
@@ -182,4 +185,3 @@ process.on('SIGTERM', () => {
 });
 
 runAllTests();
-

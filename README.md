@@ -17,7 +17,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Project/Board SSOT**: Selected projects are shared across Report, Leadership, and Current Sprint via `vodaAgileBoard_selectedProjects` in localStorage. Report persists project checkboxes on change; Leadership reads and writes the same key; Current Sprint uses it to load boards for the selected projects (fallback MPSA,MAS). The board selector on Current Sprint therefore shows boards for the same projects you chose on Report or Leadership.
 - **Filter Persistence**: Report search inputs (Boards/Sprints/Stories) persist between visits. Report and Leadership share the same date-range storage.
 - **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (work items, SP, % done) with a **stuck prompt** when any issue is in progress >24h (link to follow up), status chips, a **Projects** selector synced to the shared SSOT (full project list), single **sub-task summary** line in the summary card (logged h; missing estimate / no log; stuck >24h count) linking to the full Sub-task time tracking card, daily completion (with SP), burndown with ideal line + axis labels, scope changes (now including reporter/assignee) plus heuristic note, **Work items in sprint** table with **Type**, **Reporter** and **Assignee** columns and planned window line (includes Bugs/Tasks), sub-task time tracking (estimate/logged/remaining plus status age), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks card (in progress >24h) with status-change hint, snapshot freshness badge (Live vs Snapshot timestamp), previous/next sprint snippet, and sprint tabs (latest to oldest by end date). Board pre-select via `-boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
-- **Persistent Notification Dock**: A fixed top-right alert dock appears across pages when time-tracking alerts exist, showing the latest board/sprint and counts with a shortcut back to Current Sprint. It can be minimized or hidden after review, with a quick toggle to restore it.
+- **Persistent Notification Dock**: A fixed left-side alert dock appears across pages when time-tracking alerts exist, showing the latest board/sprint and counts with a shortcut back to Current Sprint. It can be minimized or hidden after review, with a quick toggle to restore it.
 - **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings. Quarter quick-pick shows year and period (e.g. "Q2 2025"); clicking a quarter loads data immediately. Remembers the last selected date range in the browser.
 
 ## Prerequisites
@@ -75,7 +75,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 1. Get the live VodaAgileBoard URL from your admin (for example, `https://voda-agile-board.onrender.com`).
 2. Sign in with the credentials shared by your admin.
 3. On the General Performance (Report) screen, keep both MPSA and MAS selected for a combined view, or choose a single project for a focused view.
-4. Leave the default quarter dates or adjust them to your sprint window, then click **Preview**.
+4. Leave the default quarter dates or adjust them to your sprint window. Preview auto-runs after filter changes (manual **Preview** is still available).
 5. Use **Export to Excel - All Data** to download a workbook you can slice and share in your own tooling.
 
 ## Usage
@@ -96,7 +96,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - **Include Predictability** (optional): Calculate committed vs delivered (approx or strict mode)
    - **Include Active/Missing End Date Sprints** (optional): Include sprints with missing end dates
 
-4. **Click Preview**: Generates preview data from Jira
+4. **Preview (auto or manual)**: Generates preview data from Jira.
 
 5. **Review Tabs**:
   - **Project & Epic Level**: Shows discovered boards and all project/epic-level metrics in one consolidated view. Boards table merges delivery volume with time-normalized output (total sprint days, avg sprint length, **Done Stories**, **Registered Work Hours**, **Estimated Work Hours**, stories/SP per sprint day, variance, done-by-end %, epic vs non-epic counts), plus sprint window and latest sprint end. Includes a top-row **All Boards (Comparison)** summary to anchor comparisons. Includes capacity proxies (Active Assignees, Stories/SP per Assignee, Assumed Capacity, Assumed Waste %) with clear assumptions. Epic Time-To-Market shows Epic Name, story IDs as Jira links with hover summaries, **Subtask Spent (Hrs)** for the epic, and includes a **{Board}-AD-HOC** row per board for stories not linked to any epic. Missing epic titles are surfaced with a warning for trust. Throughput remains available by issue type, along with rework ratio and predictability. Includes per-section CSV export button.
@@ -130,18 +130,14 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - All CSV exports include Epic Key, Epic Title, and Epic Summary columns when Epic Link field is available
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
-## Recent UX & Reliability fixes (2026-02-05)
-- Boards table now includes a top-row **All Boards (Comparison)** summary so the main comparison baseline is always visible. ✅
-- Issue keys across report and current sprint tables now render as clickable Jira links (opens new tab). ✅
-- Tables support readable wrapping for long text columns while keeping other columns compact. ✅
-- Quarter pills are more compact, higher contrast, and never show future quarters. ✅
-- Preview fetches are cache-friendly with longer TTLs and show cached results when available for faster perceived load. ✅
-- Preview generation now respects a 1-minute soft limit and will return a partial preview instead of stalling. ✅
-- Long date windows now split: cached older sprints + live last 2 weeks, with background cache warm to avoid quarterly timeouts. ✅
-- Current Sprint now defaults to live data (snapshot fallback only on errors). ✅
-- Report + Leadership share the same date range persistence (one input updates the other). ✅
-- Large date ranges preflight into split mode (cached older + last 2 weeks live) before the API call to avoid 60s timeouts. ✅
-- Playwright tests updated to validate the above UI behaviours and the retry flow; orchestration runner remains the same but tests now fail-fast on first error. ✅
+## Recent UX & Reliability fixes (2026-02-08)
+- Report filters keep the last successful results visible while refreshing automatically.
+- Leadership filters now auto-run preview on project/date changes and quarter picks.
+- Report advanced options are now collapsed by default behind an explicit `Options` toggle.
+- Long-range preview splitting now also activates for heavier project combinations.
+- Current Sprint now renders Stuck + Risks/Insights in one row to reduce scroll friction.
+- Notification dock now renders as a persistent left-side rail instead of covering right-side actions.
+- Playwright telemetry now ignores abort-class request failures caused by intentional cancellation.
 
 ### Preview Behaviour & Feedback
 
@@ -156,7 +152,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
   - The step log keeps only the most recent entries to avoid overwhelming the UI during long-running previews.
   - Partial previews include a **Force full refresh** action which re-runs the request with cache bypass.
 - **Preview client-side timeout**
-  - The report preview request has a client-side timeout (typically 60–90 seconds depending on date range and options). If the request exceeds this, the client aborts it.
+  - The report preview request has a client-side timeout (typically 60-90 seconds depending on date range and options). If the request exceeds this, the client aborts it.
   - On timeout, the error box shows: "This preview is taking longer than expected (over Xs). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history." with **Retry now**, **Retry with smaller date range**, and **Force full refresh** buttons. The error box is never left empty.
   - A dedicated Playwright spec (`Jira-Reporting-App-Preview-Timeout-Error-UI-Validation-Tests.spec.js`) validates that the error UI is visible, non-empty, and includes retry actions when a preview fails.
 - **Partial previews**:
@@ -315,7 +311,7 @@ This runs the test orchestration script which:
 14. Runs UX Trust and Export Validation tests (report, current-sprint, leadership, export; telemetry + UI)
 15. Runs Current Sprint UX and SSOT Validation tests (board pre-select, burndown summary, empty states, leadership empty preview)
 16. Terminates on first error
-17. Shows all steps in foreground with live output from each test command. Step definitions live in `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`.
+17. Shows all steps in foreground with live output from each test command and elapsed step timing. Step definitions live in `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`.
 
 ### Run Specific Test Suites
 ```bash
@@ -374,9 +370,9 @@ npm run test:current-sprint-ux-ssot
 
 The backend maintains an in-memory TTL cache for several concerns:
 
-- **Boards and Sprints**: Cached per project/board for 10 minutes to avoid redundant Jira calls.
-- **Fields**: Story Points and Epic Link field IDs cached for 15 minutes.
-- **Preview Responses**: Full `/preview.json` payloads cached for 10 minutes per unique combination of:
+- **Boards and Sprints**: Cached per project/board for 20 minutes to avoid redundant Jira calls.
+- **Fields**: Story Points and Epic Link field IDs cached for 30 minutes.
+- **Preview Responses**: Full `/preview.json` payloads cached for 20 minutes per unique combination of:
   - Sorted project list
   - Start/end window
   - All boolean toggles
@@ -594,3 +590,5 @@ MIT
 ## Support
 
 For issues or questions, please check the troubleshooting section above or review the error messages in the application UI.
+
+

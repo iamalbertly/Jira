@@ -142,8 +142,18 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('should show predictability mode options when predictability is enabled', async ({ page }) => {
+    const optionsToggle = page.locator('#advanced-options-toggle');
     const predictabilityCheckbox = page.locator('#include-predictability');
     const modeGroup = page.locator('#predictability-mode-group');
+    const optionsPanel = page.locator('#advanced-options');
+
+    if (await optionsToggle.isVisible().catch(() => false)) {
+      const expanded = (await optionsToggle.getAttribute('aria-expanded')) === 'true';
+      if (!expanded) {
+        await optionsToggle.click();
+      }
+      await expect(optionsPanel).toBeVisible();
+    }
     
     // Initially hidden
     await expect(modeGroup).not.toBeVisible();
@@ -255,6 +265,11 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('Require Resolved by Sprint End empty state explains the filter when applicable', async ({ page }) => {
+    const optionsToggle = page.locator('#advanced-options-toggle');
+    if (await optionsToggle.isVisible().catch(() => false)) {
+      const expanded = (await optionsToggle.getAttribute('aria-expanded')) === 'true';
+      if (!expanded) await optionsToggle.click();
+    }
     // Enable the filter and request a wider range to increase chances of filtered-out stories
     await page.check('#require-resolved-by-sprint-end');
 

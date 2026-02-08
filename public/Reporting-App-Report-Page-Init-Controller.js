@@ -7,7 +7,9 @@ import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear
 import { initExportMenu } from './Reporting-App-Report-Page-Export-Menu.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
+import { REPORT_FILTERS_COLLAPSED_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
+import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 
 function updateAppliedFiltersSummary() {
   const el = document.getElementById('applied-filters-summary');
@@ -44,14 +46,36 @@ function hydrateFromLastQuery() {
 }
 
 function initReportPage() {
+  let autoPreviewTimer = null;
+  let autoPreviewInProgress = false;
+
+  function scheduleAutoPreview(delayMs = 650) {
+    const previewBtn = document.getElementById('preview-btn');
+    if (!previewBtn) return;
+    if (autoPreviewTimer) clearTimeout(autoPreviewTimer);
+    autoPreviewTimer = setTimeout(() => {
+      autoPreviewTimer = null;
+      if (autoPreviewInProgress || previewBtn.disabled) return;
+      try {
+        collectFilterParams();
+      } catch (_) {
+        return;
+      }
+      autoPreviewInProgress = true;
+      previewBtn.click();
+      setTimeout(() => {
+        autoPreviewInProgress = false;
+      }, 250);
+    }, delayMs);
+  }
+
   initFeedbackPanel();
   initTabs(() => initExportMenu(), (tabName) => {
     if (tabName === 'done-stories') applyDoneStoriesOptionalColumnsPreference();
   });
   initProjectSelection();
   initDateRangeControls(() => {
-    const previewBtn = document.getElementById('preview-btn');
-    if (previewBtn) previewBtn.click();
+    scheduleAutoPreview(120);
   });
   hydrateFromLastQuery();
   updateAppliedFiltersSummary();
@@ -59,15 +83,18 @@ function initReportPage() {
   initPreviewFlow();
   initSearchClearButtons();
   renderNotificationDock();
+  applyDoneStoriesOptionalColumnsPreference();
 
   function onFilterChange() {
     updateAppliedFiltersSummary();
     clearPreviewOnFilterChange();
+    scheduleAutoPreview();
   }
   document.getElementById('start-date')?.addEventListener('change', onFilterChange);
   document.getElementById('end-date')?.addEventListener('change', onFilterChange);
-  document.getElementById('require-resolved-by-sprint-end')?.addEventListener('change', updateAppliedFiltersSummary);
-  document.getElementById('include-predictability')?.addEventListener('change', updateAppliedFiltersSummary);
+  document.getElementById('require-resolved-by-sprint-end')?.addEventListener('change', onFilterChange);
+  document.getElementById('include-predictability')?.addEventListener('change', onFilterChange);
+  document.getElementById('include-active-or-missing-end-date-sprints')?.addEventListener('change', onFilterChange);
   document.querySelectorAll('.project-checkbox').forEach((cb) => cb.addEventListener('change', onFilterChange));
 
   // Delegated click handlers for small CTA buttons inside Metrics/Boards etc.
@@ -94,7 +121,6 @@ function initReportPage() {
     }
   });
 
-  const FILTERS_COLLAPSED_KEY = 'report-filters-collapsed';
   const panel = document.getElementById('filters-panel');
   const panelBody = document.getElementById('filters-panel-body');
   const collapsedBar = document.getElementById('filters-panel-collapsed-bar');
@@ -104,8 +130,8 @@ function initReportPage() {
   function setFiltersPanelCollapsed(collapsed) {
     if (!panel || !panelBody || !collapsedBar) return;
     try {
-      if (collapsed) sessionStorage.setItem(FILTERS_COLLAPSED_KEY, '1');
-      else sessionStorage.removeItem(FILTERS_COLLAPSED_KEY);
+      if (collapsed) sessionStorage.setItem(REPORT_FILTERS_COLLAPSED_KEY, '1');
+      else sessionStorage.removeItem(REPORT_FILTERS_COLLAPSED_KEY);
     } catch (_) {}
     panel.classList.toggle('collapsed', collapsed);
     panelBody.style.display = collapsed ? 'none' : '';
@@ -119,7 +145,7 @@ function initReportPage() {
     const previewContent = document.getElementById('preview-content');
     const isPreviewVisible = previewContent && previewContent.style.display !== 'none';
     try {
-      const stored = sessionStorage.getItem(FILTERS_COLLAPSED_KEY);
+      const stored = sessionStorage.getItem(REPORT_FILTERS_COLLAPSED_KEY);
       if (stored === '1' && isPreviewVisible) setFiltersPanelCollapsed(true);
     } catch (_) {}
   }
@@ -135,7 +161,7 @@ function initReportPage() {
   window.addEventListener('report-preview-shown', (ev) => {
     if (!panel || !panelBody || !collapsedBar) return;
     try {
-      if (sessionStorage.getItem(FILTERS_COLLAPSED_KEY) === '1') {
+      if (sessionStorage.getItem(REPORT_FILTERS_COLLAPSED_KEY) === '1') {
         setFiltersPanelCollapsed(true);
       }
     } catch (_) {}

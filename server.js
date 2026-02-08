@@ -271,6 +271,8 @@ function computeRecentSplitConfig({
   requestedRecentDays,
   previewMode,
   endDate,
+  projectCount,
+  includePredictability,
 }) {
   const explicitSplit =
     previewMode === 'recent-first'
@@ -282,7 +284,21 @@ function computeRecentSplitConfig({
     : requestedRecentDays;
   const recentSplitDays = Math.min(60, recentBaseDays);
 
-  const shouldSplitByRecent = !bypassCache && (explicitSplit || rangeDays > recentSplitDays);
+  const heavyByProjects = projectCount >= 5 || (projectCount >= 3 && rangeDays > 45);
+  const heavyByPredictability = includePredictability && projectCount >= 3 && rangeDays > 30;
+  const shouldSplitByRecent = !bypassCache && (
+    explicitSplit
+    || rangeDays > recentSplitDays
+    || heavyByProjects
+    || heavyByPredictability
+  );
+  let splitReason = null;
+  if (shouldSplitByRecent) {
+    if (explicitSplit) splitReason = 'explicit';
+    else if (rangeDays > recentSplitDays) splitReason = 'range';
+    else if (heavyByProjects) splitReason = 'projects';
+    else if (heavyByPredictability) splitReason = 'predictability';
+  }
 
   let recentCutoffDate = null;
   if (shouldSplitByRecent && endDate) {
@@ -290,7 +306,7 @@ function computeRecentSplitConfig({
     recentCutoffDate.setDate(recentCutoffDate.getDate() - recentSplitDays);
   }
 
-  return { shouldSplitByRecent, recentCutoffDate, recentSplitDays };
+  return { shouldSplitByRecent, recentCutoffDate, recentSplitDays, splitReason };
 }
 
 /**
@@ -738,13 +754,15 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     // Split long windows: prefer cached older sprints + live recent 2 weeks to avoid timeouts
     const requestedSplit = req.query.splitRecent === 'true' || req.query.splitRecent === '1';
     const requestedRecentDays = parseInt(req.query.recentDays, 10);
-    const { shouldSplitByRecent, recentCutoffDate, recentSplitDays } = computeRecentSplitConfig({
+    const { shouldSplitByRecent, recentCutoffDate, recentSplitDays, splitReason } = computeRecentSplitConfig({
       rangeDays,
       bypassCache,
       requestedSplit,
       requestedRecentDays,
       previewMode,
       endDate,
+      projectCount: selectedProjects.length,
+      includePredictability,
     });
 
     const derivedClientBudgetMs = (() => {
@@ -1325,6 +1343,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       phaseLog,
       previewMode,
       recentSplitDays: shouldSplitByRecent ? recentSplitDays : null,
+      recentSplitReason: shouldSplitByRecent ? splitReason : null,
       recentCutoffDate: shouldSplitByRecent && recentCutoffDate ? recentCutoffDate.toISOString() : null,
       timedOut: false,
       usedCacheForOlder: shouldSplitByRecent && cachedOldSprints.length > 0,

@@ -9,7 +9,7 @@ import { persistDoneStoriesOptionalColumnsPreference } from './Reporting-App-Rep
 import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
-import { LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
@@ -34,11 +34,17 @@ function showReportError(shortText, detailsText) {
   const errorEl = reportDom.errorEl;
   if (!errorEl) return;
   errorEl.style.display = 'block';
-  const detailsEscaped = detailsText ? escapeHtml(detailsText) : '';
+  const fullMessage = (detailsText && detailsText.trim()) ? detailsText.trim() : (shortText || 'Please fix the issue above.');
+  const fullEscaped = escapeHtml(fullMessage);
   errorEl.innerHTML = `
     <div role="alert">
-      <strong>${escapeHtml(shortText)}</strong>
-      ${detailsEscaped ? `<button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false">Details</button><div class="error-details" hidden>${detailsEscaped}</div>` : ''}
+      <strong>${escapeHtml(shortText || 'Check filters')}</strong>
+      <p style="margin: 8px 0 0 0;">${fullEscaped}</p>
+      <div style="margin-top: 12px;">
+        <button type="button" data-action="adjust-dates" class="btn btn-compact btn-primary">Adjust dates</button>
+      </div>
+      <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">Technical details</button>
+      <div class="error-details" hidden>${fullEscaped}</div>
       <button type="button" class="error-close" aria-label="Dismiss">x</button>
     </div>
   `;
@@ -50,21 +56,20 @@ function showReportError(shortText, detailsText) {
 export function clearPreviewOnFilterChange() {
   const { previewContent, errorEl, exportExcelBtn, exportDropdownTrigger } = reportDom;
   if (!previewContent || previewContent.style.display === 'none') return;
-  previewContent.style.display = 'none';
-  reportState.previewData = null;
-  reportState.previewRows = [];
-  reportState.visibleRows = [];
-  reportState.visibleBoardRows = [];
-  reportState.visibleSprintRows = [];
-  reportState.previewHasRows = false;
-  reportState.predictabilityPerSprint = null;
+  const statusEl = document.getElementById('preview-status');
+  if (statusEl) {
+    statusEl.innerHTML = `
+      <div class="status-banner warning">
+        Filters changed. Refreshing automatically. Showing previous results until the updated preview is ready.
+        <button type="button" data-action="retry-preview" class="btn btn-compact">Refresh now</button>
+        <button type="button" class="status-close" aria-label="Dismiss">x</button>
+      </div>
+    `;
+    statusEl.style.display = 'block';
+  }
   if (errorEl) {
-    errorEl.style.display = 'block';
-    errorEl.innerHTML = '<div role="alert"><strong>Filters changed.</strong> Run Preview to update. <button type="button" class="btn btn-primary btn-compact" data-action="retry-preview">Preview report</button> <button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
-    const previewBtn = reportDom.previewBtn;
-    if (previewBtn && typeof previewBtn.focus === 'function') {
-      try { previewBtn.focus(); } catch (_) {}
-    }
+    errorEl.style.display = 'none';
+    errorEl.innerHTML = '';
   }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
@@ -162,6 +167,16 @@ export function initPreviewFlow() {
       }
     }
 
+    if (target.getAttribute && target.getAttribute('data-action') === 'adjust-dates') {
+      const startInput = document.getElementById('start-date');
+      const endInput = document.getElementById('end-date');
+      const toFocus = startInput || endInput;
+      if (toFocus && typeof toFocus.focus === 'function') {
+        toFocus.focus();
+        try { toFocus.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { toFocus.scrollIntoView(true); }
+      }
+    }
+
     if (target.getAttribute && target.getAttribute('data-action') === 'toggle-done-stories-optional-columns') {
       const tab = document.getElementById('tab-done-stories');
       if (tab) {
@@ -189,7 +204,7 @@ export function initPreviewFlow() {
     const prevExportExcelDisabled = exportExcelBtn ? exportExcelBtn.disabled : true;
 
     previewBtn.disabled = true;
-    previewBtn.textContent = 'Loading…';
+    previewBtn.textContent = 'Loading...';
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
     updateExportHint();
@@ -330,13 +345,13 @@ export function initPreviewFlow() {
       }
 
       try {
-        sessionStorage.setItem('report-has-run-preview', '1');
+        sessionStorage.setItem(REPORT_HAS_RUN_PREVIEW_KEY, '1');
         const prev = reportState.previewData;
         if (prev && (prev.rows || []).length >= 0) {
           const prevRows = (prev.rows || []).length;
           const prevSprints = (prev.sprintsIncluded || []).length;
           const prevUnusable = (prev.sprintsUnusable || []).length;
-          sessionStorage.setItem('report-last-run', JSON.stringify({ doneStories: prevRows, sprintsCount: prevSprints, unusableCount: prevUnusable, at: Date.now() }));
+          sessionStorage.setItem(REPORT_LAST_RUN_KEY, JSON.stringify({ doneStories: prevRows, sprintsCount: prevSprints, unusableCount: prevUnusable, at: Date.now() }));
         }
       } catch (_) {}
       reportState.previewData = payload;

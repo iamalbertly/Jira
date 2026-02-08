@@ -58,43 +58,6 @@ header {
   z-index: 1100;
 }
 
-/* Notification toggle placed in header (compact bell with badge) */
-.app-notification-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  cursor: pointer;
-  color: var(--primary);
-}
-.app-notification-toggle .app-notification-badge {
-  background: var(--danger);
-  color: #fff;
-  border-radius: 10px;
-  padding: 2px 6px;
-  font-size: 0.75em;
-}
-
-/* Dock styling (modern, floating panel) */
-.app-notification-dock {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  width: 360px;
-  background: linear-gradient(180deg,#fff,#fbfdff);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(20,40,80,0.12);
-  padding: 12px;
-  z-index: 60;
-}
-.app-notification-dock .app-notification-title { display:flex; align-items:center; gap:10px; justify-content:space-between; }
-.app-notification-dock .app-notification-badge { background: var(--danger); color:#fff; border-radius:10px; padding:4px 8px; }
-.app-notification-dock .app-notification-actions button { margin-left: 6px; }
-
 /* Epic key column CSS to prevent wrapping and make click-through easier */
 .data-table .epic-key { display: inline-block; min-width: 120px; }
 .data-table .epic-key a { white-space: nowrap; text-decoration: none; color: var(--primary); }
@@ -1229,16 +1192,16 @@ header h1 {
 
 .app-notification-dock {
   position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 1000;
-  background: #ffffff;
+  top: 94px;
+  left: 16px;
+  z-index: 900;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 14px 30px rgba(15, 76, 129, 0.12);
   padding: 12px 14px;
-  min-width: 220px;
-  max-width: 320px;
+  width: 280px;
+  max-width: calc(100vw - 32px);
 }
 
 .app-notification-dock.is-collapsed .app-notification-body,
@@ -1277,8 +1240,8 @@ header h1 {
 
 .app-notification-toggle {
   position: fixed;
-  right: 16px;
-  top: 16px;
+  left: 16px;
+  top: 94px;
   background: var(--card-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -1286,6 +1249,10 @@ header h1 {
   color: var(--muted);
   cursor: pointer;
   z-index: 1000;
+}
+
+body.notification-dock-visible .container {
+  padding-left: 320px;
 }
 
 .app-notification-badge {
@@ -1928,6 +1895,11 @@ header h1 {
   flex-wrap: nowrap;
 }
 
+.sprint-cards-row.risks-row {
+  grid-column: 1 / -1;
+  flex-wrap: nowrap;
+}
+
 .card-column {
   flex: 1;
   min-width: 280px;
@@ -1955,6 +1927,12 @@ header h1 {
 .scope-column {
   flex: 1;
   min-width: 300px;
+}
+
+.risks-stuck-column,
+.risks-insights-column {
+  flex: 1;
+  min-width: 320px;
 }
 
 .sprint-cards-column {
@@ -3085,7 +3063,8 @@ header h1 {
   z-index: 100;
 }
 body.notification-dock-visible .export-dashboard-container {
-  right: 400px;
+  right: 20px;
+  bottom: 86px;
 }
 
 .export-dashboard-btn {
@@ -3196,7 +3175,8 @@ body.notification-dock-visible .export-dashboard-container {
   }
 
   .sprint-cards-row.top-row,
-  .sprint-cards-row.secondary-row {
+  .sprint-cards-row.secondary-row,
+  .sprint-cards-row.risks-row {
     flex-wrap: wrap;
   }
 
@@ -3212,6 +3192,22 @@ body.notification-dock-visible .export-dashboard-container {
 }
 
 @media (max-width: 768px) {
+  body.notification-dock-visible .container {
+    padding-left: 28px;
+  }
+  .app-notification-dock {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+  }
+  .app-notification-toggle {
+    top: auto;
+    left: 12px;
+    bottom: 12px;
+  }
   body.notification-dock-visible .export-dashboard-container {
     right: 20px;
     bottom: 120px;

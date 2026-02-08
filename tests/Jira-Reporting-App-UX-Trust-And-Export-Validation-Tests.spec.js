@@ -10,22 +10,9 @@ import {
   captureBrowserTelemetry,
   runDefaultPreview,
   waitForPreview,
-  IGNORE_CONSOLE_ERRORS,
-  IGNORE_REQUEST_PATTERNS,
+  assertTelemetryClean,
   EXCEL_DOWNLOAD_TIMEOUT_MS,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
-
-function assertTelemetryClean(telemetry) {
-  const criticalFailures = telemetry.failedRequests.filter(
-    (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
-  );
-  expect(criticalFailures).toEqual([]);
-  expect(telemetry.pageErrors).toEqual([]);
-  const unexpectedConsole = telemetry.consoleErrors.filter(
-    (t) => !IGNORE_CONSOLE_ERRORS.includes(t)
-  );
-  expect(unexpectedConsole).toEqual([]);
-}
 
 test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => {
   test('report load: expected controls and nav strip visible, no critical console/network errors', async ({ page }) => {
@@ -200,7 +187,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     assertTelemetryClean(telemetry);
   });
 
-  test('double-click Preview: single outcome and no duplicate critical requests', async ({ page }) => {
+  test('double-click guard: Preview disables immediately and still returns one outcome', async ({ page }) => {
     test.setTimeout(180000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
@@ -210,7 +197,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     await page.check('#project-mpsa');
     await page.check('#project-mas');
     await page.click('#preview-btn');
-    await page.click('#preview-btn');
+    await expect(page.locator('#preview-btn')).toBeDisabled();
 
     await waitForPreview(page, { timeout: 120000 });
     const previewVisible = await page.locator('#preview-content').isVisible();

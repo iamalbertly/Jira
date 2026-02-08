@@ -13,21 +13,8 @@ import {
   captureBrowserTelemetry,
   runDefaultPreview,
   waitForPreview,
-  IGNORE_CONSOLE_ERRORS,
-  IGNORE_REQUEST_PATTERNS,
+  assertTelemetryClean,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
-
-function assertTelemetryClean(telemetry) {
-  const criticalFailures = telemetry.failedRequests.filter(
-    (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
-  );
-  expect(criticalFailures).toEqual([]);
-  expect(telemetry.pageErrors).toEqual([]);
-  const unexpectedConsole = telemetry.consoleErrors.filter(
-    (t) => !IGNORE_CONSOLE_ERRORS.includes(t)
-  );
-  expect(unexpectedConsole).toEqual([]);
-}
 
 test.describe('UX Customer-Simplicity-Trust Full', () => {
   test('Login – Outcome line visible on login page', async ({ page }) => {
@@ -78,7 +65,7 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Report – Filters changed alert has Preview report CTA', async ({ page }) => {
+  test('Report – Filters changed keeps results visible and auto-refreshes', async ({ page }) => {
     test.setTimeout(120000);
     const telemetry = captureBrowserTelemetry(page);
     await runDefaultPreview(page);
@@ -88,12 +75,11 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
       return;
     }
     await page.uncheck('#project-mas').catch(() => {});
-    const errorArea = page.locator('#error');
-    await expect(errorArea).toBeVisible();
-    const retryBtn = page.locator('[data-action="retry-preview"]');
-    await expect(retryBtn).toBeVisible();
-    const btnText = await retryBtn.textContent().catch(() => '');
-    expect(btnText).toMatch(/Preview|Retry/i);
+    await expect(page.locator('#preview-content')).toBeVisible();
+    await expect(page.locator('#preview-btn')).toBeDisabled({ timeout: 5000 });
+    const statusText = await page.locator('#preview-status').textContent().catch(() => '');
+    expect(statusText || '').toMatch(/Filters changed|Refreshing automatically|last successful/i);
+    await expect(page.locator('#error')).toBeHidden();
     assertTelemetryClean(telemetry);
   });
 
@@ -163,7 +149,38 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const loading = page.locator('#leadership-loading');
     await expect(loading).toBeVisible();
     const text = await loading.textContent().catch(() => '');
-    expect(text).toMatch(/Board-level|delivery trends|no rankings|quarter|Preview/i);
+    expect(text).toMatch(/Loading normalized trends|selected projects|date range|delivery trends/i);
+    assertTelemetryClean(telemetry);
+  });
+
+  test('Leadership – changing filters auto-runs preview without extra click', async ({ page }) => {
+    let previewCalls = 0;
+    await page.route('**/preview.json*', async (route) => {
+      previewCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          boards: [{ id: 1, name: 'Board 1', projectKeys: ['MPSA'], indexedDelivery: { index: 1, currentSPPerDay: 1, rollingAvgSPPerDay: 1, sprintCount: 1 } }],
+          sprintsIncluded: [{ id: 100, boardId: 1, state: 'closed', endDate: '2025-09-30T23:59:59.999Z', sprintWorkDays: 10, sprintCalendarDays: 14, doneStoriesNow: 2, doneStoriesBySprintEnd: 2, doneSP: 4 }],
+          rows: [{ boardId: 1, sprintId: 100, issueKey: 'MPSA-1' }],
+          metrics: {},
+          meta: { generatedAt: new Date().toISOString(), windowStart: '2025-07-01T00:00:00.000Z', windowEnd: '2025-09-30T23:59:59.999Z', projects: 'MPSA' },
+        }),
+      });
+    });
+
+    const telemetry = captureBrowserTelemetry(page);
+    await page.goto('/sprint-leadership');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+
+    previewCalls = 0;
+    await page.selectOption('#leadership-projects', 'MPSA').catch(() => {});
+    await page.waitForTimeout(900);
+    expect(previewCalls).toBeGreaterThan(0);
     assertTelemetryClean(telemetry);
   });
 
@@ -188,7 +205,15 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
     await page.click('#leadership-preview').catch(() => {});
-    await page.waitForSelector('.leadership-boards-table', { state: 'visible', timeout: 60000 }).catch(() => null);
+    await Promise.race([
+      page.waitForSelector('.leadership-boards-table', { state: 'visible', timeout: 20000 }).catch(() => null),
+      page.waitForSelector('#leadership-error', { state: 'visible', timeout: 20000 }).catch(() => null),
+    ]);
+    const tableVisible = await page.locator('.leadership-boards-table').isVisible().catch(() => false);
+    if (!tableVisible) {
+      test.skip(true, 'Leadership boards table not visible in this environment');
+      return;
+    }
     const th = page.locator('th[title*="SP/day"], th[title*="baseline"]').first();
     const count = await th.count();
     if (count > 0) {

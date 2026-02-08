@@ -191,19 +191,37 @@ async function loadPreview() {
 
 export function initLeadershipFilters() {
   const { projectsSelect, startInput, endInput, previewBtn } = leadershipDom;
+  let autoPreviewTimer = null;
+  const scheduleAutoPreview = (delayMs = 600) => {
+    if (autoPreviewTimer) clearTimeout(autoPreviewTimer);
+    autoPreviewTimer = setTimeout(() => {
+      autoPreviewTimer = null;
+      loadPreview();
+    }, delayMs);
+  };
+
   if (previewBtn) previewBtn.addEventListener('click', () => {
     setQuarterStripEnabled(false);
     loadPreview();
   });
-  if (projectsSelect) projectsSelect.addEventListener('change', saveFilters);
-  if (startInput) startInput.addEventListener('change', saveFilters);
-  if (endInput) endInput.addEventListener('change', saveFilters);
+  if (projectsSelect) projectsSelect.addEventListener('change', () => {
+    saveFilters();
+    scheduleAutoPreview();
+  });
+  if (startInput) startInput.addEventListener('change', () => {
+    saveFilters();
+    scheduleAutoPreview();
+  });
+  if (endInput) endInput.addEventListener('change', () => {
+    saveFilters();
+    scheduleAutoPreview();
+  });
 
   initQuarterStrip('.quarter-strip-inner-leadership', startInput, endInput, {
     formatInputValue: (date) => date.toISOString().slice(0, 10),
     onApply: () => {
       saveFilters();
-      document.getElementById('leadership-preview')?.click();
+      loadPreview();
     },
   });
 }
@@ -225,5 +243,5 @@ export function tryAutoRunPreviewOnce() {
 }
 
 export function renderLeadershipLoading() {
-  showLoading('Set date range and click Preview to load normalized trends.');
+  showLoading('Loading normalized trends for the selected projects and date range...');
 }
