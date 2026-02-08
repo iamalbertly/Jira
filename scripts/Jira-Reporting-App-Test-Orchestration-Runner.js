@@ -50,7 +50,7 @@ function runStep(step, stepIndex, envOverrides = {}) {
     if (process.env.TEST_LAST_FAILED === '1' || process.env.TEST_LAST_FAILED === 'true') {
       const isPlaywright = step.command === 'npx' && args.some(a => a === 'playwright');
       if (isPlaywright && !args.includes('--last-failed')) {
-        args = [...args, '--last-failed'];
+        args = [...args, '--last-failed', '--pass-with-no-tests'];
       }
     }
     console.log(`\n${'='.repeat(60)}`);
