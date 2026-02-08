@@ -1,6 +1,6 @@
 import { updateHeader, renderSprintTabs, renderSummaryCard, renderSprintWindows } from './Reporting-App-CurrentSprint-Render-Overview.js';
-import { renderDailyCompletion, renderBurndown, renderScopeChanges, renderStories } from './Reporting-App-CurrentSprint-Render-Progress.js';
-import { renderNotifications, renderSubtaskTracking, renderStuckCandidates } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
+import { renderDailyCompletion, renderBurndown, renderStories } from './Reporting-App-CurrentSprint-Render-Progress.js';
+import { renderNotifications, renderSubtaskTracking, renderWorkRisksMerged } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
 import { renderNotes, renderAssumptions } from './Reporting-App-CurrentSprint-Render-Notes.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 // New redesign components
@@ -64,7 +64,7 @@ export function renderCurrentSprintPage(data) {
   html += '<div class="card-column burndown-column">' + renderBurndown(data) + '</div>';
   html += '<div class="card-column scope-column">';
   html += renderScopeIndicator(data);
-  html += renderScopeChanges(data); // Full scope changes table below indicator
+  html += '<div class="transparency-card"><h2>Scope changes</h2><p class="section-definition"><small>Scope changes are now merged into the Work risks table below for one-place follow-up.</small></p><p><a href="#scope-changes-card">Go to Work risks</a></p></div>';
   html += '</div>';
   html += '</div>';
 
@@ -76,7 +76,7 @@ export function renderCurrentSprintPage(data) {
 
   // BELOW THE FOLD: Merge related risk surfaces into one row to reduce scroll/click friction.
   html += '<div class="sprint-cards-row risks-row">';
-  html += '<div class="card-column risks-stuck-column">' + renderStuckCandidates(data) + '</div>';
+  html += '<div class="card-column risks-stuck-column">' + renderWorkRisksMerged(data) + '</div>';
   html += '<div class="card-column risks-insights-column">' + renderRisksAndInsights(data) + '</div>';
   html += '</div>';
 

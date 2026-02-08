@@ -1,6 +1,160 @@
 import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateTime, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 
+function buildMergedWorkRiskRows(data) {
+  const rows = [];
+  const storiesByKey = new Map((data.stories || []).map((s) => [s.issueKey || s.key, s]));
+  const pushRow = (row) => rows.push(row);
+
+  for (const row of (data.scopeChanges || [])) {
+    const key = row.issueKey || row.key || '';
+    pushRow({
+      source: 'Scope',
+      riskType: 'Added Mid-Sprint',
+      issueKey: key,
+      issueUrl: row.issueUrl || storiesByKey.get(key)?.issueUrl || '',
+      summary: row.summary || storiesByKey.get(key)?.summary || '-',
+      status: storiesByKey.get(key)?.status || '-',
+      assignee: storiesByKey.get(key)?.assignee || '-',
+      reporter: storiesByKey.get(key)?.reporter || '-',
+      hoursInStatus: null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.date || storiesByKey.get(key)?.updated || null,
+    });
+  }
+
+  for (const row of (data.stuckCandidates || [])) {
+    pushRow({
+      source: 'Flow',
+      riskType: 'Stuck >24h',
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: row.hoursInStatus ?? null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.updated || null,
+    });
+  }
+
+  for (const row of ((data.subtaskTracking || {}).rows || [])) {
+    const missingEstimate = !(Number(row.estimateHours) > 0);
+    const missingLog = !(Number(row.loggedHours) > 0);
+    if (!missingEstimate && !missingLog && !(Number(row.hoursInStatus) >= 24)) continue;
+    pushRow({
+      source: 'Subtask',
+      riskType: missingEstimate
+        ? 'Missing Estimate'
+        : (missingLog ? 'No Log Yet' : 'Stuck >24h'),
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: row.hoursInStatus ?? null,
+      estimateHours: row.estimateHours ?? null,
+      loggedHours: row.loggedHours ?? null,
+      updated: row.updated || row.created || null,
+    });
+  }
+
+  for (const row of (data.stories || [])) {
+    const missingAssignee = !row.assignee || row.assignee === '-';
+    const missingReporter = !row.reporter || row.reporter === '-';
+    if (!missingAssignee && !missingReporter) continue;
+    pushRow({
+      source: 'Sprint',
+      riskType: missingAssignee ? 'Unassigned Issue' : 'Missing Reporter',
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.updated || row.created || null,
+    });
+  }
+
+  rows.sort((a, b) => {
+    const at = a.updated ? new Date(a.updated).getTime() : 0;
+    const bt = b.updated ? new Date(b.updated).getTime() : 0;
+    return bt - at;
+  });
+  return rows;
+}
+
+export function renderWorkRisksMerged(data) {
+  const rows = buildMergedWorkRiskRows(data);
+  const initialLimit = 12;
+  const toShow = rows.slice(0, initialLimit);
+  const remaining = rows.slice(initialLimit);
+
+  let html = '<div class="transparency-card" id="stuck-card">';
+  html += '<div id="scope-changes-card"><p class="meta-row"><small>Scope changes are merged into this unified risk view.</small></p></div>';
+  html += '<div id="subtask-tracking-card"><p class="meta-row"><small>Sub-task tracking risks are merged into this unified risk view.</small></p></div>';
+  html += '<h2>Work risks (Scope + Stuck + Sub-task + Sprint issues)</h2>';
+  html += '<p class="section-definition"><small>Scope changes, items stuck >24h, sub-task time-tracking risks, and in-sprint ownership gaps in one place.</small></p>';
+
+  if (!rows.length) {
+    html += '<p>No risks detected from scope changes, flow, sub-task tracking, or issue ownership.</p>';
+    html += '</div>';
+    return html;
+  }
+
+  html += '<table class="data-table" id="work-risks-table">';
+  html += '<thead><tr><th>Source</th><th>Risk</th><th>Issue</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Est Hrs</th><th>Logged Hrs</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
+
+  for (const row of toShow) {
+    html += '<tr>';
+    html += '<td>' + escapeHtml(row.source || '-') + '</td>';
+    html += '<td>' + escapeHtml(row.riskType || '-') + '</td>';
+    html += '<td>' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
+    html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
+    html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+    html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
+    html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+    html += '<td>' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
+    html += '<td>' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
+    html += '<td>' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
+    html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+
+  if (remaining.length > 0) {
+    html += '<button class="btn btn-secondary btn-compact work-risks-show-more" data-count="' + remaining.length + '">Show ' + remaining.length + ' more</button>';
+    html += '<template id="work-risks-more-template">';
+    for (const row of remaining) {
+      html += '<tr>';
+      html += '<td>' + escapeHtml(row.source || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.riskType || '-') + '</td>';
+      html += '<td>' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
+      html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.status || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
+      html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
+      html += '<td>' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
+      html += '<td>' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
+      html += '<td>' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
+      html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+      html += '</tr>';
+    }
+    html += '</template>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
 export function renderStuckCandidates(data) {
   const stuck = data.stuckCandidates || [];
   let html = '<div class="transparency-card" id="stuck-card">';
@@ -195,6 +349,18 @@ export function renderNotifications(data) {
 
 // Handlers for show-more buttons in subtask & stuck tables
 export function wireSubtasksShowMoreHandlers() {
+  const workRisksBtn = document.querySelector('.work-risks-show-more');
+  if (workRisksBtn) {
+    workRisksBtn.addEventListener('click', () => {
+      const tpl = document.getElementById('work-risks-more-template');
+      const tbody = document.querySelector('#work-risks-table tbody');
+      if (tpl && tbody) {
+        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        workRisksBtn.style.display = 'none';
+      }
+    });
+  }
+
   // Stuck items
   const stuckBtn = document.querySelector('.stuck-show-more');
   if (stuckBtn) {

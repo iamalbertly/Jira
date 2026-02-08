@@ -135,7 +135,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 - Leadership filters now auto-run preview on project/date changes and quarter picks.
 - Report advanced options are now collapsed by default behind an explicit `Options` toggle.
 - Long-range preview splitting now also activates for heavier project combinations.
-- Current Sprint now renders Stuck + Risks/Insights in one row to reduce scroll friction.
+- Current Sprint now renders one merged **Work risks** table combining scope changes, stuck items, sub-task tracking risks, and sprint ownership gaps.
 - Notification dock now renders as a persistent left-side rail instead of covering right-side actions.
 - Playwright telemetry now ignores abort-class request failures caused by intentional cancellation.
 

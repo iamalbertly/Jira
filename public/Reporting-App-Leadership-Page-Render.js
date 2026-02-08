@@ -56,6 +56,12 @@ export function renderLeadershipPage(data) {
   const rangeStart = meta.windowStart ? formatDateShort(meta.windowStart) : '-';
   const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
   const generatedAt = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const freshnessBits = [];
+  freshnessBits.push(meta.fromCache ? 'Cache' : 'Live');
+  if (meta.cacheAgeMinutes != null) freshnessBits.push('Cache age ' + meta.cacheAgeMinutes + 'm');
+  if (meta.partial === true) freshnessBits.push('Partial');
+  if (meta.recentSplitReason) freshnessBits.push('Split: ' + meta.recentSplitReason);
+  const freshnessLine = freshnessBits.length ? (' | Data mode: ' + freshnessBits.join(' | ')) : '';
 
   const rangeTooltip = 'Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.';
   const rangeStartAttr = meta.windowStart ? formatDateShort(meta.windowStart) : '';
@@ -63,7 +69,7 @@ export function renderLeadershipPage(data) {
   const projectsAttr = (meta.projects || '').replace(/,/g, '-').replace(/\s+/g, '') || '';
   let html = '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
-  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' – ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt);
+  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt) + escapeHtml(freshnessLine);
   html += '</p>';
 
   let outcomeLine = '';
@@ -79,7 +85,7 @@ export function renderLeadershipPage(data) {
       if (onTimePct != null && onTimePct >= 80) onTime80Plus++;
       if (onTimePct == null || onTimePct < 80) needAttention++;
     }
-    outcomeLine = boards.length + ' boards · ' + onTime80Plus + ' on-time ≥80% · ' + needAttention + ' need attention.';
+    outcomeLine = boards.length + ' boards | ' + onTime80Plus + ' on-time >=80% | ' + needAttention + ' need attention.';
   }
   if (outcomeLine) {
     html += '<p class="leadership-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</p>';

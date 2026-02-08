@@ -139,13 +139,33 @@ function setQuarterStripEnabled(enabled) {
   document.querySelectorAll('.quarter-pill').forEach(b => { b.disabled = !enabled; });
 }
 
+let leadershipRequestSeq = 0;
+let leadershipInFlightController = null;
+
 async function loadPreview() {
   const { startInput, endInput, projectsSelect } = leadershipDom;
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  if (!startVal || !endVal || startVal > endVal) {
+    showError('Start date must be before end date.');
+    return;
+  }
   const url = buildPreviewUrl();
   saveFilters();
   showLoading('Loading preview...');
+  leadershipRequestSeq += 1;
+  const requestId = leadershipRequestSeq;
+  if (leadershipInFlightController) {
+    try { leadershipInFlightController.abort(); } catch (_) {}
+  }
+  leadershipInFlightController = new AbortController();
   try {
-    const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      signal: leadershipInFlightController.signal,
+    });
+    if (requestId !== leadershipRequestSeq) return;
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401) {
@@ -184,8 +204,13 @@ async function loadPreview() {
     showContent(renderLeadershipPage(body));
     setQuarterStripEnabled(true);
   } catch (err) {
+    if (err && err.name === 'AbortError') return;
     showError(err.message || 'Failed to load preview.');
     setQuarterStripEnabled(true);
+  } finally {
+    if (requestId === leadershipRequestSeq) {
+      leadershipInFlightController = null;
+    }
   }
 }
 

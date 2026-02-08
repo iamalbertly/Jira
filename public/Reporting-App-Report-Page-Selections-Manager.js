@@ -1,5 +1,5 @@
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
-import { PROJECTS_SSOT_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { PROJECTS_SSOT_KEY, REPORT_ADVANCED_OPTIONS_OPEN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 
 export function getSelectedProjects() {
   return Array.from(document.querySelectorAll('.project-checkbox[data-project]:checked'))
@@ -81,14 +81,17 @@ function initAdvancedOptionsToggle() {
   const panel = document.getElementById('advanced-options');
   if (!panel) return;
   if (toggleBtn) {
-    const storageKey = 'reportAdvancedOptionsOpen';
     const setOpen = (open) => {
       panel.hidden = !open;
       toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       toggleBtn.textContent = open ? 'Hide options' : 'Options';
-      try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch (_) {}
+      try { localStorage.setItem(REPORT_ADVANCED_OPTIONS_OPEN_KEY, open ? '1' : '0'); } catch (_) {}
     };
-    setOpen(false);
+    let shouldOpen = false;
+    try {
+      shouldOpen = localStorage.getItem(REPORT_ADVANCED_OPTIONS_OPEN_KEY) === '1';
+    } catch (_) {}
+    setOpen(shouldOpen);
     toggleBtn.addEventListener('click', () => {
       const isOpen = toggleBtn.getAttribute('aria-expanded') === 'true';
       setOpen(!isOpen);

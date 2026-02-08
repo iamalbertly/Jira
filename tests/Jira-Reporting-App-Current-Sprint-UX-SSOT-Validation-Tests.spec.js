@@ -136,6 +136,11 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const hasStuckPrompt = await page.locator('a.stuck-prompt, a[href="#stuck-card"]').isVisible().catch(() => false);
       if (hasStuckCard || hasStuckPrompt) {
         expect(page.locator('a[href="#stuck-card"]').first()).toBeVisible();
+        const mergedRiskHeaders = await page.locator('#work-risks-table thead').textContent().catch(() => '');
+        if (mergedRiskHeaders) {
+          expect(mergedRiskHeaders).toMatch(/Source/i);
+          expect(mergedRiskHeaders).toMatch(/Risk/i);
+        }
       }
       const axisLabelVisible = await page.locator('.burndown-axis').isVisible().catch(() => false);
       if (contentVisible) {
@@ -154,6 +159,8 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       if (subtaskCount > 0) {
         const subtaskVisible = await page.locator('#subtask-tracking-card').isVisible().catch(() => false);
         expect(subtaskVisible).toBeTruthy();
+        const subtaskMergedText = await page.locator('#subtask-tracking-card').textContent().catch(() => '');
+        expect(subtaskMergedText || '').toMatch(/merged|risk/i);
       }
       const notificationsVisible = notificationsCount > 0
         ? await page.locator('#notifications-card').isVisible().catch(() => false)

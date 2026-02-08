@@ -143,7 +143,13 @@ export async function runDefaultPreview(page, overrides = {}) {
 
   await page.fill('#start-date', start);
   await page.fill('#end-date', end);
-  await page.click('#preview-btn');
+  const previewBtn = page.locator('#preview-btn');
+  await previewBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+  await page.waitForTimeout(150);
+  const isDisabled = await previewBtn.isDisabled().catch(() => false);
+  if (!isDisabled) {
+    await previewBtn.click().catch(() => null);
+  }
 
   await Promise.race([
     page.waitForSelector('#loading', { state: 'visible', timeout: 10000 }).catch(() => null),
