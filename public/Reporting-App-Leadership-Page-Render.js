@@ -67,7 +67,8 @@ export function renderLeadershipPage(data) {
   const rangeStartAttr = meta.windowStart ? formatDateShort(meta.windowStart) : '';
   const rangeEndAttr = meta.windowEnd ? formatDateShort(meta.windowEnd) : '';
   const projectsAttr = (meta.projects || '').replace(/,/g, '-').replace(/\s+/g, '') || '';
-  let html = '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
+  let html = '<div class="leadership-context-sticky">';
+  html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
   html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt) + escapeHtml(freshnessLine);
   html += ' · Use this for within-board trends, not ranking teams.';
@@ -91,6 +92,7 @@ export function renderLeadershipPage(data) {
   if (outcomeLine) {
     html += '<p class="leadership-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</p>';
   }
+  html += '</div>';
 
   html += '<div class="leadership-card">';
   html += '<div class="leadership-card-header">';

@@ -86,7 +86,7 @@ function initReportPage() {
   initExportMenu();
   initPreviewFlow();
   initSearchClearButtons();
-  renderNotificationDock();
+  renderNotificationDock({ pageContext: 'report', collapsedByDefault: true });
   applyDoneStoriesOptionalColumnsPreference();
 
   const editFiltersBtn = document.getElementById('applied-filters-edit-btn');

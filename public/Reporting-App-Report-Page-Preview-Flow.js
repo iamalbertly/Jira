@@ -10,7 +10,7 @@ import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
-import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
+import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState, updateExportHint } from './Reporting-App-Report-Page-Export-Menu.js';
@@ -213,8 +213,7 @@ export function initPreviewFlow() {
     if (loadingEl) {
       requestAnimationFrame(() => {
         if (isLoading) {
-          loadingEl.style.display = 'block';
-          loadingEl.setAttribute('aria-hidden', 'false');
+          setLoadingVisible(true);
         }
       });
     }
@@ -270,6 +269,16 @@ export function initPreviewFlow() {
       }
       return;
     }
+
+    try {
+      const previewAnchor =
+        document.getElementById('preview-summary-sticky')
+        || document.querySelector('.preview-area')
+        || loadingEl;
+      if (previewAnchor && typeof previewAnchor.scrollIntoView === 'function' && window.scrollY > window.innerHeight) {
+        previewAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (_) {}
 
     if (bypassCache) {
       params.bypassCache = true;
@@ -503,7 +512,7 @@ export function initPreviewFlow() {
       let errorMsg = (error && error.message) ? String(error.message) : 'Failed to fetch preview. Please try again.';
       if (error && error.name === 'AbortError') {
         const seconds = (typeof timeoutMs === 'number' && timeoutMs > 0) ? Math.round(timeoutMs / 1000) : 60;
-        errorMsg = `This preview is taking longer than expected (over ${seconds}s). We kept your last results on-screen. Try a smaller date range or fewer projects, or run a full refresh if you need the complete history.`;
+        errorMsg = `Preview ran longer than ${seconds}s. We kept your last full results on-screen; try a smaller date range or fewer projects.`;
       }
 
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}

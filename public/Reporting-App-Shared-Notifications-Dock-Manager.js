@@ -74,10 +74,20 @@ export function renderNotificationDock(options = {}) {
     toggleId = DEFAULT_TOGGLE_ID,
     linkHref = '/current-sprint',
     title = 'Time tracking alerts',
+    pageContext = 'report',
+    collapsedByDefault = false,
   } = options;
   const resolvedSummary = summary || readNotificationSummary(storageKey);
   const existing = document.getElementById(dockId);
+  let stateSource = 'default';
+  try {
+    const rawState = localStorage.getItem(stateKey);
+    if (rawState) stateSource = 'stored';
+  } catch (_) {}
   const state = readNotificationDockState(stateKey);
+  if (stateSource === 'default' && collapsedByDefault) {
+    state.collapsed = true;
+  }
 
   if (!resolvedSummary || resolvedSummary.total <= 0) {
     if (existing) existing.remove();
@@ -102,6 +112,7 @@ export function renderNotificationDock(options = {}) {
   const sprintName = resolvedSummary.sprintName || 'Sprint';
   const missingEstimate = resolvedSummary.missingEstimate ?? 0;
   const missingLogged = resolvedSummary.missingLogged ?? 0;
+  const isSummaryContext = pageContext === 'report' || pageContext === 'leadership';
 
   dock.innerHTML = `
     <div class="app-notification-title">
@@ -112,8 +123,11 @@ export function renderNotificationDock(options = {}) {
         <button type="button" class="btn-ghost" data-action="close" aria-label="Hide notifications">x</button>
       </div>
     </div>
-    <div class="app-notification-body">${boardName} - ${sprintName}</div>
-    <div class="app-notification-sub">Missing estimates: ${missingEstimate} | No log: ${missingLogged}</div>
+    ${
+      isSummaryContext
+        ? '<div class="app-notification-body app-notification-body-compact">Time tracking alerts exist on Current Sprint.</div>'
+        : '<div class="app-notification-body">' + boardName + ' - ' + sprintName + '</div><div class="app-notification-sub">Missing estimates: ' + missingEstimate + ' | No log: ' + missingLogged + '</div>'
+    }
     <a class="app-notification-link" href="${linkHref}">Open Current Sprint</a>
   `;
   if (!existing) document.body.appendChild(dock);

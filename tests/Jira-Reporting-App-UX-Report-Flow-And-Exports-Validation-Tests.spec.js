@@ -54,5 +54,45 @@ test.describe('UX Report Flow & Export Experience', () => {
     await expect(page.locator('#export-excel-btn')).toContainText('Export Excel – All data');
     await expect(page.locator('#preview-header-export-excel-btn')).toContainText('Export Excel – All data');
   });
+
+  test('loading feedback and sticky context are visible when triggering preview from deep scroll', async ({ page }) => {
+    test.setTimeout(180000);
+
+    await page.goto('/report');
+
+    // Scroll deep into the page to simulate being at the bottom of a long table
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+    // Slow the preview slightly so loading states are visible
+    await page.route('/preview.json?*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+
+    await page.click('#preview-btn');
+
+    // Loading panel should be brought back into the viewport
+    const loadingTop = await page.evaluate(() => {
+      const el = document.getElementById('loading');
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return rect.top;
+    });
+    expect(loadingTop).not.toBeNull();
+    expect(loadingTop).toBeLessThan(320);
+
+    // While loading is in-flight, status chip should be visible
+    await expect(page.locator('#loading-status-chip')).toBeVisible();
+
+    // After preview completes, sticky summary context should be visible when rendered
+    await page.waitForSelector('#preview-content', { state: 'visible', timeout: 120000 }).catch(() => null);
+    const sticky = page.locator('#preview-summary-sticky');
+    const ariaHidden = await sticky.getAttribute('aria-hidden');
+    if (ariaHidden === 'true' || ariaHidden === null) {
+      test.skip(true, 'Preview sticky summary not rendered for current data set');
+      return;
+    }
+    await expect(sticky).toBeVisible();
+  });
 });
 

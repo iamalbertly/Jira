@@ -70,7 +70,7 @@ function wireRedesignHandlers(data) {
 function showRenderedContent(data) {
   showContent(renderCurrentSprintPage(data));
   const summary = updateNotificationStore(data);
-  renderNotificationDock({ summary });
+  renderNotificationDock({ summary, pageContext: 'current-sprint' });
   wireDynamicHandlers(data);
   wireRedesignHandlers(data);
   if (window._legacyTemplates) {

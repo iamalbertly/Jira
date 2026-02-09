@@ -66,7 +66,7 @@ function buildPreviewMetaAndStatus(params) {
   if (!meta.discoveredFields?.epicLinkFieldId) detailsLines.push('Epic Links: not configured (Epic rollups limited)');
 
   const partialNotice = partial
-    ? '<br><span class="partial-warning">This preview may be incomplete (time limit). Use a smaller date range for full data. You can export what is shown or try a smaller range.</span>'
+    ? '<br><span class="partial-warning">Partial data: this preview hit a time limit. Export shows exactly what you see; try a smaller range for full history.</span>'
     : '';
 
   const selectedProjectsLabel = meta.selectedProjects?.length > 0 ? meta.selectedProjects.join(', ') : 'None';
@@ -140,12 +140,13 @@ function buildPreviewMetaAndStatus(params) {
   let statusDisplay = 'none';
   if (partial || previewMode !== 'normal') {
     let bannerMessage;
-    if (partial) bannerMessage = 'This preview may be incomplete (time limit). Use a smaller date range for full data. You can export what is shown or try a smaller range.';
-    else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {
+    if (partial) {
+      bannerMessage = 'Partial data: preview hit a time limit. Export shows what you see now; narrow the dates for full history.';
+    } else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {
       const days = recentSplitDays || 14;
-      bannerMessage = `Showing recent ${days} days live; older data from cache. You can export as-is or use Full refresh for a complete run.`;
+      bannerMessage = `Faster mode: latest ${days} days live, older sprints from cache. Export matches what you see.`;
     } else {
-      bannerMessage = 'Preview completed with optimized windowing for faster results. Older history may be served from cache; use full refresh if you need a fully fresh historical view.';
+      bannerMessage = 'Faster mode: preview optimized for speed. Export matches the on-screen data; run Full refresh if you need a fully fresh history.';
     }
     statusHTML = `
       <div class="status-banner warning">

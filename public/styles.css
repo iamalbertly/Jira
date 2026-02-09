@@ -584,6 +584,29 @@ header h1 {
   padding: 40px;
 }
 
+.loading-status-chip {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1500;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 76, 129, 0.95);
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 20px rgba(15, 76, 129, 0.25);
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .loading-status-chip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: 12px;
+  }
+}
+
 .loading-steps {
   margin-top: 20px;
   text-align: left;
@@ -839,6 +862,14 @@ header h1 {
 .transparency-card,
 .leadership-context-line {
   margin-bottom: 12px;
+}
+
+.leadership-context-sticky {
+  position: sticky;
+  top: 72px;
+  z-index: 90;
+  background: var(--bg);
+  padding-bottom: 8px;
 }
 
 .leadership-outcome-line {
@@ -1304,6 +1335,12 @@ body.notification-dock-visible .container {
   margin-bottom: 4px;
 }
 
+.app-notification-body-compact {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+
 .app-notification-sub {
   color: var(--muted);
   font-size: 0.85em;
@@ -1486,7 +1523,7 @@ body.notification-dock-visible .container {
 
 .preview-summary-sticky {
   position: sticky;
-  top: 0;
+  top: 72px;
   z-index: 100;
   padding: 8px 12px;
   background: var(--card);
@@ -1742,6 +1779,18 @@ body.notification-dock-visible .container {
   .section-export {
     justify-content: flex-start;
   }
+
+  .preview-summary-sticky {
+    top: 56px;
+  }
+
+  .leadership-context-sticky {
+    top: 56px;
+  }
+
+  .current-sprint-outcome-line {
+    top: 56px;
+  }
 }
 
 /* ========== NEW REDESIGN COMPONENTS ========== */
@@ -1768,6 +1817,12 @@ body.notification-dock-visible .container {
   color: var(--muted);
   font-size: 0.95rem;
   margin-bottom: 12px;
+  position: sticky;
+  top: 72px;
+  z-index: 45;
+  background: var(--bg);
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .sprint-health-healthy {

@@ -38,7 +38,7 @@ function exportLeadershipBoardsCsv() {
 }
 
 function initLeadershipPage() {
-  renderNotificationDock();
+  renderNotificationDock({ pageContext: 'leadership', collapsedByDefault: true });
   initLeadershipDefaults();
   initLeadershipFilters();
   tryAutoRunPreviewOnce();

@@ -6,6 +6,10 @@ export function updateLoadingMessage(message, step = null) {
   if (loadingMessage) {
     loadingMessage.textContent = message;
   }
+  const chip = document.getElementById('loading-status-chip');
+  if (chip && chip.style.display !== 'none') {
+    chip.textContent = message;
+  }
   if (step) {
     appendLoadingStep(step);
   }
@@ -63,6 +67,13 @@ export function setLoadingVisible(visible = true) {
   if (!loadingEl) return;
   loadingEl.style.display = visible ? 'block' : 'none';
   loadingEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  const chip = document.getElementById('loading-status-chip');
+  if (chip) {
+    chip.style.display = visible ? 'block' : 'none';
+    if (!visible) {
+      chip.textContent = '';
+    }
+  }
 }
 
 export function hideLoadingIfVisible() {
@@ -70,6 +81,11 @@ export function hideLoadingIfVisible() {
   if (loadingEl) {
     loadingEl.style.display = 'none';
     loadingEl.setAttribute('aria-hidden', 'true');
+  }
+  const chip = document.getElementById('loading-status-chip');
+  if (chip) {
+    chip.style.display = 'none';
+    chip.textContent = '';
   }
 }
 
@@ -88,4 +104,11 @@ export function forceHideLoading() {
   } catch (e) {
     // best-effort, ignore
   }
+  try {
+    const chip = document.getElementById('loading-status-chip');
+    if (chip) {
+      chip.style.display = 'none';
+      chip.textContent = '';
+    }
+  } catch (_) {}
 }
