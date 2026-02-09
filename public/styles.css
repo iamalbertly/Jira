@@ -26,18 +26,7 @@ body {
   font-family: 'Aptos', 'Candara', 'Segoe UI', sans-serif;
   line-height: 1.6;
   color: var(--text);
-  background: linear-gradient(120deg, #f7f9fb 0%, #eef3f8 45%, #f7f9fb 100%);
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(rgba(15, 76, 129, 0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: -1;
+  background: var(--bg);
 }
 
 .container {
@@ -47,7 +36,7 @@ body::before {
 }
 
 header {
-  background: linear-gradient(135deg, #ffffff 0%, #f6f9fc 100%);
+  background: #ffffff;
   padding: 14px 20px;
   border-radius: 12px;
   margin-bottom: 14px;
