@@ -14,7 +14,6 @@
           <h1>General Performance</h1>
           <p id="report-subtitle" class="subtitle">Preview updates when you change projects or dates. Use the button to run it manually.</p>
         </div>
-        <button id="feedback-toggle" class="btn btn-secondary btn-compact">Give Feedback</button>
       </div>
       <nav class="app-nav" aria-label="Main">
         <span class="current">Report</span>
@@ -130,19 +129,18 @@
 
         <div class="filter-group">
           <h3>Date Window</h3>
-          <p class="quarter-strip-label"><small>Fast: pick a quarter.</small></p>
-          <div class="quick-range-strip" role="group" aria-label="Vodacom quarters">
+          <p class="quarter-strip-label"><small>Pick a quarter or Custom.</small></p>
+          <div class="quick-range-strip" role="group" aria-label="Date range">
             <div class="quarter-strip-inner" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;"></div>
           </div>
-          <label>
-            Start Date/Time (UTC)
-            <input type="datetime-local" id="start-date" value="2025-07-01T00:00">
-          </label>
-          <label>
-            End Date/Time (UTC)
-            <input type="datetime-local" id="end-date" value="2025-09-30T23:59">
-          </label>
-          <span id="custom-range-label" class="custom-range-label" aria-live="polite" style="display: none;">Custom range</span>
+          <div id="date-range-summary-wrap" class="date-range-summary-wrap">
+            <span id="date-range-summary" class="date-range-summary" aria-live="polite"></span>
+            <button type="button" id="date-range-edit-btn" class="btn btn-compact btn-link date-range-edit-btn" aria-label="Edit date range">Edit</button>
+          </div>
+          <div id="date-range-custom-wrap" class="date-range-custom-wrap" hidden>
+            <label>Start <input type="datetime-local" id="start-date" value="2025-07-01T00:00"></label>
+            <label>End <input type="datetime-local" id="end-date" value="2025-09-30T23:59"></label>
+          </div>
           <div class="date-display" id="date-display"></div>
         </div>
 
@@ -178,11 +176,12 @@
 
         <div id="applied-filters-summary" class="applied-filters-summary" aria-live="polite"></div>
         <p id="range-hint" class="range-hint" style="display: none;" aria-live="polite"><small>Large ranges may be slow. For faster results, try last quarter.</small></p>
-        <div class="button-group filters-actions">
-          <button id="preview-btn" class="btn btn-primary">Preview report</button>
+          <div class="button-group filters-actions">
+          <button id="preview-btn" class="btn btn-primary" title="Generate report for selected filters.">Preview report</button>
+          <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-compact" data-action="reset-filters" title="Clear project selection and reset date range">Reset filters</button>
           <div class="export-split-group">
-            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled>Export Excel – All data</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled>Options &#9662;</button>
+            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled style="display: none;">Export Excel – All data</button>
+            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled style="display: none;">Options &#9662;</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
               <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
@@ -200,10 +199,27 @@
           <div id="applied-filters-chips" class="applied-filters-chips" aria-live="polite"></div>
           <button type="button" id="applied-filters-edit-btn" class="btn btn-secondary btn-compact">Edit filters</button>
         </div>
-        <div id="loading" class="loading" style="display: none;">
-          <div class="spinner"></div>
-          <p id="loading-message">Generating report…</p>
-          <div id="loading-steps" class="loading-steps"></div>
+        <div id="loading" class="loading loading-skeleton" style="display: none;" aria-live="polite" aria-busy="true">
+          <div class="loading-progress-wrap">
+            <div class="loading-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Report loading progress">
+              <div id="loading-progress-fill" class="loading-progress-fill" style="width: 0%;"></div>
+            </div>
+            <p id="loading-message" class="loading-stage-label">Connecting to Jira…</p>
+            <p class="loading-hint" aria-live="polite">Usually ready in under 30s for one quarter.</p>
+          </div>
+          <div class="skeleton-preview" aria-hidden="true">
+            <div class="skeleton-row skeleton-chips"></div>
+            <div class="skeleton-block skeleton-tabs">
+              <span class="skeleton-line"></span><span class="skeleton-line"></span><span class="skeleton-line"></span><span class="skeleton-line"></span>
+            </div>
+            <div class="skeleton-block skeleton-table">
+              <div class="skeleton-line skeleton-table-header"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+            </div>
+          </div>
         </div>
 
         <div id="error" class="error alert alert-error" style="display: none;"></div>
@@ -213,7 +229,7 @@
           <div class="preview-header">
             <div id="preview-meta"></div>
             <div class="preview-header-export-wrap">
-              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export">Export Excel – All data</button>
+              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export" style="display: none;">Export Excel – All data</button>
             </div>
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
@@ -284,6 +300,9 @@
   </div>
 
   <div id="loading-status-chip" class="loading-status-chip" aria-live="polite" style="display: none;"></div>
+  <div id="feedback-corner" class="feedback-corner">
+    <button type="button" id="feedback-toggle" class="feedback-corner-btn" aria-label="Feedback and help">?</button>
+  </div>
   <div id="tooltip-popover" class="tooltip-popover" role="tooltip" aria-hidden="true"></div>
   <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
   <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>

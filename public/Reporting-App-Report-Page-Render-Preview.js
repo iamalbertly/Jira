@@ -142,11 +142,14 @@ function buildPreviewMetaAndStatus(params) {
   `;
 
   const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generatedAgoSuffix}`;
+  const reducedScope = meta.reducedScope === true;
   let statusHTML = '';
   let statusDisplay = 'none';
-  if (rowsCount > 0 && (partial || previewMode !== 'normal')) {
+  if (rowsCount > 0 && (partial || previewMode !== 'normal' || reducedScope)) {
     let bannerMessage;
-    if (partial) {
+    if (reducedScope) {
+      bannerMessage = 'Showing closest available data for your selection. Use Full refresh for exact filters.';
+    } else if (partial) {
       bannerMessage = 'Partial data: preview hit a time limit. Export shows what you see now; narrow the dates for full history.';
     } else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {
       const days = recentSplitDays || 14;
@@ -204,8 +207,6 @@ export function renderPreview() {
   const metaBlock = buildPreviewMetaAndStatus({ meta, previewRows, boardsCount, sprintsCount, rowsCount, unusableCount });
   const reportSubtitleEl = document.getElementById('report-subtitle');
   if (reportSubtitleEl) reportSubtitleEl.textContent = metaBlock.reportSubtitleText;
-  const appliedFiltersEl = document.getElementById('applied-filters-summary');
-  if (appliedFiltersEl) appliedFiltersEl.textContent = metaBlock.appliedFiltersText;
   const outcomeLineEl = document.getElementById('preview-outcome-line');
   if (outcomeLineEl) outcomeLineEl.innerHTML = metaBlock.outcomeLineHTML;
   if (previewMeta) previewMeta.innerHTML = metaBlock.previewMetaHTML;

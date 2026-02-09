@@ -22,8 +22,8 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
     await expect(page.locator('#project-mpsa')).toBeVisible();
     await expect(page.locator('#preview-btn')).toBeVisible();
-    await expect(page.locator('#export-excel-btn')).toBeVisible();
-    await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
+    await expect(page.locator('#export-excel-btn')).toBeHidden();
+    await expect(page.locator('#export-dropdown-trigger')).toBeHidden();
     await expect(page.locator('#preview-content')).toBeHidden();
     await expect(page.locator('nav.app-nav')).toBeVisible();
     await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');

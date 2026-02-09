@@ -2,6 +2,15 @@ import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { LOADING_STEP_LIMIT } from './Reporting-App-Report-Config-Constants.js';
 
 const LOADING_CHIP_MIN_VISIBLE_MS = 300;
+// Length must match LOADING_STAGE_PERCENT; used for progress bar and aria
+const LOADING_STAGES = [
+  'Syncing with Jira…',
+  'Gathering sprint history…',
+  'Computing delivery metrics…',
+  'Preparing your report…',
+  'Final checks…',
+];
+const LOADING_STAGE_PERCENT = [10, 40, 70, 85, 100];
 let loadingChipShowTimerId = null;
 
 function clearLoadingChipShowTimer() {
@@ -23,6 +32,21 @@ export function updateLoadingMessage(message, step = null) {
   if (step) {
     appendLoadingStep(step);
   }
+}
+
+export function setLoadingStage(stageIndex, label) {
+  const msgEl = document.getElementById('loading-message');
+  if (msgEl) msgEl.textContent = label != null ? label : (LOADING_STAGES[stageIndex] || 'Loading…');
+  const fillEl = document.getElementById('loading-progress-fill');
+  const barEl = document.querySelector('.loading-progress-bar[role="progressbar"]');
+  const pct = Math.min(100, Math.max(0, LOADING_STAGE_PERCENT[stageIndex] ?? (stageIndex * 25)));
+  if (fillEl) fillEl.style.width = `${pct}%`;
+  if (barEl) {
+    barEl.setAttribute('aria-valuenow', pct);
+    barEl.setAttribute('aria-label', label != null ? label : (LOADING_STAGES[stageIndex] || 'Report loading progress'));
+  }
+  const chip = document.getElementById('loading-status-chip');
+  if (chip && chip.style.display !== 'none') chip.textContent = msgEl ? msgEl.textContent : '';
 }
 
 export function clearLoadingSteps() {

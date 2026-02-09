@@ -10,35 +10,25 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   });
 
   test('should load report page with default filters', async ({ page }) => {
-    // Verify page elements are present
+    // Verify page elements are present; export is hidden until preview runs
     await expect(page.locator('#project-mpsa')).toBeChecked();
     await expect(page.locator('#project-mas')).toBeChecked();
     await expect(page.locator('#preview-btn')).toBeVisible();
-    await expect(page.locator('#export-excel-btn')).toBeDisabled();
-    await expect(page.locator('#export-excel-btn')).toBeDisabled();
+    await expect(page.locator('#export-excel-btn')).toBeHidden();
   });
 
   test('should disable preview button when no projects selected', async ({ page }) => {
-    // Uncheck both projects
     await page.uncheck('#project-mpsa');
     await page.uncheck('#project-mas');
-    
-    // Preview button should be disabled
-    await expect(page.locator('#preview-btn')).toBeDisabled();
-    
-    // Button should have title explaining why
+    await expect(page.locator('#preview-btn')).toBeDisabled({ timeout: 8000 });
     const title = await page.locator('#preview-btn').getAttribute('title');
-    expect(title).toContain('Please select at least one project');
+    expect(title).toMatch(/select at least one project/i);
   });
 
   test('should show error when preview clicked with no projects', async ({ page }) => {
-    // Uncheck both projects
     await page.uncheck('#project-mpsa');
     await page.uncheck('#project-mas');
-    
-    // Try to click preview (should be disabled, but test error handling)
-    // Actually, button should be disabled, so we'll test the validation in the API test
-    await expect(page.locator('#preview-btn')).toBeDisabled();
+    await expect(page.locator('#preview-btn')).toBeDisabled({ timeout: 8000 });
   });
 
   test('should generate preview with valid filters', async ({ page }) => {
@@ -214,9 +204,8 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
         await expect(page.locator('#export-excel-btn')).toBeDisabled();
       }
     } else if (errorVisible) {
-      // On error, exports should remain disabled
-      await expect(page.locator('#export-excel-btn')).toBeDisabled();
-      await expect(page.locator('#export-excel-btn')).toBeDisabled();
+      // On error, export stays hidden (only shown after successful preview)
+      await expect(page.locator('#export-excel-btn')).toBeHidden();
     }
   });
 

@@ -264,6 +264,59 @@ function buildPreviewCacheKey({
   })}`;
 }
 
+/**
+ * Find the \"best available\" cached preview whose scope is a subset of the requested one.
+ * This is used for faster fallbacks when the exact cache key is missing but we still have
+ * recent data that can provide value instead of timing out.
+ *
+ * A candidate preview qualifies when:
+ * - It is stored under a preview:* cache key
+ * - meta.selectedProjects is a non-empty subset of the requested projects
+ * - meta.windowStart/windowEnd are inside the requested [windowStart, windowEnd]
+ * - Its age is below maxAgeMs (if provided)
+ */
+function findBestPreviewCacheSubset({ selectedProjects, windowStart, windowEnd, maxAgeMs }) {
+  const entries = cache.entries();
+  if (!entries.length) return null;
+
+  const requestedProjects = Array.isArray(selectedProjects) ? [...selectedProjects].sort() : [];
+  const requestedSet = new Set(requestedProjects);
+  if (!requestedSet.size) return null;
+
+  const requestedStartMs = new Date(windowStart).getTime();
+  const requestedEndMs = new Date(windowEnd).getTime();
+  if (Number.isNaN(requestedStartMs) || Number.isNaN(requestedEndMs)) return null;
+
+  let best = null;
+  const now = Date.now();
+
+  for (const [key, entry] of entries) {
+    if (!key.startsWith('preview:')) continue;
+    const basePayload = entry.value || entry;
+    if (!basePayload || typeof basePayload !== 'object') continue;
+    const meta = basePayload.meta || {};
+    const metaProjects = Array.isArray(meta.selectedProjects) ? [...meta.selectedProjects].sort() : null;
+    if (!metaProjects || !metaProjects.length) continue;
+    // Candidate projects must be a subset of requested projects
+    if (!metaProjects.every((p) => requestedSet.has(p))) continue;
+
+    const metaStartMs = new Date(meta.windowStart || windowStart).getTime();
+    const metaEndMs = new Date(meta.windowEnd || windowEnd).getTime();
+    if (Number.isNaN(metaStartMs) || Number.isNaN(metaEndMs)) continue;
+    // Candidate window must be fully inside requested window
+    if (metaStartMs < requestedStartMs || metaEndMs > requestedEndMs) continue;
+
+    const ageMs = typeof entry.cachedAt === 'number' ? now - entry.cachedAt : null;
+    if (typeof maxAgeMs === 'number' && maxAgeMs > 0 && ageMs != null && ageMs > maxAgeMs) continue;
+
+    if (!best || (entry.cachedAt || 0) > (best.entry.cachedAt || 0)) {
+      best = { key, entry, payload: basePayload, ageMs };
+    }
+  }
+
+  return best;
+}
+
 function computeRecentSplitConfig({
   rangeDays,
   bypassCache,
@@ -664,6 +717,7 @@ app.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
  * GET /preview.json - Generate preview data (protected when auth enabled)
  */
 app.get('/preview.json', requireAuth, async (req, res) => {
+  let accumulatedForPartialCache = null;
   try {
     // Preview timing and phase tracking for transparency and partial responses
     const previewStartedAt = Date.now();
@@ -716,6 +770,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     const includeEpicTTM = req.query.includeEpicTTM !== 'false'; // Default to true, allow override for backward compatibility
     const includeActiveOrMissingEndDateSprints = req.query.includeActiveOrMissingEndDateSprints === 'true';
     const bypassCache = req.query.bypassCache === 'true';
+    const preferCacheBestAvailable = req.query.preferCache === 'true';
     const previewModeRaw = typeof req.query.previewMode === 'string' ? req.query.previewMode : 'normal';
     const previewMode = ['normal', 'recent-first', 'recent-only'].includes(previewModeRaw)
       ? previewModeRaw
@@ -776,6 +831,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
     })();
 
     const MAX_PREVIEW_MS = Math.min(PREVIEW_SERVER_MAX_MS, derivedClientBudgetMs);
+    const BEST_AVAILABLE_CACHE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
     // Build a stable cache key for this preview request
     const cacheKey = buildPreviewCacheKey({
@@ -807,15 +863,33 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       }
     }
 
-    // Serve from cache if available and not bypassed
-    const cachedEntry = !bypassCache ? cache.get(cacheKey) : null;
+    // Serve from cache if available and not bypassed. If preferCacheBestAvailable is true,
+    // and the exact key is missing, try to find a \"best available\" subset cache entry.
+    let cachedEntry = !bypassCache ? cache.get(cacheKey) : null;
+    let cachedFromBestAvailableSubset = false;
+    let cachedKeyUsed = cacheKey;
+
+    if (!cachedEntry && !bypassCache && preferCacheBestAvailable) {
+      const best = findBestPreviewCacheSubset({
+        selectedProjects,
+        windowStart,
+        windowEnd,
+        maxAgeMs: BEST_AVAILABLE_CACHE_MAX_AGE_MS,
+      });
+      if (best && best.entry) {
+        cachedEntry = best.entry;
+        cachedFromBestAvailableSubset = best.key !== cacheKey;
+        cachedKeyUsed = best.key;
+      }
+    }
+
     if (cachedEntry) {
       const cachedPreview = cachedEntry.value || cachedEntry; // Handle both formats
       const cacheAge = cachedEntry.cachedAt ? Date.now() - cachedEntry.cachedAt : null;
       const cacheServedMs = Date.now() - previewStartedAt;
       
       logger.info('Serving preview response from cache', {
-        cacheKey,
+        cacheKey: cachedKeyUsed,
         projects: selectedProjects,
         windowStart,
         windowEnd,
@@ -886,12 +960,14 @@ app.get('/preview.json', requireAuth, async (req, res) => {
         meta: {
           ...cachedPreview.meta,
           fromCache: true,
+          cacheMatchType: cachedFromBestAvailableSubset ? 'subset' : 'exact',
+          reducedScope: cachedFromBestAvailableSubset,
           cacheAgeMs: cacheAge,
           cacheAgeMinutes: cacheAge ? Math.floor(cacheAge / 60000) : undefined,
           cachedElapsedMs: cachedPreview?.meta?.elapsedMs ?? null,
           elapsedMs: cacheServedMs,
           requestedAt,
-          cacheKey,
+          cacheKey: cachedKeyUsed,
           fieldInventory,
         },
       };
@@ -1171,6 +1247,7 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       const flatChunkRows = chunkRows.flat();
       const chunkRowCount = flatChunkRows.length;
       allRows.push(...flatChunkRows);
+      accumulatedForPartialCache = { allRows: [...allRows], boards, sprintsIncluded, sprintsUnusable, selectedProjects, windowStart, windowEnd };
       logger.info(`Chunk ${chunkNumber}/${totalChunks} completed`, {
         rowsInChunk: chunkRowCount,
         totalRowsSoFar: allRows.length
@@ -1597,19 +1674,26 @@ app.get('/preview.json', requireAuth, async (req, res) => {
       metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
     };
 
-    // Store in cache for subsequent identical requests
+    // Store in cache for subsequent identical requests. Do not overwrite a fuller cache with partial.
     try {
-      cache.set(cacheKey, responsePayload, CACHE_TTL.PREVIEW);
-      logger.info('Cached preview response', {
-        cacheKey,
-        ttlMs: CACHE_TTL.PREVIEW,
-        projects: selectedProjects,
-      });
+      const existing = cache.get(cacheKey);
+      const existingRows = existing?.value?.rows;
+      const existingCount = Array.isArray(existingRows) ? existingRows.length : 0;
+      const ourCount = (responsePayload.rows || []).length;
+      if (isPartial && existingCount > ourCount) {
+        logger.info('Skipping cache write: existing entry has more rows (fuller)', { cacheKey, existingCount, ourCount });
+      } else {
+        cache.set(cacheKey, responsePayload, CACHE_TTL.PREVIEW);
+        logger.info('Cached preview response', {
+          cacheKey,
+          ttlMs: CACHE_TTL.PREVIEW,
+          projects: selectedProjects,
+          partial: isPartial,
+          rowCount: ourCount,
+        });
+      }
     } catch (cacheError) {
-      // Cache failures should not break the request
-      logger.warn('Failed to cache preview response', {
-        error: cacheError.message,
-      });
+      logger.warn('Failed to cache preview response', { error: cacheError.message });
     }
 
     recordActivity();
@@ -1617,6 +1701,43 @@ app.get('/preview.json', requireAuth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error generating preview', error);
+
+    // Cache any accumulated partial data so future requests or retries benefit
+    if (accumulatedForPartialCache && accumulatedForPartialCache.allRows && accumulatedForPartialCache.allRows.length > 0) {
+      try {
+        const genAt = new Date().toISOString();
+        const minimalMeta = {
+          selectedProjects: accumulatedForPartialCache.selectedProjects,
+          windowStart: accumulatedForPartialCache.windowStart,
+          windowEnd: accumulatedForPartialCache.windowEnd,
+          partial: true,
+          partialReason: (error && error.message) ? String(error.message).slice(0, 200) : 'Error during preview; partial data cached for reuse.',
+          generatedAt: genAt,
+          fromCache: false,
+          elapsedMs: null,
+        };
+        const boardsForPayload = accumulatedForPartialCache.boards.map((b) => {
+          const projectKey = b.location?.projectKey || (b.location?.projectId ? accumulatedForPartialCache.selectedProjects.find((p) => b.location.projectId === p) : null) || null;
+          return { id: b.id, name: b.name, type: b.type, projectKeys: projectKey ? [projectKey] : accumulatedForPartialCache.selectedProjects, indexedDelivery: null };
+        });
+        const minimalPayload = {
+          meta: minimalMeta,
+          boards: boardsForPayload,
+          sprintsIncluded: accumulatedForPartialCache.sprintsIncluded,
+          sprintsUnusable: (accumulatedForPartialCache.sprintsUnusable || []).map((s) => ({ id: s.id, name: s.name, boardId: s.boardId, boardName: s.boardName, reason: s.reason })),
+          rows: accumulatedForPartialCache.allRows,
+          metrics: undefined,
+        };
+        const existing = cache.get(cacheKey);
+        const existingCount = Array.isArray(existing?.value?.rows) ? existing.value.rows.length : 0;
+        if (existingCount < minimalPayload.rows.length) {
+          cache.set(cacheKey, minimalPayload, CACHE_TTL.PREVIEW_PARTIAL);
+          logger.info('Cached partial preview after error for future requests', { cacheKey, rowCount: minimalPayload.rows.length });
+        }
+      } catch (cacheErr) {
+        logger.warn('Failed to cache partial preview on error', { error: cacheErr.message });
+      }
+    }
 
     const isPreviewError = error instanceof PreviewError || error?.code === 'RATE_LIMIT_COOLDOWN';
     const errorCode = isPreviewError ? (error.code || 'PREVIEW_ERROR') : 'PREVIEW_ERROR';

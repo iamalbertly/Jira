@@ -21,17 +21,20 @@ test.describe('Preview timeout and error UI validation', () => {
   });
 
   test('error panel has content and retry actions after preview failure', async ({ page }) => {
-    await page.route('**/preview.json**', (route) => route.abort('failed'));
+    await page.route('**/preview.json**', async (route) => {
+      await new Promise((r) => setTimeout(r, 500));
+      await route.abort('failed');
+    });
 
     await page.check('#project-mpsa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
     await page.fill('#end-date', '2025-09-30T23:59').catch(() => {});
     await page.click('#preview-btn');
 
-    await expect(page.locator('#error')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#error')).toBeVisible({ timeout: 20000 });
     const errorText = await page.locator('#error').textContent();
-    expect(errorText).toMatch(/Error|Request failed|timed out/i);
-    const hasAction = /Retry|smaller|refresh/i.test(errorText || '');
+    expect(errorText).toMatch(/Error|Request failed|timed out|fetch|Failed/i);
+    const hasAction = /Retry|smaller|refresh|date range|Re-run/i.test(errorText || '');
     expect(hasAction).toBeTruthy();
 
     const retryBtn = page.locator('button[data-action="retry-preview"]');

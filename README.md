@@ -131,6 +131,11 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ## Recent UX & Reliability fixes (2026-02-09)
+- **Export visibility:** Export Excel and export dropdown are hidden until a preview has run successfully; they appear only when there is preview data to export.
+- **Closest-available data banner:** When the server returns a subset cache (e.g. same projects, different date window), the UI shows "Showing closest available data for your selection. Use Full refresh for exact filters."
+- **Loading hint:** Report loading panel shows "Usually ready in under 30s for one quarter." below the progress bar.
+- **Partial-on-error cache:** If a preview request fails or times out, any data already retrieved is cached (when it has more rows than existing cache) so future or repeated requests benefit; partial entries use a shorter TTL (10 min) so full runs can replace them sooner.
+- **Error UI hierarchy:** Error panel promotes "Use smaller date range" and "Re-run exact range"; "View technical details" is demoted to a secondary toggle.
 - **Sticky chips row:** Report applied-filters chips row (and Edit filters) is sticky so filters are always reachable when scrolled.
 - **One empty state:** Report uses a single empty-state message for no done stories with one "Adjust filters" CTA.
 - **Generated X min ago:** Report sticky summary shows freshness (e.g. "Generated just now" or "Generated N min ago") when preview has meta.
@@ -170,7 +175,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 - **Require Resolved by Sprint End**:
   - When this option is enabled, the **Done Stories** tab will explain when no rows passed this filter, and suggests turning it off or reviewing resolution vs sprint end dates in Jira.
 - **Exports and table state**:
-  - Export buttons remain disabled until there is at least one Done story in the preview.
+  - Export buttons are hidden until a preview has run successfully; they then appear and are enabled when there is data to export.
   - If you change filters and end up with no rows, the empty state explains whether this is due to filters, the Require Resolved by Sprint End option, or genuinely no Done stories.
   - Filtered CSV export is disabled when filters match zero rows, with a hint explaining why.
   - Invalid date inputs are caught client-side with a clear error before any request is sent.
@@ -228,6 +233,7 @@ Generates preview data from Jira.
 - `includeEpicTTM` (mandatory): Always `true` - Epic TTM is always included in reports
 - `includeActiveOrMissingEndDateSprints` (optional): `true` or `false`
  - `previewMode` (optional): `normal` (default), `recent-first`, or `recent-only`. Heavy queries automatically prefer `recent-first`/`recent-only` to prioritise the last 14 days while leaning on cache for older history.
+ - `preferCache` (optional): `true` to allow the server to return a best-available subset cache when the exact key misses (response meta includes `reducedScope` / `cacheMatchType`).
  - `clientBudgetMs` (optional): Soft time budget in milliseconds requested by the client; the server clamps this to an internal maximum and uses it as the preview time budget for partial responses.
 
 ### POST /export-excel
@@ -386,6 +392,7 @@ The backend maintains an in-memory TTL cache for several concerns:
   - Start/end window
   - All boolean toggles
   - `predictabilityMode`
+- **Preview Partial (on error/timeout)**: When a request fails or times out, any accumulated rows are cached only if they improve on existing data (more rows); these entries use a 10-minute TTL so a later full run can replace them.
 
 Cached preview responses are immutable snapshots. If Jira data changes within the TTL, those changes will not be reflected until the cache entry expires or the server restarts. This keeps repeated previews (with identical filters) fast and predictable.
 

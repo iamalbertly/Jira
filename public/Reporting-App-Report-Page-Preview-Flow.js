@@ -10,7 +10,9 @@ import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
-import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible } from './Reporting-App-Report-Page-Loading-Steps.js';
+import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
+import { formatDateTimeLocalForInput } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible, setLoadingStage } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState, updateExportHint } from './Reporting-App-Report-Page-Export-Menu.js';
@@ -54,6 +56,7 @@ function showReportError(shortText, detailsText) {
  * When filters change while preview is visible, clear preview and show message so user does not mistake stale data for new selection.
  */
 export function clearPreviewOnFilterChange() {
+  cancelPreviewRequest();
   const { previewContent, errorEl, exportExcelBtn, exportDropdownTrigger } = reportDom;
   if (!previewContent || previewContent.style.display === 'none') return;
   const statusEl = document.getElementById('preview-status');
@@ -71,14 +74,35 @@ export function clearPreviewOnFilterChange() {
     errorEl.style.display = 'none';
     errorEl.innerHTML = '';
   }
+  const stickyEl = document.getElementById('preview-summary-sticky');
+  if (stickyEl) {
+    stickyEl.textContent = '';
+    stickyEl.setAttribute('aria-hidden', 'true');
+  }
+  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
+  if (headerExportBtn) {
+    headerExportBtn.disabled = true;
+    headerExportBtn.style.display = 'none';
+  }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
   const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-  if (headerExportBtn) headerExportBtn.disabled = true;
+  if (headerExportBtn) {
+    headerExportBtn.disabled = true;
+    headerExportBtn.style.display = 'none';
+  }
   updateExportHint();
 }
 
 let previewRunId = 0;
+let currentPreviewController = null;
+
+export function cancelPreviewRequest() {
+  if (currentPreviewController) {
+    try { currentPreviewController.abort(); } catch (_) {}
+    currentPreviewController = null;
+  }
+}
 
 export function initPreviewFlow() {
   const { previewBtn, exportDropdownTrigger, exportExcelBtn, loadingEl, errorEl, previewContent } = reportDom;
@@ -128,16 +152,22 @@ export function initPreviewFlow() {
       const startInput = document.getElementById('start-date');
       const pad = (num) => String(num).padStart(2, '0');
       if (endInput && startInput) {
-        const endValue = endInput.value || '';
-        const endDate = endValue ? new Date(endValue) : new Date();
-        if (endDate && !Number.isNaN(endDate.getTime())) {
-          const newEnd = new Date(endDate);
-          const newStart = new Date(newEnd);
-          newStart.setDate(newStart.getDate() - 30);
-          const startStr = `${newStart.getFullYear()}-${pad(newStart.getMonth() + 1)}-${pad(newStart.getDate())}T00:00`;
-          const endStr = `${newEnd.getFullYear()}-${pad(newEnd.getMonth() + 1)}-${pad(newEnd.getDate())}T23:59`;
-          startInput.value = startStr;
-          endInput.value = endStr;
+        const lastQuery = getValidLastQuery();
+        if (lastQuery && lastQuery.start && lastQuery.end) {
+          startInput.value = formatDateTimeLocalForInput(lastQuery.start);
+          endInput.value = formatDateTimeLocalForInput(lastQuery.end, true);
+        } else {
+          const endValue = endInput.value || '';
+          const endDate = endValue ? new Date(endValue) : new Date();
+          if (endDate && !Number.isNaN(endDate.getTime())) {
+            const newEnd = new Date(endDate);
+            const newStart = new Date(newEnd);
+            newStart.setDate(newStart.getDate() - 30);
+            const startStr = `${newStart.getFullYear()}-${pad(newStart.getMonth() + 1)}-${pad(newStart.getDate())}T00:00`;
+            const endStr = `${newEnd.getFullYear()}-${pad(newEnd.getMonth() + 1)}-${pad(newEnd.getDate())}T23:59`;
+            startInput.value = startStr;
+            endInput.value = endStr;
+          }
         }
       }
       if (previewBtn && !previewBtn.disabled) {
@@ -208,9 +238,10 @@ export function initPreviewFlow() {
     const prevExportExcelDisabled = exportExcelBtn ? exportExcelBtn.disabled : true;
 
     previewBtn.disabled = true;
-    previewBtn.textContent = 'Loading...';
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
+    const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
+    if (headerExportBtn) headerExportBtn.disabled = true;
     updateExportHint();
     setQuickRangeButtonsDisabled(true);
 
@@ -218,10 +249,12 @@ export function initPreviewFlow() {
       requestAnimationFrame(() => {
         if (isLoading) {
           setLoadingVisible(true);
+          setLoadingStage(0, 'Syncing with Jira…');
         }
       });
     }
     if (errorEl) errorEl.style.display = 'none';
+    cancelPreviewRequest();
 
     const hasExistingPreview = !!reportState.previewData && previewContent && previewContent.style.display !== 'none';
     const statusEl = document.getElementById('preview-status');
@@ -240,7 +273,7 @@ export function initPreviewFlow() {
     }
 
     clearLoadingSteps();
-    updateLoadingMessage('Generating report…', 'Finding boards and sprints');
+    setLoadingStage(0, 'Syncing with Jira…');
 
     let params;
     try {
@@ -328,6 +361,9 @@ export function initPreviewFlow() {
     params.previewMode = previewMode;
     const clientBudgetMs = getClientBudgetMs(previewMode, rangeDays);
     params.clientBudgetMs = clientBudgetMs;
+    // Prefer serving any usable cached preview first so users see value faster,
+    // especially on heavy ranges, while the server refreshes in the background.
+    params.preferCache = 'true';
 
     const queryString = new URLSearchParams(params).toString();
     const cacheKey = `${cachePrefix}${queryString}`;
@@ -396,8 +432,19 @@ export function initPreviewFlow() {
         window.dispatchEvent(new CustomEvent('report-preview-shown', { detail: { hasRows: reportState.previewHasRows } }));
         updateRangeHint();
       } catch (_) {}
-      if (exportExcelBtn) exportExcelBtn.disabled = !reportState.previewHasRows;
-      if (exportDropdownTrigger) exportDropdownTrigger.disabled = !reportState.previewHasRows;
+      if (exportExcelBtn) {
+        exportExcelBtn.disabled = !reportState.previewHasRows;
+        exportExcelBtn.style.display = reportState.previewHasRows ? '' : 'none';
+      }
+      if (exportDropdownTrigger) {
+        exportDropdownTrigger.disabled = !reportState.previewHasRows;
+        exportDropdownTrigger.style.display = reportState.previewHasRows ? '' : 'none';
+      }
+      const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
+      if (headerExportBtn) {
+        headerExportBtn.disabled = !reportState.previewHasRows;
+        headerExportBtn.style.display = reportState.previewHasRows ? '' : 'none';
+      }
       updateExportHint();
       updateExportFilteredState();
     };
@@ -415,9 +462,10 @@ export function initPreviewFlow() {
     }
 
     try {
-      updateLoadingMessage('Fetching data from Jira...', 'Loading done stories');
+      setLoadingStage(1, 'Gathering sprint history…');
 
       const controller = new AbortController();
+      currentPreviewController = controller;
       timeoutMs = typeof clientBudgetMs === 'number' && clientBudgetMs > 0
         ? clientBudgetMs
         : PREVIEW_TIMEOUT_LIGHT_MS;
@@ -427,12 +475,30 @@ export function initPreviewFlow() {
       }, timeoutMs);
 
       let elapsedSeconds = 0;
+      let softTimeoutShown = false;
       progressInterval = setInterval(() => {
         elapsedSeconds += 2;
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
         const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-        updateLoadingMessage(`Fetching data from Jira... (${timeStr})`, null);
+        updateLoadingMessage(`Gathering sprint history… (${timeStr})`, null);
+
+        // Soft-timeout hint after ~20 seconds to offer a faster, smaller range
+        if (!softTimeoutShown && elapsedSeconds >= 20) {
+          softTimeoutShown = true;
+          if (statusEl && runIdForThisRequest === previewRunId) {
+            statusEl.innerHTML = `
+              <div class="status-banner info">
+                This preview is taking longer than usual. For a faster answer, you can use a smaller date window.
+                <div class="status-banner-actions">
+                  <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller range</button>
+                  <button type="button" class="status-close" aria-label="Keep waiting">Keep waiting</button>
+                </div>
+              </div>
+            `;
+            statusEl.style.display = 'block';
+          }
+        }
       }, 2000);
 
       // Emit telemetry that a preview fetch is starting (captured by tests)
@@ -442,8 +508,9 @@ export function initPreviewFlow() {
 
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
+      currentPreviewController = null;
 
-      updateLoadingMessage('Processing response...', 'Computing metrics');
+      setLoadingStage(2, 'Computing delivery metrics…');
 
       const { data: responseJson, text: responseText } = await readResponseJson(response);
 
@@ -479,7 +546,7 @@ export function initPreviewFlow() {
         throw err;
       }
 
-      updateLoadingMessage('Rendering preview...', null);
+      setLoadingStage(3, 'Preparing your report…');
 
       if (!responseJson) {
         throw new Error('Preview response was not valid JSON. Please check server logs and try again.');
@@ -487,7 +554,7 @@ export function initPreviewFlow() {
 
       writeCachedPreview(responseJson);
 
-      updateLoadingMessage('Finalizing...', null);
+      setLoadingStage(4, 'Final checks…');
       if (runIdForThisRequest === previewRunId) applyPreviewPayload(responseJson);
       try {
         const params = collectFilterParams();
@@ -507,6 +574,7 @@ export function initPreviewFlow() {
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
+      currentPreviewController = null;
 
       if (loadingEl) {
         loadingEl.style.display = 'none';
@@ -517,7 +585,11 @@ export function initPreviewFlow() {
       let errorMsg = (error && error.message) ? String(error.message) : 'Failed to fetch preview. Please try again.';
       if (error && error.name === 'AbortError') {
         const seconds = (typeof timeoutMs === 'number' && timeoutMs > 0) ? Math.round(timeoutMs / 1000) : 60;
-        errorMsg = `Preview ran longer than ${seconds}s. We kept your last full results on-screen; try a smaller date range or fewer projects.`;
+        if (hasExistingPreview) {
+          errorMsg = `Preview timed out after ${seconds}s. Your previous results are still shown below. For a faster answer, use a smaller date window or fewer projects.`;
+        } else {
+          errorMsg = `Preview timed out after ${seconds}s before any results were ready. Try a smaller date window or fewer projects.`;
+        }
       }
 
       try { emitTelemetry('preview.failure', { message: errorMsg || String(error) }); } catch (_) {}
@@ -538,9 +610,9 @@ export function initPreviewFlow() {
             <p style="margin: 8px 0 0 0;">${escapeHtml(errorMsg)}</p>
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
               <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller date range</button>
-              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry same range</button>
+              <button type="button" data-action="retry-preview" class="btn btn-compact">Re-run exact range</button>
             </div>
-            <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">Technical details</button>
+            <button type="button" class="btn btn-secondary btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">View technical details</button>
             <div class="error-details" hidden><pre style="margin: 4px 0; white-space: pre-wrap;">${escapeHtml(errorMsg)}</pre><button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button></div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
@@ -574,7 +646,7 @@ export function initPreviewFlow() {
       }
     } finally {
       isLoading = false;
-      // Strongly ensure loading elements are hidden and steps cleared to avoid spinner hangs
+      currentPreviewController = null;
       try {
         hideLoadingIfVisible();
         clearLoadingSteps();
@@ -584,13 +656,18 @@ export function initPreviewFlow() {
       if (progressInterval) clearInterval(progressInterval);
 
       previewBtn.disabled = false;
-      previewBtn.textContent = 'Preview report';
+      if (typeof window.__refreshReportingContextBar === 'function') window.__refreshReportingContextBar();
       setQuickRangeButtonsDisabled(false);
 
-      // Export enabled only when preview has rows; prevents export before data is ready.
       const hasRows = Array.isArray(reportState.previewRows) && reportState.previewRows.length > 0;
-      if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
-      if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;
+      if (exportDropdownTrigger) {
+        exportDropdownTrigger.disabled = !hasRows;
+        exportDropdownTrigger.style.display = hasRows ? '' : 'none';
+      }
+      if (exportExcelBtn) {
+        exportExcelBtn.disabled = !hasRows;
+        exportExcelBtn.style.display = hasRows ? '' : 'none';
+      }
       updateExportHint();
     }
   });

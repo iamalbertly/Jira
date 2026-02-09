@@ -53,10 +53,21 @@ test.describe('UX Report Flow & Export Experience', () => {
     expect(['project-search', 'start-date', 'end-date']).toContain(activeId);
   });
 
-  test('primary export CTAs are labeled as Export Excel – All data', async ({ page }) => {
+  test('export CTAs are hidden until preview has run then show Export Excel – All data', async ({ page }) => {
     await page.goto('/report');
 
+    await expect(page.locator('#export-excel-btn')).toBeHidden();
+    await expect(page.locator('#preview-header-export-excel-btn')).toBeHidden();
+
+    await page.check('#project-mpsa').catch(() => {});
+    await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
+    await page.fill('#end-date', '2025-09-30T23:59').catch(() => {});
+    await page.click('#preview-btn');
+    await expect(page.locator('#preview-content')).toBeVisible({ timeout: 60000 });
+
+    await expect(page.locator('#export-excel-btn')).toBeVisible();
     await expect(page.locator('#export-excel-btn')).toContainText('Export Excel – All data');
+    await expect(page.locator('#preview-header-export-excel-btn')).toBeVisible();
     await expect(page.locator('#preview-header-export-excel-btn')).toContainText('Export Excel – All data');
   });
 
