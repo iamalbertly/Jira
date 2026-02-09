@@ -13,7 +13,7 @@ import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.j
 
 function updateAppliedFiltersSummary() {
   const el = document.getElementById('applied-filters-summary');
-  if (!el) return;
+  const chipsEl = document.getElementById('applied-filters-chips');
   const projects = getSelectedProjects();
   const startInput = document.getElementById('start-date');
   const endInput = document.getElementById('end-date');
@@ -24,10 +24,14 @@ function updateAppliedFiltersSummary() {
   if (document.getElementById('include-predictability')?.checked) opts.push('Include Predictability');
   const projLabel = projects.length ? projects.join(', ') : 'None';
   const rangeLabel = startVal && endVal ? startVal.slice(0, 10) + ' – ' + endVal.slice(0, 10) : '';
-  if (projLabel !== 'None' && rangeLabel) {
-    el.textContent = 'Applied: ' + projLabel + ' · ' + rangeLabel + (opts.length ? ' · ' + opts.join(', ') : '');
-  } else {
-    el.textContent = 'Select projects and dates, then preview.';
+  const summaryText = (projLabel !== 'None' && rangeLabel)
+    ? 'Applied: ' + projLabel + ' · ' + rangeLabel + (opts.length ? ' · ' + opts.join(', ') : '')
+    : 'Select projects and dates, then preview.';
+  if (el) {
+    el.textContent = summaryText;
+  }
+  if (chipsEl) {
+    chipsEl.textContent = summaryText;
   }
 }
 
@@ -84,6 +88,20 @@ function initReportPage() {
   initSearchClearButtons();
   renderNotificationDock();
   applyDoneStoriesOptionalColumnsPreference();
+
+  const editFiltersBtn = document.getElementById('applied-filters-edit-btn');
+  if (editFiltersBtn) {
+    editFiltersBtn.addEventListener('click', () => {
+      const panel = document.getElementById('filters-panel');
+      const firstField = document.getElementById('project-search') || document.getElementById('start-date');
+      if (panel && typeof panel.scrollIntoView === 'function') {
+        try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { panel.scrollIntoView(true); }
+      }
+      if (firstField && typeof firstField.focus === 'function') {
+        firstField.focus();
+      }
+    });
+  }
 
   function onFilterChange() {
     updateAppliedFiltersSummary();

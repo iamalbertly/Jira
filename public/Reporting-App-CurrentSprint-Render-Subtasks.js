@@ -93,15 +93,18 @@ function buildMergedWorkRiskRows(data) {
 
 export function renderWorkRisksMerged(data) {
   const rows = buildMergedWorkRiskRows(data);
-  const initialLimit = 12;
+  const initialLimit = 20;
   const toShow = rows.slice(0, initialLimit);
   const remaining = rows.slice(initialLimit);
 
   let html = '<div class="transparency-card" id="stuck-card">';
-  html += '<div id="scope-changes-card"><p class="meta-row"><small>Scope changes are merged into this unified risk view.</small></p></div>';
-  html += '<div id="subtask-tracking-card"><p class="meta-row"><small>Sub-task tracking risks are merged into this unified risk view.</small></p></div>';
+  html += '<div class="meta-row">';
+  html += '<small id="scope-changes-card">Scope changes merged</small>';
+  html += '<small id="subtask-tracking-card"> | Sub-task tracking risks merged</small>';
+  html += '</div>';
   html += '<h2>Work risks (Scope + Stuck + Sub-task + Sprint issues)</h2>';
   html += '<p class="section-definition"><small>Scope changes, items stuck >24h, sub-task time-tracking risks, and in-sprint ownership gaps in one place.</small></p>';
+  html += '<p class="meta-row"><small>Items stuck in progress for more than 24 hours are included in this table.</small></p>';
 
   if (!rows.length) {
     html += '<p>No risks detected from scope changes, flow, sub-task tracking, or issue ownership.</p>';

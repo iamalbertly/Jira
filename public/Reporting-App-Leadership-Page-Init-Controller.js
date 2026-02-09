@@ -103,7 +103,7 @@ function updateLeadershipSortIndicator(table, colIndex, dir) {
   const labelEl = document.getElementById('leadership-sort-label');
   if (labelEl) {
     const colName = LEADERSHIP_COL_LABELS[colIndex] || ('Column ' + (colIndex + 1));
-    labelEl.textContent = 'Sorted by ' + colName + (dir === 'asc' ? ' \u25B2' : ' \u25BC');
+    labelEl.textContent = 'Click any column header to sort. Sorted by ' + colName + (dir === 'asc' ? ' \u25B2' : ' \u25BC');
   }
 }
 

@@ -12,15 +12,13 @@
       <div class="header-row">
         <div>
           <h1>General Performance</h1>
-          <p id="report-subtitle" class="subtitle">Select projects and date range, then click Preview report.</p>
+          <p id="report-subtitle" class="subtitle">Choose projects and a date range; the report refreshes automatically. Use Preview report if you want manual control.</p>
         </div>
         <button id="feedback-toggle" class="btn btn-secondary btn-compact">Give Feedback</button>
       </div>
       <nav class="app-nav" aria-label="Main">
         <span class="current">Report</span>
-        <span style="margin: 0 8px;">|</span>
         <a href="/current-sprint">Current Sprint (Squad)</a>
-        <span style="margin: 0 8px;">|</span>
         <a href="/sprint-leadership">Leadership</a>
       </nav>
       <div id="feedback-panel" class="feedback-panel" style="display: none;">
@@ -51,7 +49,7 @@
         </div>
         <div class="filters-panel-body" id="filters-panel-body">
         <h2>Filters</h2>
-        <p class="filters-tip"><small>Start here: 1) choose projects, 2) adjust dates, 3) click <strong>Preview report</strong>, 4) use Excel export.</small></p>
+        <p class="filters-tip"><small>Start here: 1) choose projects, 2) pick a Vodacom quarter or custom dates, 3) review the auto-refreshed preview, 4) use Excel export.</small></p>
         <div class="filter-group">
           <h3>Projects</h3>
           <div class="project-tools">
@@ -66,6 +64,7 @@
             <div id="projects-selection-status" class="selection-status"></div>
             <div id="projects-no-match" class="selection-status" style="display: none;">No projects match your search.</div>
           </div>
+          <p class="project-group-label"><small>Most used</small></p>
           <label class="checkbox-label">
             <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
             <span class="project-code">MPSA</span>
@@ -76,6 +75,7 @@
             <span class="project-code">MAS</span>
             <span class="project-desc">Mini - Apps Squad</span>
           </label>
+          <p class="project-group-label"><small>Other squads</small></p>
           <label class="checkbox-label">
             <input type="checkbox" id="project-rpa" class="project-checkbox" data-project="RPA">
             <span class="project-code">RPA</span>
@@ -130,7 +130,7 @@
 
         <div class="filter-group">
           <h3>Date Window</h3>
-          <p class="quick-range-hint"><small>Select a quarter or enter dates manually.</small></p>
+          <p class="quick-range-hint"><small>Recommended: pick a Vodacom quarter; use custom dates only when you need a special window.</small></p>
           <div class="quick-range-strip" role="group" aria-label="Vodacom quarters">
             <div class="quarter-strip-inner" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;"></div>
           </div>
@@ -181,7 +181,7 @@
         <div class="button-group filters-actions">
           <button id="preview-btn" class="btn btn-primary">Preview report</button>
           <div class="export-split-group">
-            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled>Export</button>
+            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled>Export Excel – All data</button>
             <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled>Options &#9662;</button>
             <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
               <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
@@ -196,6 +196,10 @@
 
       <!-- Preview Area -->
       <main class="preview-area">
+        <div class="applied-filters-chips-row">
+          <div id="applied-filters-chips" class="applied-filters-chips" aria-live="polite"></div>
+          <button type="button" id="applied-filters-edit-btn" class="btn btn-secondary btn-compact">Edit filters</button>
+        </div>
         <div id="loading" class="loading" style="display: none;">
           <div class="spinner"></div>
           <p id="loading-message">Loading preview data...</p>
@@ -209,7 +213,7 @@
           <div class="preview-header">
             <div id="preview-meta"></div>
             <div class="preview-header-export-wrap">
-              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export">Export</button>
+              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export">Export Excel – All data</button>
             </div>
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>

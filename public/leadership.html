@@ -13,8 +13,6 @@
     .leadership-filters input, .leadership-filters select { padding: 8px; border-radius: var(--radius); border: 1px solid var(--border); }
     .leadership-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
     .leadership-card h2 { color: var(--primary); font-size: 1.15rem; margin-bottom: 12px; }
-    .nav-link { color: var(--primary); text-decoration: none; font-size: 0.9em; }
-    .nav-link:hover { text-decoration: underline; }
     #leadership-loading, #leadership-error { padding: 20px; text-align: center; color: var(--muted); }
     #leadership-error { color: var(--danger); }
     .metrics-hint { font-size: 0.9em; color: var(--muted); margin-bottom: 12px; }
@@ -26,7 +24,7 @@
       <div class="leadership-header">
         <div>
           <h1>Sprint Leadership View</h1>
-          <p class="subtitle">Normalized trends, risk signals. No rankings or individual comparison.</p>
+          <p class="subtitle">Trend view for boards – normalized delivery, predictability, and risk signals. No rankings or individual comparison.</p>
         </div>
       </div>
       <div class="leadership-filters">
@@ -57,11 +55,9 @@
         <input type="date" id="leadership-end">
         <button id="leadership-preview" class="btn btn-primary">Preview</button>
       </div>
-      <nav class="app-nav" style="margin-top: 8px;" aria-label="Main">
+      <nav class="app-nav" aria-label="Main">
         <a href="/report">Report</a>
-        <span style="margin: 0 8px;">|</span>
         <a href="/current-sprint">Current Sprint (Squad)</a>
-        <span style="margin: 0 8px;">|</span>
         <span class="current">Leadership</span>
       </nav>
     </header>
@@ -71,6 +67,7 @@
       <div id="leadership-content"></div>
     </main>
   </div>
+  <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
   <script type="module" src="Reporting-App-Leadership-Page-Init-Controller.js"></script>
 </body>
 </html>

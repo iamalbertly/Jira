@@ -27,10 +27,6 @@ import {
   persistSelection,
 } from './Reporting-App-CurrentSprint-Page-Storage.js';
 
-let currentBoardId = null;
-let currentSprintId = null;
-let currentData = null; // Store current data for handlers
-
 function addLoginLink() {
   const { errorEl } = currentSprintDom;
   if (!errorEl || errorEl.querySelector('a.nav-link')) return;
@@ -47,8 +43,6 @@ function addLoginLink() {
  * Wire all new redesign component handlers
  */
 function wireRedesignHandlers(data) {
-  currentData = data;
-  
   // Wire all new components
   wireHeaderBarHandlers();
   wireHealthDashboardHandlers();
@@ -63,16 +57,7 @@ function wireRedesignHandlers(data) {
   
   // Wire carousel with sprint selection callback
   wireSprintCarouselHandlers((sprintId) => {
-    currentSprintId = sprintId;
-    persistSelection(currentBoardId, sprintId);
-    showLoading('Loading sprint...');
-    loadCurrentSprint(currentBoardId, sprintId)
-      .then((data) => {
-        showRenderedContent(data);
-      })
-      .catch((err) => {
-        showError(err.message || 'Failed to load sprint.');
-      });
+    initHandlers.selectSprintById(sprintId);
   });
   
   // Wire export handlers
@@ -87,14 +72,107 @@ function showRenderedContent(data) {
   const summary = updateNotificationStore(data);
   renderNotificationDock({ summary });
   wireDynamicHandlers(data);
-  
-  // NEW: Wire all redesign component handlers
   wireRedesignHandlers(data);
-
-  // Wire legacy template loaders if present
   if (window._legacyTemplates) {
     wireLegacyTemplateLoaders();
   }
+}
+
+let currentBoardId = null;
+let currentSprintId = null;
+let lastBoardsRefreshRequestId = 0;
+
+function normalizeProjects(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value
+    .split(',')
+    .map((p) => (p || '').trim())
+    .filter(Boolean)
+    .sort()
+    .join(',');
+}
+
+function setBoardSelectCouldntLoad() {
+  const { boardSelect } = currentSprintDom;
+  if (!boardSelect) return;
+  boardSelect.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = '';
+  opt.textContent = "Couldn't load boards";
+  boardSelect.appendChild(opt);
+}
+
+function appendRetryToError(preferredId, preferredSprintId) {
+  try {
+    const { errorEl } = currentSprintDom;
+    if (errorEl && !errorEl.querySelector('.retry-btn')) {
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn btn-primary btn-sm retry-btn';
+      retry.textContent = 'Retry';
+      retry.style.marginLeft = '8px';
+      retry.addEventListener('click', () => {
+        retry.disabled = true;
+        retry.textContent = 'Retrying...';
+        clearError();
+        refreshBoards(preferredId, preferredSprintId).finally(() => {
+          retry.disabled = false;
+          retry.textContent = 'Retry';
+        });
+      });
+      errorEl.appendChild(retry);
+    }
+  } catch (_) {}
+}
+
+function refreshBoards(preferredId, preferredSprintId) {
+  const requestId = ++lastBoardsRefreshRequestId;
+  const { boardSelect } = currentSprintDom;
+  showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
+  return loadBoards()
+    .then((res) => {
+      if (requestId !== lastBoardsRefreshRequestId) return null;
+      const boards = res.boards || [];
+      if (!boardSelect) return null;
+      boardSelect.innerHTML = '';
+      boardSelect.appendChild(document.createElement('option'));
+      const opt0 = boardSelect.querySelector('option');
+      opt0.value = '';
+      opt0.textContent = '- Select board -';
+      boards.forEach((b) => {
+        const opt = document.createElement('option');
+        opt.value = String(b.id);
+        opt.textContent = (b.name || 'Board ' + b.id) + (b.projectKey ? ' (' + b.projectKey + ')' : '');
+        boardSelect.appendChild(opt);
+      });
+      if (!boards.length) {
+        setBoardSelectCouldntLoad();
+        showError('No boards found for the selected projects.');
+        appendRetryToError(preferredId, preferredSprintId);
+        return null;
+      }
+      const boardIds = boards.map((b) => String(b.id));
+      const boardId = preferredId && boardIds.includes(preferredId) ? preferredId : boardIds[0];
+      boardSelect.value = boardId;
+      currentBoardId = boardId;
+      showLoading('Loading current sprint...');
+      const sprintRequestId = ++lastBoardsRefreshRequestId;
+      return loadCurrentSprint(boardId, preferredSprintId).then((data) => {
+        if (sprintRequestId !== lastBoardsRefreshRequestId) return null;
+        currentSprintId = data?.sprint?.id || null;
+        persistSelection(currentBoardId, currentSprintId);
+        showRenderedContent(data);
+        return null;
+      });
+    })
+    .catch((err) => {
+      const msg = err.message || 'Failed to load boards.';
+      setBoardSelectCouldntLoad();
+      showError(msg || "Couldn't load boards.");
+      if ((msg || '').includes('Session expired')) addLoginLink();
+      appendRetryToError(preferredId, preferredSprintId);
+      return null;
+    });
 }
 
 function onBoardChange() {
@@ -110,108 +188,15 @@ function onBoardChange() {
   showLoading('Loading current sprint...');
   loadCurrentSprint(boardId)
     .then((data) => {
+      currentSprintId = data?.sprint?.id || null;
+      persistSelection(currentBoardId, currentSprintId);
       showRenderedContent(data);
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load current sprint.';
       showError(msg);
-      if ((msg || '').includes('Session expired')) {
-        addLoginLink();
-      }
+      if ((msg || '').includes('Session expired')) addLoginLink();
     });
-}
-
-let __lastBoardsRefreshRequestId = 0;
-
-function refreshBoards(preferredId, preferredSprintId) {
-  const requestId = ++__lastBoardsRefreshRequestId;
-  const { boardSelect } = currentSprintDom;
-  showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
-  function setBoardSelectCouldntLoad() {
-    if (!boardSelect) return;
-    boardSelect.innerHTML = '';
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = "Couldn't load boards";
-    boardSelect.appendChild(opt);
-  }
-
-  function appendRetryToError() {
-    try {
-      const { errorEl } = currentSprintDom;
-      if (errorEl && !errorEl.querySelector('.retry-btn')) {
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'btn btn-primary btn-sm retry-btn';
-        retry.textContent = 'Retry';
-        retry.style.marginLeft = '8px';
-        retry.addEventListener('click', () => {
-          try { if (typeof window !== 'undefined') window.__retryClicked = (window.__retryClicked || 0) + 1; } catch (_) {}
-          retry.disabled = true;
-          retry.textContent = 'Retrying...';
-          clearError();
-          refreshBoards(preferredId, preferredSprintId).finally(() => {
-            try { retry.disabled = false; retry.textContent = 'Retry'; } catch (_) {}
-          });
-        });
-        errorEl.appendChild(retry);
-      }
-    } catch (_) {}
-  }
-
-  return loadBoards()
-    .then((res) => {
-      // Ignore if a newer refresh was started
-      if (requestId !== __lastBoardsRefreshRequestId) return null;
-      const boards = res.boards || [];
-      if (!boardSelect) return null;
-      boardSelect.innerHTML = '';
-      boardSelect.appendChild(document.createElement('option'));
-      const opt0 = boardSelect.querySelector('option');
-      opt0.value = '';
-      opt0.textContent = '- Select board -';
-      boards.forEach((b) => {
-        const opt = document.createElement('option');
-        opt.value = String(b.id);
-        opt.textContent = (b.name || 'Board ' + b.id) + (b.projectKey ? ' (' + b.projectKey + ')' : '');
-        boardSelect.appendChild(opt);
-      });
-      if (boards.length > 0) {
-        const boardIds = boards.map(b => String(b.id));
-        const idToSelect = preferredId && boardIds.indexOf(preferredId) !== -1 ? preferredId : boardIds[0];
-        boardSelect.value = idToSelect;
-        currentBoardId = idToSelect;
-        showLoading('Loading current sprint...');
-        const myRequestId = ++__lastBoardsRefreshRequestId; // increment to mark sprint load
-        return loadCurrentSprint(idToSelect, preferredSprintId)
-          .then((data) => {
-            // ensure still the latest
-            if (myRequestId !== __lastBoardsRefreshRequestId) return null;
-            currentSprintId = data?.sprint?.id || null;
-            persistSelection(currentBoardId, currentSprintId);
-            showRenderedContent(data);
-          });
-      }
-      setBoardSelectCouldntLoad();
-      showError("Couldn't load boards.");
-      appendRetryToError();
-      return null;
-    })
-    .catch((err) => {
-      const msg = err.message || 'Failed to load boards.';
-      setBoardSelectCouldntLoad();
-      showError(msg || "Couldn't load boards.");
-      if ((msg || '').includes('Session expired')) {
-        addLoginLink();
-      }
-      appendRetryToError();
-      return null;
-    });
-}
-
-function normalizeProjects(value) {
-  if (!value || typeof value !== 'string') return '';
-  return value.split(',').map(p => (p || '').trim()).filter(Boolean).sort().join(',');
 }
 
 function updateProjectHint() {
@@ -224,7 +209,7 @@ function updateProjectHint() {
     return;
   }
   if (current === stored) {
-    hintEl.innerHTML = '<span class="same-as-report-label">Same as Report</span>';
+    hintEl.innerHTML = '<span class="same-as-report-label">Boards are filtered to match your Report projects (Same as Report).</span>';
     return;
   }
   const btn = document.createElement('button');
@@ -268,50 +253,81 @@ function onSprintTabClick(event) {
     });
 }
 
+function handleRefreshSprint() {
+  if (!currentBoardId) return;
+  const refreshBtn = document.querySelector('.header-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing...';
+  }
+  showLoading('Refreshing sprint...');
+  loadCurrentSprint(currentBoardId, currentSprintId)
+    .then((data) => {
+      currentSprintId = data?.sprint?.id || null;
+      persistSelection(currentBoardId, currentSprintId);
+      showRenderedContent(data);
+    })
+    .catch((err) => {
+      showError(err.message || 'Failed to refresh sprint.');
+    })
+    .finally(() => {
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh';
+      }
+    });
+}
+
+function selectSprintById(sprintId) {
+  if (!currentBoardId || !sprintId) return;
+  currentSprintId = sprintId;
+  persistSelection(currentBoardId, sprintId);
+  showLoading('Loading sprint...');
+  loadCurrentSprint(currentBoardId, sprintId)
+    .then((data) => {
+      showRenderedContent(data);
+    })
+    .catch((err) => {
+      showError(err.message || 'Failed to load sprint.');
+    });
+}
+
+const initHandlers = {
+  refreshBoards,
+  onBoardChange,
+  updateProjectHint,
+  onProjectsChange,
+  onSprintTabClick,
+  handleRefreshSprint,
+  selectSprintById,
+};
+
 function init() {
   const { boardSelect, contentEl, projectsSelect } = currentSprintDom;
   const preferredId = getPreferredBoardId();
   const preferredSprintId = getPreferredSprintId();
   syncProjectsSelect(getStoredProjects());
-  refreshBoards(preferredId, preferredSprintId)
+  initHandlers.refreshBoards(preferredId, preferredSprintId)
     .catch((err) => {
       showError(err.message || 'Failed to load current sprint.');
     });
 
-  updateProjectHint();
-  if (boardSelect) boardSelect.addEventListener('change', onBoardChange);
-  if (contentEl) contentEl.addEventListener('click', onSprintTabClick);
-  // Listen for refresh events from header bar or other components
-  document.addEventListener('refreshSprint', () => {
-    if (!currentBoardId) return;
-    const refreshBtn = document.querySelector('.header-refresh-btn');
-    if (refreshBtn) {
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = 'Refreshing…';
-    }
-    showLoading('Refreshing sprint...');
-    loadCurrentSprint(currentBoardId, currentSprintId)
-      .then((data) => {
-        showRenderedContent(data);
-      })
-      .catch((err) => {
-        showError(err.message || 'Failed to refresh sprint.');
-      })
-      .finally(() => {
-        if (refreshBtn) {
-          refreshBtn.disabled = false;
-          refreshBtn.textContent = 'Refresh';
-        }
-      });
-  });
+  initHandlers.updateProjectHint();
+  if (boardSelect) boardSelect.addEventListener('change', initHandlers.onBoardChange);
+  if (contentEl) contentEl.addEventListener('click', initHandlers.onSprintTabClick);
+  document.addEventListener('refreshSprint', initHandlers.handleRefreshSprint);
   if (projectsSelect) {
-    projectsSelect.addEventListener('change', onProjectsChange);
+    projectsSelect.addEventListener('change', initHandlers.onProjectsChange);
   }
   const { projectsKey } = currentSprintKeys;
   window.addEventListener('storage', (event) => {
     if (event.key === projectsKey) {
       syncProjectsSelect(event.newValue || '');
-      onProjectsChange();
+      const hintEl = document.getElementById('current-sprint-project-hint');
+      if (hintEl) {
+        hintEl.innerHTML = '<span class="same-as-report-label">Projects updated to match Report; reloading boards…</span>';
+      }
+      initHandlers.onProjectsChange();
     }
   });
 }

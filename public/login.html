@@ -10,10 +10,13 @@
     .login-container h1 { margin-bottom: 0.5rem; }
     .login-container .subtitle { color: #666; margin-bottom: 1rem; }
     .login-outcome-line { font-size: 0.95rem; color: #444; margin-bottom: 1.5rem; }
+    .login-trust-line { font-size: 0.85rem; color: #555; margin-bottom: 1rem; }
+    .login-footer { margin-top: 1.5rem; font-size: 0.8rem; color: #777; }
     .login-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
     .login-form input[type="text"], .login-form input[type="password"] { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
     .login-form button { width: 100%; padding: 0.6rem; cursor: pointer; }
     .login-error { color: #c00; margin-bottom: 1rem; }
+    .caps-warning { font-size: 0.8rem; color: #b7791f; margin-top: -0.25rem; margin-bottom: 0.75rem; display: none; }
     .honeypot { position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none; }
   </style>
 </head>
@@ -21,8 +24,9 @@
   <div class="container login-container">
     <header>
       <h1>VodaAgileBoard</h1>
-      <p class="subtitle">Sprint insights from Jira for Voda squads. Sign in to continue.</p>
-      <p class="login-outcome-line">After sign-in you can run reports, view current sprint health, and leadership trends.</p>
+      <p class="subtitle">See sprint risks and delivery trends for your squads in under 30 seconds.</p>
+      <p class="login-outcome-line">After sign-in you can: run General Performance reports, check Current Sprint health, and review Leadership trends in one place.</p>
+      <p class="login-trust-line">Internal-only. Secured with session cookies; your Jira credentials are never stored in the browser.</p>
     </header>
     <form class="login-form" action="/login" method="post" id="login-form">
       <div id="login-error" class="login-error" style="display: none;"></div>
@@ -30,6 +34,7 @@
       <input type="text" id="username" name="username" autocomplete="username" required>
       <label for="password">Password</label>
       <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <p id="caps-warning" class="caps-warning">Caps Lock may be on. This can cause your password to be rejected.</p>
       <div class="honeypot" aria-hidden="true">
         <label for="website">Website</label>
         <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
@@ -37,6 +42,7 @@
       <input type="hidden" name="redirect" value="">
       <button type="submit" id="login-submit">Sign in</button>
     </form>
+    <p class="login-footer">Owned by Agile &amp; Digital PMO · Internal use only. Need access? Contact your VodaAgileBoard admin.</p>
   </div>
   <script>
     var q = new URLSearchParams(window.location.search);
@@ -45,19 +51,34 @@
     var err = q.get('error');
     if (err) {
       var el = document.getElementById('login-error');
-      var context = 'Sign-in failed';
-      if (err === 'invalid') context = 'Sign-in failed';
-      else if (err === 'bot') context = 'Security check did not pass';
-      else if (err === 'timeout') context = 'Session expired';
-      el.textContent = context + '. Check your credentials or request access from your admin.';
+      var message = 'Sign-in failed. Check your credentials or request access from your admin.';
+      if (err === 'invalid') {
+        message = 'Username or password incorrect. Try again or contact your admin for access.';
+      } else if (err === 'bot') {
+        message = 'Security check did not pass. Submit the form normally without autofill or bots.';
+      } else if (err === 'timeout') {
+        message = 'Session expired. Sign in again to reload your last report and rerun any previews if needed.';
+      }
+      el.textContent = message;
       el.style.display = 'block';
     }
     var form = document.getElementById('login-form');
     var submitBtn = document.getElementById('login-submit');
+    var passwordInput = document.getElementById('password');
+    var capsWarning = document.getElementById('caps-warning');
     if (form && submitBtn) {
       form.addEventListener('submit', function () {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Signing in...';
+      });
+    }
+    if (passwordInput && capsWarning && passwordInput.addEventListener) {
+      passwordInput.addEventListener('keyup', function (event) {
+        if (event && event.getModifierState && event.getModifierState('CapsLock')) {
+          capsWarning.style.display = 'block';
+        } else {
+          capsWarning.style.display = 'none';
+        }
       });
     }
   </script>

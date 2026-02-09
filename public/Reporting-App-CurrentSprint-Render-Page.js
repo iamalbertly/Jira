@@ -20,9 +20,9 @@ export function renderCurrentSprintPage(data) {
     return (
       '<div class="transparency-card">' +
       renderEmptyStateHtml(
-        'No sprint',
-        'No active or recent closed sprint for this board. Try another board or check back later.',
-        ''
+        'No active sprint',
+        'There is no active sprint on this board right now.',
+        'Try the previous sprint tab in the carousel above or select a different board.'
       ) +
       '</div>'
     );
@@ -31,7 +31,37 @@ export function renderCurrentSprintPage(data) {
   updateHeader(data.sprint);
 
   let html = '';
-  html += '<p class="current-sprint-outcome-line" aria-live="polite">Sprint health at a glance. Use Burndown and Stuck for standup.</p>';
+  const summary = data.summary || {};
+  const tracking = data.subtaskTracking || {};
+  const trackingRows = tracking.rows || [];
+  const trackingSummary = tracking.summary || {};
+  const stuckCount = (data.stuckCandidates || []).length || 0;
+  const missingEstimates = trackingRows.filter((r) => !r.estimateHours || r.estimateHours === 0).length;
+  const missingLoggedItems = trackingRows.filter((r) => !r.loggedHours || r.loggedHours === 0).length;
+  const percentDone = typeof summary.percentDone === 'number' ? summary.percentDone : 0;
+
+  let healthLabel = 'Healthy';
+  let healthClass = 'healthy';
+  const signals = [];
+  if (stuckCount > 0) signals.push(stuckCount + ' stuck >24h');
+  if (missingEstimates > 0) signals.push(missingEstimates + ' missing estimates');
+  if (missingLoggedItems > 0) signals.push(missingLoggedItems + ' with no log');
+  if (percentDone < 50 && (summary.totalStories || 0) > 0) signals.push('less than half of stories done');
+
+  const riskCount = signals.length;
+  if (riskCount >= 2) {
+    healthLabel = 'Needs attention';
+    healthClass = 'needs-attention';
+  } else if (riskCount === 1) {
+    healthLabel = 'At risk';
+    healthClass = 'at-risk';
+  }
+
+  const signalsText = riskCount > 0
+    ? 'Signals: ' + signals.join(' · ') + '. See the merged Work risks card for details.'
+    : 'No major risks detected. Use Work risks to confirm any emerging issues.';
+
+  html += '<p class="current-sprint-outcome-line sprint-health-' + healthClass + '" aria-live="polite">Sprint health: ' + healthLabel + '. ' + signalsText + '</p>';
   // NEW: Header bar (sticky) with sprint metadata
   html += renderHeaderBar(data);
   
@@ -62,10 +92,7 @@ export function renderCurrentSprintPage(data) {
   // SECONDARY: Burndown and Scope (2-column row)
   html += '<div class="sprint-cards-row secondary-row">';
   html += '<div class="card-column burndown-column">' + renderBurndown(data) + '</div>';
-  html += '<div class="card-column scope-column">';
-  html += renderScopeIndicator(data);
-  html += '<div class="transparency-card"><h2>Scope changes</h2><p class="section-definition"><small>Scope changes are now merged into the Work risks table below for one-place follow-up.</small></p><p><a href="#scope-changes-card">Go to Work risks</a></p></div>';
-  html += '</div>';
+  html += '<div class="card-column scope-column">' + renderScopeIndicator(data) + '</div>';
   html += '</div>';
 
   // MAIN CONTENT: Full-width cards

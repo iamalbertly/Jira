@@ -2,7 +2,7 @@ import { formatDateForDisplay, formatDateTimeLocalForInput } from './Reporting-A
 import { toUtcIsoFromLocalInput } from './Reporting-App-Report-Utils-Data-Helpers.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
-import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { SHARED_DATE_RANGE_KEY, REPORT_HAS_RUN_PREVIEW_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 
 export function updateDateDisplay() {
   const startDate = document.getElementById('start-date')?.value || '';
@@ -71,8 +71,6 @@ function updateCustomRangeLabelVisibility() {
   label.style.display = hasActivePill ? 'none' : '';
 }
 
-const RANGE_HINT_KEY = 'report-has-run-preview';
-
 export function updateRangeHint() {
   const hintEl = document.getElementById('range-hint');
   if (!hintEl) return;
@@ -89,11 +87,52 @@ export function updateRangeHint() {
     }
   }
   try {
-    const hasRun = sessionStorage.getItem(RANGE_HINT_KEY) === '1';
+    const hasRun = sessionStorage.getItem(REPORT_HAS_RUN_PREVIEW_KEY) === '1';
     hintEl.style.display = (rangeDays > 90 || !hasRun) ? 'block' : 'none';
   } catch (_) {
     hintEl.style.display = rangeDays > 90 ? 'block' : 'none';
   }
+}
+
+function tryFirstRunAutoSetRange(startInput, endInput) {
+  try {
+    if (sessionStorage.getItem(REPORT_HAS_RUN_PREVIEW_KEY) === '1') return;
+  } catch (_) { return; }
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  let rangeDays = 0;
+  if (startVal && endVal) {
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      rangeDays = Math.round((end - start) / (24 * 60 * 60 * 1000));
+    }
+  }
+  if (rangeDays <= 180) return;
+  fetch('/api/quarters-list?count=8', { credentials: 'same-origin' })
+    .then((res) => (res.ok ? res.json() : { quarters: [] }))
+    .catch(() => ({ quarters: [] }))
+    .then((data) => {
+      const quarters = data.quarters || [];
+      if (quarters.length === 0) return;
+      const now = Date.now();
+      const completed = quarters.filter((q) => q && q.end && new Date(q.end).getTime() <= now);
+      const lastQuarter = completed.length > 0 ? completed[completed.length - 1] : quarters[quarters.length - 1];
+      const qStart = lastQuarter?.start;
+      const qEnd = lastQuarter?.end;
+      if (!qStart || !qEnd || !startInput || !endInput) return;
+      startInput.value = formatDateTimeLocalForInput(qStart);
+      endInput.value = formatDateTimeLocalForInput(qEnd);
+      persistSharedDateRange();
+      updateDateDisplay();
+      const hintEl = document.getElementById('range-hint');
+      if (hintEl) {
+        hintEl.textContent = "We've set the range to last quarter for a faster first run. You can change it.";
+        hintEl.style.display = 'block';
+      } else {
+        updateRangeHint();
+      }
+    });
 }
 
 export function initDateRangeControls(onApply) {
@@ -106,6 +145,7 @@ export function initDateRangeControls(onApply) {
   if (endInput) endInput.addEventListener('change', persistSharedDateRange);
   updateDateDisplay();
   updateRangeHint();
+  tryFirstRunAutoSetRange(startInput, endInput);
 
   initQuarterStrip('.quarter-strip-inner', startInput, endInput, {
     formatInputValue: formatDateTimeLocalForInput,

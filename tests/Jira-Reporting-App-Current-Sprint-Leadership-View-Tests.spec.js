@@ -35,7 +35,8 @@ test.describe('Jira Reporting App - Current Sprint and Leadership View Tests', (
       const loadingText = await loading.textContent();
       const bodyText = await page.locator('body').textContent();
       const hasNoSprintMsg = bodyText && (bodyText.includes('No active') || bodyText.includes('recent closed sprint') || bodyText.includes('no active'));
-      expect(contentVisible || hasNoSprintMsg || loadingText?.includes('Select') || (await error.isVisible())).toBeTruthy();
+      const hasBoardLoadIssue = bodyText && (bodyText.includes("Couldn't load boards") || bodyText.includes('No boards found'));
+      expect(contentVisible || hasNoSprintMsg || loadingText?.includes('Select') || (await error.isVisible()) || hasBoardLoadIssue).toBeTruthy();
 
       if (contentVisible && !hasNoSprintMsg) {
         await expect(page.locator('.sprint-tabs')).toBeVisible();

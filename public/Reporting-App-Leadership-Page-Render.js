@@ -70,6 +70,7 @@ export function renderLeadershipPage(data) {
   let html = '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
   html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt) + escapeHtml(freshnessLine);
+  html += ' · Use this for within-board trends, not ranking teams.';
   html += '</p>';
 
   let outcomeLine = '';
@@ -125,12 +126,20 @@ export function renderLeadershipPage(data) {
       const storiesPerDay = totalSprintDays > 0 ? doneStories / totalSprintDays : null;
       const idx = board.indexedDelivery;
       const indexStr = idx != null && idx.index != null ? formatNumber(idx.index, 2, '-') : '-';
-      const onTime = summary?.doneStories > 0
-        ? ((summary.doneBySprintEnd || 0) / summary.doneStories * 100).toFixed(1) + '%'
-        : '-';
+      const onTimePct = summary?.doneStories > 0
+        ? ((summary.doneBySprintEnd || 0) / summary.doneStories * 100)
+        : null;
+      const onTime = onTimePct != null ? onTimePct.toFixed(1) + '%' : '-';
       const sprintCount = summary?.sprintCount ?? '-';
-      html += '<tr>';
-      html += '<td>' + escapeHtml(board.name) + '</td>';
+      const isRiskRow = onTimePct != null && onTimePct < 80;
+      const hasLimitedHistory = typeof sprintCount === 'number' && sprintCount < 2;
+      const rowClass = isRiskRow ? ' class="leadership-board-row leadership-board-row--risk"' : ' class="leadership-board-row"';
+      html += '<tr' + rowClass + '>';
+      html += '<td>' + escapeHtml(board.name);
+      if (hasLimitedHistory) {
+        html += ' <span class="limited-history-note">(Limited history)</span>';
+      }
+      html += '</td>';
       html += '<td>' + escapeHtml((board.projectKeys || []).join(', ')) + '</td>';
       html += '<td>' + sprintCount + '</td>';
       html += '<td>' + doneStories + '</td>';

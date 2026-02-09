@@ -98,24 +98,34 @@ header h1 {
 }
 
 .app-nav {
-  margin-top: 6px;
-  font-size: 0.85em;
+  margin-top: 8px;
+  font-size: 0.82em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 2px;
+  background: #f6f9fc;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: fit-content;
 }
 .app-nav a {
   color: var(--primary);
   text-decoration: none;
-  padding: 4px 6px;
-  border-radius: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
 }
 .app-nav a:hover {
   text-decoration: none;
-  background: var(--card-muted);
+  background: #e9f1fa;
 }
 .app-nav .current {
-  color: var(--muted);
+  color: #fff;
+  background: var(--primary);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
   cursor: default;
 }
 
@@ -242,6 +252,15 @@ header h1 {
 .selection-status {
   font-size: 0.85em;
   color: var(--muted);
+}
+
+.project-group-label {
+  margin-top: 4px;
+  margin-bottom: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .advanced-options {
@@ -692,6 +711,19 @@ header h1 {
   min-height: 1.4em;
 }
 
+.applied-filters-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.applied-filters-chips {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
 .status-banner {
   margin-top: 10px;
   padding: 10px 12px;
@@ -831,6 +863,20 @@ header h1 {
   font-size: 0.9rem;
   color: var(--muted, #666);
   margin-bottom: 8px;
+}
+
+.leadership-board-row--risk {
+  background-color: #fef2f2;
+}
+
+.leadership-board-row--risk:hover {
+  background-color: #fee2e2;
+}
+
+.limited-history-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 4px;
 }
 
 .leadership-boards-table th.sortable.sort-asc .sort-indicator,
@@ -1192,15 +1238,15 @@ header h1 {
 
 .app-notification-dock {
   position: fixed;
-  top: 94px;
+  top: 82px;
   left: 16px;
   z-index: 900;
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 14px 30px rgba(15, 76, 129, 0.12);
-  padding: 12px 14px;
-  width: 280px;
+  padding: 10px 12px;
+  width: 260px;
   max-width: calc(100vw - 32px);
 }
 
@@ -1241,7 +1287,7 @@ header h1 {
 .app-notification-toggle {
   position: fixed;
   left: 16px;
-  top: 94px;
+  top: 82px;
   background: var(--card-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -1252,7 +1298,7 @@ header h1 {
 }
 
 body.notification-dock-visible .container {
-  padding-left: 320px;
+  padding-left: 300px;
 }
 
 .app-notification-badge {
@@ -1733,6 +1779,18 @@ body.notification-dock-visible .container {
   color: var(--muted);
   font-size: 0.95rem;
   margin-bottom: 12px;
+}
+
+.sprint-health-healthy {
+  color: var(--accent);
+}
+
+.sprint-health-at-risk {
+  color: var(--warning);
+}
+
+.sprint-health-needs-attention {
+  color: var(--danger);
 }
 .current-sprint-project-hint {
   margin-left: 8px;

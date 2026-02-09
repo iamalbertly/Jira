@@ -27,13 +27,13 @@
   - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
   - `Jira-Reporting-App-Server-Errors-And-Export-Validation-Tests.spec.js` – regression for EADDRINUSE handling, preview completion, Excel export, partial preview banner, and cache-clear endpoint; uses captureBrowserTelemetry and UI assertions
   - `Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js` – E2E for current-sprint page (board selector, board selection) and sprint-leadership page (date inputs, Preview)
-  - `Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js` – SSOT for report, current-sprint, leadership, and export (telemetry + UI); run by orchestration. `DeleteThisFile_Jira-Reporting-App-UX-Trust-Validation-Tests.spec.js` – merged into UX-Trust-And-Export; marked for deletion, do not use.
+  - `Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js` – SSOT for report, current-sprint, leadership, and export (telemetry + UI); run by orchestration.
   - `Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js` – board pre-select, burndown summary, empty states, leadership empty preview, report boards; logcat + UI; run by orchestration
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
   - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites; imports steps from `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`; before test steps, calls `POST /api/test/clear-cache` (when NODE_ENV=test) so no test reads stale cache
-- **File naming:** New lib modules should follow the 5-segment convention (e.g. `Jira-Reporting-App-Sprint-Transparency-CurrentSprint.js`). Existing short names (e.g. `lib/currentSprint.js`) are not renamed in this pass to avoid import churn.
+- **File naming:** New files must use at least 6 scope segments where possible (e.g. `Project-App-Module-Feature-Subcomponent-Responsibility`); Responsibility may be prefixed with `01`, `02` for execution order (e.g. `Reporting-App-Report-Page-Render-Preview-01Meta.js`, `Reporting-App-CurrentSprint-Page-02Handlers.js`). Before creating a new file, verify no identically scoped file exists to prevent duplication. New lib modules: 5-segment convention (e.g. `Jira-Reporting-App-Sprint-Transparency-CurrentSprint.js`). Do not rename existing files en masse; apply naming when touching files for other changes.
 
 ### Public API Surface – `/preview.json`
 
@@ -85,6 +85,11 @@
   - Report preview has a client-side timeout (60–90s). On timeout (AbortError), the catch block in `Reporting-App-Report-Page-Preview-Flow.js` sets the full user-facing message inline (no Details click), primary CTA "Use smaller date range", secondary "Retry same range", and optional "Technical details" expandable (Force full refresh inside). The error UI update is guarded so the box is never left empty. "Use smaller date range" updates both start and end date inputs to last 30 days and triggers preview. Telemetry `preview.timeout` is emitted when the timeout fires. Tests: `Jira-Reporting-App-Preview-Timeout-Error-UI-Validation-Tests.spec.js`, `Jira-Reporting-App-UX-Outcome-First-No-Click-Hidden-Validation-Tests.spec.js` validate error panel content and retry actions.
 - **Project/Board SSOT**
   Selected projects are stored in `vodaAgileBoard_selectedProjects` (localStorage). Report persists on project checkbox change; Leadership reads/writes on load/save; Current Sprint reads on load and uses it for `/api/boards.json` and `/api/current-sprint.json` (fallback MPSA,MAS). Board selector on Current Sprint reflects the same projects as Report/Leadership.
+- **Persistence SSOT**
+  - **Projects:** `PROJECTS_SSOT_KEY` (Shared-Storage-Keys). Report, Leadership, and Current Sprint read/write this only (or via one wrapper). Single source of truth for selected projects.
+  - **Date range:** `SHARED_DATE_RANGE_KEY`. Report and Leadership use it; Current Sprint does not.
+  - **Report-only:** `REPORT_HAS_RUN_PREVIEW_KEY`, `REPORT_LAST_RUN_KEY`, `REPORT_FILTERS_COLLAPSED_KEY`, `REPORT_ADVANCED_OPTIONS_OPEN_KEY` in Shared-Storage-Keys; used only by Report modules (Preview-Flow, Render-Preview, Init-Controller, DateRange-Controller, Selections-Manager).
+  - **Current Sprint:** `CURRENT_SPRINT_BOARD_KEY`, `CURRENT_SPRINT_SPRINT_KEY` in Shared-Storage-Keys; used only by CurrentSprint-Page-Storage (and 02Handlers). No parallel persistence; do not add report keys to Current Sprint or vice versa.
 - **Sprint order contract**
   Sprints displayed for filtering (Report Sprints tab, Current Sprint tabs) are ordered **left-to-right from current/latest backwards by sprint end date**. First tab/row = latest end date; each subsequent = same or earlier. Report uses `sortSprintsLatestFirst(sprints)`; Current Sprint uses `resolveRecentSprints` (lib/currentSprint.js) which sorts by `endDate` descending. Automated tests assert this order.
 - **Data alignment**  
@@ -137,7 +142,8 @@
   - `runDefaultPreview(page, overrides?)` – navigates to `/report`, sets default Q2 MPSA+MAS window, applies overrides, clicks Preview, then waits for result.
   - `waitForPreview(page)` – waits for preview content or error and loading overlay to disappear.
   - `captureBrowserTelemetry(page)` – returns `{ consoleErrors, pageErrors, failedRequests }` for logcat-style assertions.
-  - Imported by E2E User Journey, Excel Export, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE, UX Trust, Current Sprint UX/SSOT, Linkification/Empty-state validation specs.
+  - `assertTelemetryClean(telemetry, options?)` – SSOT for asserting no critical console/network errors; `options.excludePreviewAbort: true` for error-path tests that abort preview.json. Used by UX Outcome-First, UX SoC Refactor, UX Trust, UX Improvements, Phase2, Full, and related specs.
+  - Imported by E2E User Journey, Excel Export, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE, UX Trust, UX SoC Duplication Refactor, Current Sprint UX/SSOT, Linkification/Empty-state validation specs.
 - **API integration tests (`Jira-Reporting-App-API-Integration-Tests.spec.js`)**
   - Centralised: `DEFAULT_Q2_QUERY`, `DEFAULT_PREVIEW_URL`, contract test for `GET /api/csv-columns` vs `lib/csv.js` CSV_COLUMNS.
 

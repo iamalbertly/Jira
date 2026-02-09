@@ -22,8 +22,7 @@
     .assumptions-list li::before { content: "* "; color: var(--primary); }
     .histogram-bar-wrap { margin-bottom: 8px; }
     .histogram-bar-wrap label { display: inline-block; min-width: 100px; font-size: 0.85em; color: var(--muted); }
-    .histogram-bar { height: 20px; background: var(--primary); border-radius: 4px; min-width: 4px; display: inline-block; vertical-align: middle; }\r\n.nav-link { color: var(--primary); text-decoration: none; font-size: 0.9em; }
-    .nav-link:hover { text-decoration: underline; }
+    .histogram-bar { height: 20px; background: var(--primary); border-radius: 4px; min-width: 4px; display: inline-block; vertical-align: middle; }
     #current-sprint-loading, #current-sprint-error { padding: 20px; text-align: center; color: var(--muted); }
     #current-sprint-error { color: var(--danger); }
     #current-sprint-content { display: none; }
@@ -35,7 +34,7 @@
       <div class="current-sprint-header">
         <div>
           <h1><span id="current-sprint-title">Current Sprint</span> <span id="current-sprint-name" class="sprint-name"></span></h1>
-          <p class="subtitle" id="current-sprint-subtitle">Squad view - planned vs observed work, daily completion, scope changes</p>
+          <p class="subtitle" id="current-sprint-subtitle">Squad view - sprint health, risks, and scope changes explained in one place.</p>
         </div>
         <div class="board-select-wrap">
           <label for="current-sprint-projects">Projects</label>
@@ -62,11 +61,9 @@
           <span id="current-sprint-project-hint" class="current-sprint-project-hint" aria-live="polite"></span>
         </div>
       </div>
-      <nav class="app-nav" style="margin-top: 8px;" aria-label="Main">
+      <nav class="app-nav" aria-label="Main">
         <a href="/report">Report</a>
-        <span style="margin: 0 8px;">|</span>
         <span class="current">Current Sprint (Squad)</span>
-        <span style="margin: 0 8px;">|</span>
         <a href="/sprint-leadership">Leadership</a>
       </nav>
     </header>

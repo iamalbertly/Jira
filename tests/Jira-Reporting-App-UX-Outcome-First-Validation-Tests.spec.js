@@ -10,21 +10,8 @@ import {
   captureBrowserTelemetry,
   runDefaultPreview,
   waitForPreview,
-  IGNORE_CONSOLE_ERRORS,
-  IGNORE_REQUEST_PATTERNS,
+  assertTelemetryClean,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
-
-function assertTelemetryClean(telemetry) {
-  const criticalFailures = telemetry.failedRequests.filter(
-    (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
-  );
-  expect(criticalFailures).toEqual([]);
-  expect(telemetry.pageErrors).toEqual([]);
-  const unexpectedConsole = telemetry.consoleErrors.filter(
-    (t) => !IGNORE_CONSOLE_ERRORS.includes(t)
-  );
-  expect(unexpectedConsole).toEqual([]);
-}
 
 test.describe('UX Outcome-First', () => {
   test('Report – Outcome line present after preview', async ({ page }) => {

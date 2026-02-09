@@ -12,21 +12,8 @@ import {
   captureBrowserTelemetry,
   runDefaultPreview,
   waitForPreview,
-  IGNORE_CONSOLE_ERRORS,
-  IGNORE_REQUEST_PATTERNS,
+  assertTelemetryClean,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
-
-function assertTelemetryClean(telemetry) {
-  const criticalFailures = telemetry.failedRequests.filter(
-    (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
-  );
-  expect(criticalFailures).toEqual([]);
-  expect(telemetry.pageErrors).toEqual([]);
-  const unexpectedConsole = telemetry.consoleErrors.filter(
-    (t) => !IGNORE_CONSOLE_ERRORS.some((ignored) => t === ignored || t.includes(ignored))
-  );
-  expect(unexpectedConsole).toEqual([]);
-}
 
 test.describe('UX Outcome-First No-Click-Hidden', () => {
   test.beforeEach(async ({ page }) => {
@@ -55,11 +42,7 @@ test.describe('UX Outcome-First No-Click-Hidden', () => {
     await expect(technicalDetails).toHaveCount(1);
     await expect(technicalDetails).toBeHidden();
 
-    const criticalFailures = telemetry.failedRequests.filter(
-      (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url)) && !r.url.includes('preview.json')
-    );
-    expect(criticalFailures).toEqual([]);
-    expect(telemetry.pageErrors).toEqual([]);
+    assertTelemetryClean(telemetry, { excludePreviewAbort: true });
   });
 
   test('Report – Preview meta one-line visible without clicking Technical details', async ({ page }) => {

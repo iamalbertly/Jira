@@ -49,11 +49,11 @@ export function renderScopeIndicator(data) {
   }
 
   const jiraHost = data?.meta?.jiraHost || data?.meta?.host || '';
-  const showInline = scopeChanges.length <= 10;
-  const inlineLimit = 10;
+  const showInline = scopeChanges.length <= 15;
+  const inlineLimit = 15;
   const itemsToShow = showInline ? scopeChanges : scopeChanges.slice(0, inlineLimit);
 
-  if (scopeChanges.length > 10) {
+  if (scopeChanges.length > 15) {
     html += '<button class="scope-details-btn scope-view-all-btn" aria-label="View all scope changes">View all (' + scopeChanges.length + ')</button>';
   } else if (scopeChanges.length > 0) {
     html += '<button class="scope-details-btn scope-view-all-btn" aria-label="View scope details" style="display: none;">Details</button>';
