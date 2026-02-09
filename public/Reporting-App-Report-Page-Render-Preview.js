@@ -124,9 +124,12 @@ function buildPreviewMetaAndStatus(params) {
     ? (Math.round(ageMs / 60000) < 1 ? ' · Generated just now' : ' · Generated ' + Math.round(ageMs / 60000) + ' min ago')
     : '';
 
+  const outcomeLine = `${rowsCount} done stories · ${sprintsCount} sprints · ${boardsCount} boards · ${escapeHtml(generatedLabel)}${metaSummaryWhy ? ' ' + metaSummaryWhy : ''}`;
+  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)}`;
   const previewMetaHTML = `
     <div class="meta-info-summary">
-      <span class="meta-summary-line">Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)} | Boards: ${boardsCount} / Sprints: ${sprintsCount} / Stories: ${rowsCount} / Unusable: ${unusableCount} | ${escapeHtml(generatedLabel)}${metaSummaryWhy}</span>
+      <div class="meta-outcome-line">${outcomeLine}</div>
+      <div class="meta-context-line">${contextLine}</div>
       <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Technical details</button>
     </div>
     <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
@@ -152,7 +155,7 @@ function buildPreviewMetaAndStatus(params) {
       bannerMessage = 'Faster mode: preview optimized for speed. Export matches the on-screen data; run Full refresh if you need a fully fresh history.';
     }
     statusHTML = `
-      <div class="status-banner warning">
+      <div class="status-banner warning alert-warning">
         <div class="status-banner-message">${escapeHtml(bannerMessage)}</div>
         <div class="status-banner-actions">
           <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller range</button>

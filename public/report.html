@@ -202,11 +202,11 @@
         </div>
         <div id="loading" class="loading" style="display: none;">
           <div class="spinner"></div>
-          <p id="loading-message">Loading preview data...</p>
+          <p id="loading-message">Generating report…</p>
           <div id="loading-steps" class="loading-steps"></div>
         </div>
 
-        <div id="error" class="error" style="display: none;"></div>
+        <div id="error" class="error alert alert-error" style="display: none;"></div>
 
         <div id="preview-content" style="display: none;">
           <div id="preview-outcome-line" class="preview-outcome-line" aria-live="polite"></div>
@@ -218,18 +218,18 @@
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
           <div id="preview-summary-sticky" class="preview-summary-sticky" aria-hidden="true"></div>
-          <!-- Tabs -->
+          <!-- Tabs: Done Stories first (default); order: Done Stories | Project & Epic Level | Sprints | Unusable Sprints -->
           <div class="tabs" role="tablist">
-            <button id="tab-btn-project-epic-level" class="tab-btn active" data-tab="project-epic-level" role="tab" aria-selected="true" aria-controls="tab-project-epic-level" tabindex="0">Project & Epic Level</button>
+            <button id="tab-btn-done-stories" class="tab-btn active" data-tab="done-stories" role="tab" aria-selected="true" aria-controls="tab-done-stories" tabindex="0">Done Stories</button>
+            <button id="tab-btn-project-epic-level" class="tab-btn" data-tab="project-epic-level" role="tab" aria-selected="false" aria-controls="tab-project-epic-level" tabindex="-1">Project & Epic Level</button>
             <button id="tab-btn-sprints" class="tab-btn" data-tab="sprints" role="tab" aria-selected="false" aria-controls="tab-sprints" tabindex="-1">Sprints</button>
-            <button id="tab-btn-done-stories" class="tab-btn" data-tab="done-stories" role="tab" aria-selected="false" aria-controls="tab-done-stories" tabindex="-1">Done Stories</button>
             <button id="tab-btn-unusable-sprints" class="tab-btn" data-tab="unusable-sprints" role="tab" aria-selected="false" aria-controls="tab-unusable-sprints" tabindex="-1">Unusable Sprints</button>
           </div>
           <p class="tab-hint" id="tab-outcome-hint"><small>Export from any tab; Done Stories is the main list for stakeholders.</small></p>
 
           <!-- Tab Content -->
           <div class="tab-content">
-            <div id="tab-project-epic-level" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-project-epic-level">
+            <div id="tab-project-epic-level" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-project-epic-level">
               <div class="boards-controls done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
@@ -257,7 +257,7 @@
               </div>
             </div>
 
-            <div id="tab-done-stories" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-done-stories">
+            <div id="tab-done-stories" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-done-stories">
               <div class="done-stories-controls">
                 <div class="search-input-wrap">
                   <input type="text" id="search-box" placeholder="Search by key or summary..." aria-label="Search done stories">
@@ -285,6 +285,7 @@
 
   <div id="loading-status-chip" class="loading-status-chip" aria-live="polite" style="display: none;"></div>
   <div id="tooltip-popover" class="tooltip-popover" role="tooltip" aria-hidden="true"></div>
+  <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
   <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
   <script type="module" src="Reporting-App-Report-Page-Init-Controller.js"></script>
 </body>

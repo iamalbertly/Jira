@@ -56,6 +56,11 @@ export function renderLeadershipPage(data) {
   const rangeStart = meta.windowStart ? formatDateShort(meta.windowStart) : '-';
   const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
   const generatedAt = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const generatedAtMs = meta.generatedAt ? new Date(meta.generatedAt).getTime() : Date.now();
+  const ageMs = Date.now() - generatedAtMs;
+  const generatedAgo = ageMs >= 0 && ageMs < 3600000
+    ? (Math.round(ageMs / 60000) < 1 ? 'just now' : Math.round(ageMs / 60000) + ' min ago')
+    : generatedAt;
   const freshnessBits = [];
   freshnessBits.push(meta.fromCache ? 'Cache' : 'Live');
   if (meta.cacheAgeMinutes != null) freshnessBits.push('Cache age ' + meta.cacheAgeMinutes + 'm');
@@ -70,7 +75,7 @@ export function renderLeadershipPage(data) {
   let html = '<div class="leadership-context-sticky">';
   html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
-  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAt) + escapeHtml(freshnessLine);
+  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAgo) + escapeHtml(freshnessLine);
   html += ' · Use this for within-board trends, not ranking teams.';
   html += '</p>';
 
@@ -100,11 +105,13 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-export-wrap"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
   html += '</div>';
   if (boards.length === 0) {
-    const hint = 'Try selecting the current quarter or ensure MPSA, MAS are selected. Check that the selected projects have sprints in this date range.';
+    const hint = 'Change projects above or open Report to check project configuration.';
     html += renderEmptyStateHtml(
-      'No boards',
-      'No boards in this window. ' + hint,
-      'Adjust date range or projects.'
+      'No boards in this project set',
+      'No boards were returned for the selected projects and date range.',
+      hint,
+      'Open Report',
+      { href: '/report' }
     );
   } else {
     html += '<div id="leadership-sort-label" class="leadership-sort-label" aria-live="polite"></div>';

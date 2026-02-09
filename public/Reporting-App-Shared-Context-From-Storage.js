@@ -6,6 +6,7 @@ import {
   PROJECTS_SSOT_KEY,
   SHARED_DATE_RANGE_KEY,
   LAST_QUERY_KEY,
+  REPORT_LAST_RUN_KEY,
 } from './Reporting-App-Shared-Storage-Keys.js';
 
 function parseDate(s) {
@@ -71,14 +72,39 @@ function formatDateForContext(iso) {
 }
 
 /**
+ * Returns last-run summary from sessionStorage when available (for context bar).
+ */
+function getLastRunSummary() {
+  try {
+    const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(REPORT_LAST_RUN_KEY) : null;
+    if (!raw || !raw.trim()) return null;
+    const obj = JSON.parse(raw);
+    const stories = typeof obj.doneStories === 'number' ? obj.doneStories : null;
+    const sprints = typeof obj.sprintsCount === 'number' ? obj.sprintsCount : null;
+    if (stories == null && sprints == null) return null;
+    const parts = [];
+    if (stories != null) parts.push(`${stories} stories`);
+    if (sprints != null) parts.push(`${sprints} sprints`);
+    return parts.length ? `Last: ${parts.join(', ')}` : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
  * Returns a one-line display string for the context bar, or a fallback message.
+ * When sessionStorage has last-run data, prepends "Last: X stories, Y sprints · " to projects/range.
  */
 export function getContextDisplayString() {
   const ctx = getValidLastQuery() || getFallbackContext();
-  if (!ctx) return 'No report run yet';
-  const proj = ctx.projects.replace(/,/g, ', ');
-  const startStr = formatDateForContext(ctx.start);
-  const endStr = formatDateForContext(ctx.end);
+  const lastRun = getLastRunSummary();
+  const proj = ctx ? ctx.projects.replace(/,/g, ', ') : '';
+  const startStr = ctx ? formatDateForContext(ctx.start) : '';
+  const endStr = ctx ? formatDateForContext(ctx.end) : '';
   const rangeStr = startStr && endStr ? `${startStr} – ${endStr}` : '';
-  return rangeStr ? `Projects: ${proj} · ${rangeStr}` : `Projects: ${proj}`;
+  const contextPart = rangeStr ? `Projects: ${proj} · ${rangeStr}` : (proj ? `Projects: ${proj}` : '');
+  if (lastRun && contextPart) return `${lastRun} · ${contextPart}`;
+  if (lastRun) return lastRun;
+  if (contextPart) return contextPart;
+  return 'No report run yet';
 }

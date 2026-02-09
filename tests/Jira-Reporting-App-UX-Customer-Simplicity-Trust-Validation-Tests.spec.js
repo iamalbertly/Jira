@@ -23,7 +23,7 @@ test.describe('UX Customer Simplicity Trust', () => {
       return;
     }
     await expect(page.locator('.login-outcome-line')).toContainText(/Sprint risks and delivery in under 30 seconds/i);
-    await expect(page.locator('.login-trust-line')).toContainText(/Internal use.*Session-secured.*credentials never stored/i);
+    await expect(page.locator('.login-trust-line')).toContainText(/Session-secured.*Internal use/i);
     assertTelemetryClean(telemetry);
   });
 
@@ -122,7 +122,7 @@ test.describe('UX Customer Simplicity Trust', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Choose projects.*boards load.*pick a board/i);
+      expect(text).toMatch(/Select projects and a board.*sprint health and risks/i);
     }
     assertTelemetryClean(telemetry);
   });

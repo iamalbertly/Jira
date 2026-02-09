@@ -269,5 +269,5 @@ export function tryAutoRunPreviewOnce() {
 }
 
 export function renderLeadershipLoading() {
-  showLoading('Loading normalized trends for the selected projects and date range...');
+  showLoading('Trends load when you pick a quarter or date range.');
 }

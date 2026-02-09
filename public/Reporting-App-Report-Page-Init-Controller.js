@@ -86,6 +86,13 @@ function initReportPage() {
   updateAppliedFiltersSummary();
   initExportMenu();
   initPreviewFlow();
+  if (getValidLastQuery()) {
+    const previewContent = document.getElementById('preview-content');
+    const contentHidden = !previewContent || previewContent.style.display === 'none';
+    if (contentHidden) {
+      setTimeout(() => scheduleAutoPreview(100), 200);
+    }
+  }
   initSearchClearButtons();
   renderNotificationDock({ pageContext: 'report', collapsedByDefault: true });
   applyDoneStoriesOptionalColumnsPreference();

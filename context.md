@@ -23,6 +23,7 @@
   - `Reporting-App-Shared-Boards-Summary-Builder.js` – SSOT for board summary aggregation (Report and Leadership); both pages use `buildBoardSummaries` only.
   - `Reporting-App-Shared-AutoPreview-Config.js` – exports `AUTO_PREVIEW_DELAY_MS` (400 ms); Report Init and Leadership Data-Loader use it for auto-preview debounce (single source of truth).
   - `Reporting-App-Report-Utils-Jira-Helpers.js` – buildJiraIssueUrl, getEpicStoryItems, isJiraIssueKey (used by Epic TTM linkification and ad-hoc key detection).
+  - `Reporting-App-Shared-Global-Nav.js` – injects or updates global nav (VodaAgileBoard + Report | Current Sprint | Leadership) on all four surfaces (login, report, current-sprint, leadership); single source of truth for nav markup.
 - **Tests (`tests/*.spec.js`)**
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
   - `Jira-Reporting-App-API-Integration-Tests.spec.js` – endpoint contracts and CSV semantics (includes `/api/csv-columns`, `/api/boards.json`, `/api/current-sprint.json`, `GET /current-sprint`, `GET /sprint-leadership`)
@@ -32,6 +33,7 @@
   - `Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js` – board pre-select, burndown summary, empty states, leadership empty preview, report boards; logcat + UI; run by orchestration
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
   - `Jira-Reporting-App-UX-Customer-Simplicity-Trust-Validation-Tests.spec.js` – Login outcome/trust/error focus/ratelimit, Report sticky chips/empty state/Generated X min ago/filters tip, Current Sprint loading/no-boards copy, Leadership auto-preview; run by orchestration.
+  - `Jira-Reporting-App-UX-Outcome-First-Nav-And-Trust-Validation-Tests.spec.js` – Default Done Stories tab, two-line preview meta, context bar last-run, alert classes, login/nav, Current Sprint hero and loading, Leadership sticky and zero-boards, global nav, Report CTA/loading, edge cases (tab state, project SSOT); run by orchestration.
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
   - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites; imports steps from `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`; before test steps, calls `POST /api/test/clear-cache` (when NODE_ENV=test) so no test reads stale cache

@@ -240,7 +240,7 @@ export function initPreviewFlow() {
     }
 
     clearLoadingSteps();
-    updateLoadingMessage('Preparing request...', 'Finding boards and sprints');
+    updateLoadingMessage('Generating report…', 'Finding boards and sprints');
 
     let params;
     try {

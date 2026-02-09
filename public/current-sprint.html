@@ -70,11 +70,12 @@
     </header>
 
     <main>
-      <div id="current-sprint-loading">Choose projects above; boards load for those projects. Then pick a board.</div>
-      <div id="current-sprint-error" style="display: none;"></div>
+      <div id="current-sprint-loading">Select projects and a board to see sprint health and risks. Boards load automatically for the selected projects.</div>
+      <div id="current-sprint-error" class="alert alert-error" style="display: none;"></div>
       <div id="current-sprint-content"></div>
     </main>
   </div>
+  <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
   <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
   <script type="module" src="Reporting-App-CurrentSprint-Page-Init-Controller.js"></script>
 </body>

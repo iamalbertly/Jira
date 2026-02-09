@@ -5,28 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - VodaAgileBoard</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    .login-container { max-width: 360px; margin: 2rem auto; padding: 1.5rem; }
-    .login-container h1 { margin-bottom: 0.5rem; }
-    .login-container .subtitle { color: #666; margin-bottom: 1rem; }
-    .login-outcome-line { font-size: 0.95rem; color: #444; margin-bottom: 1.5rem; }
-    .login-trust-line { font-size: 0.85rem; color: #555; margin-bottom: 1rem; }
-    .login-footer { margin-top: 1.5rem; font-size: 0.8rem; color: #777; }
-    .login-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-    .login-form input[type="text"], .login-form input[type="password"] { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
-    .login-form button { width: 100%; padding: 0.6rem; cursor: pointer; }
-    .login-error { color: #c00; margin-bottom: 1rem; }
-    .caps-warning { font-size: 0.8rem; color: #b7791f; margin-top: -0.25rem; margin-bottom: 0.75rem; display: none; }
-    .honeypot { position: absolute; left: -9999px; top: -9999px; opacity: 0; pointer-events: none; }
-  </style>
 </head>
-<body>
+<body class="login-page">
+  <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
   <div class="container login-container">
     <header>
       <h1>VodaAgileBoard</h1>
       <p class="login-outcome-line">Sprint risks and delivery in under 30 seconds.</p>
-      <p class="subtitle">See sprint risks and delivery trends for your squads.</p>
-      <p class="login-trust-line">Internal use. Session-secured; credentials never stored in browser.</p>
     </header>
     <form class="login-form" action="/login" method="post" id="login-form">
       <div id="login-error" class="login-error" style="display: none;" tabindex="-1"></div>
@@ -42,6 +27,7 @@
       <input type="hidden" name="redirect" value="">
       <button type="submit" id="login-submit">Sign in</button>
     </form>
+    <p class="login-trust-line">Session-secured. Internal use only.</p>
     <p class="login-footer">Owned by Agile &amp; Digital PMO · Internal use only. Need access? Contact your VodaAgileBoard admin.</p>
   </div>
   <script>

@@ -62,6 +62,15 @@ export function renderCurrentSprintPage(data) {
     : 'No major risks detected. Use Work risks to confirm any emerging issues.';
 
   html += '<p class="current-sprint-outcome-line sprint-health-' + healthClass + '" aria-live="polite">Sprint health: ' + healthLabel + '. ' + signalsText + '</p>';
+  // At-a-glance hero: key numbers + one CTA (best information first)
+  const daysMeta = data.daysMeta || {};
+  const daysLeft = daysMeta.daysRemainingWorking != null ? daysMeta.daysRemainingWorking : daysMeta.daysRemainingCalendar;
+  const daysLeftLabel = daysLeft == null ? '?' : (daysLeft <= 0 ? '0' : (daysLeft < 1 ? '<1d' : Math.floor(daysLeft) + 'd'));
+  const scopeCount = (data.scopeChanges || []).length;
+  html += '<div class="sprint-at-a-glance-hero" role="region" aria-label="Sprint at a glance">';
+  html += '<span class="sprint-at-a-glance-stats">' + daysLeftLabel + ' left · ' + percentDone + '% done · ' + stuckCount + ' stuck · ' + scopeCount + ' scope</span>';
+  html += ' <a href="#stuck-card" class="btn btn-primary btn-compact sprint-at-a-glance-cta">View risks</a>';
+  html += '</div>';
   // NEW: Header bar (sticky) with sprint metadata
   html += renderHeaderBar(data);
   
