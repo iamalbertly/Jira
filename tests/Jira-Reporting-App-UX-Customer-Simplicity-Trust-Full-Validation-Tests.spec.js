@@ -23,7 +23,7 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const outcome = page.locator('.login-outcome-line');
     await expect(outcome).toBeVisible();
     const text = await outcome.textContent().catch(() => '');
-    expect(text).toMatch(/run reports|current sprint|leadership/i);
+    expect(text).toMatch(/Sprint risks and delivery in under 30 seconds/i);
     assertTelemetryClean(telemetry);
   });
 
@@ -33,7 +33,7 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const tip = page.locator('.filters-tip');
     await expect(tip).toBeVisible();
     const text = await tip.textContent().catch(() => '');
-    expect(text).toMatch(/Start here|choose projects|Preview report|Excel export/i);
+    expect(text).toMatch(/Pick projects and a quarter|check the preview and export/i);
     assertTelemetryClean(telemetry);
   });
 

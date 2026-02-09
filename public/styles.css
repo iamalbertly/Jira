@@ -729,6 +729,11 @@ header h1 {
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 72px;
+  z-index: 95;
+  background: var(--card);
+  padding: 8px 0;
 }
 
 .applied-filters-chips {

@@ -1,9 +1,9 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
-export function renderEmptyState(targetElement, title, message, hint) {
+export function renderEmptyState(targetElement, title, message, hint, ctaLabel) {
   if (!targetElement) return;
-  targetElement.innerHTML = renderEmptyStateHtml(title, message, hint);
+  targetElement.innerHTML = renderEmptyStateHtml(title, message, hint, ctaLabel);
 }
 
 export function getSafeMeta(preview) {

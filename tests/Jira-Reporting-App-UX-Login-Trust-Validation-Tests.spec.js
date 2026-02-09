@@ -13,18 +13,19 @@ test.describe('UX Login Trust & Copy Validation', () => {
     }
 
     await expect(page.locator('h1')).toContainText('VodaAgileBoard');
-    await expect(page.locator('.login-outcome-line')).toContainText('After sign-in you can');
-    await expect(page.locator('.login-trust-line')).toContainText('Internal-only');
+    await expect(page.locator('.login-outcome-line')).toContainText(/Sprint risks and delivery in under 30 seconds/i);
+    await expect(page.locator('.login-trust-line')).toContainText(/Internal use.*Session-secured|credentials never stored/i);
     await expect(page.locator('.login-footer')).toContainText('Owned by Agile & Digital PMO');
 
     assertTelemetryClean(telemetry);
   });
 
   test('login error mapping shows actionable messages for each error code', async ({ page }) => {
-    const cases: Array<{ query: string; expected: RegExp }> = [
+    const cases = [
       { query: 'invalid', expected: /Username or password incorrect/i },
       { query: 'bot', expected: /Security check did not pass/i },
       { query: 'timeout', expected: /Session expired/i },
+      { query: 'ratelimit', expected: /Too many attempts.*Wait a minute/i },
     ];
 
     for (const c of cases) {
@@ -38,6 +39,18 @@ test.describe('UX Login Trust & Copy Validation', () => {
       const text = await page.locator('#login-error').textContent();
       expect(text || '').toMatch(c.expected);
     }
+  });
+
+  test('login error moves focus to error or username', async ({ page }) => {
+    await page.goto('/login?error=invalid');
+    const hasLoginForm = await page.locator('#login-form').isVisible().catch(() => false);
+    if (!hasLoginForm) {
+      test.skip(true, 'Login form not visible');
+      return;
+    }
+    await expect(page.locator('#login-error')).toBeVisible();
+    const focusedId = await page.evaluate(() => document.activeElement?.id || '');
+    expect(['login-error', 'username']).toContain(focusedId);
   });
 
   test('sign-in button disables on submit to prevent double-clicks', async ({ page }) => {

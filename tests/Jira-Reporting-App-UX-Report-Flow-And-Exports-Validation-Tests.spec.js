@@ -7,7 +7,7 @@ test.describe('UX Report Flow & Export Experience', () => {
     await page.goto('/report');
 
     await expect(page.locator('h1')).toContainText(/General Performance/i);
-    await expect(page.locator('#report-subtitle')).toContainText(/refreshes automatically/i);
+    await expect(page.locator('#report-subtitle')).toContainText(/Preview updates when you change projects or dates/i);
     await expect(page.locator('#preview-btn')).toBeVisible();
 
     assertTelemetryClean(telemetry);
@@ -40,9 +40,14 @@ test.describe('UX Report Flow & Export Experience', () => {
     const chipsText = await page.locator('#applied-filters-chips').textContent();
     expect((chipsText || '').trim()).toBe((summaryText || '').trim());
 
+    // Sticky chips row remains visible after scroll so Edit filters is always reachable
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(200);
+    await expect(page.locator('.applied-filters-chips-row')).toBeVisible();
+    await expect(page.locator('#applied-filters-edit-btn')).toBeVisible();
+
     // Edit filters button should bring focus back to filters
     const editBtn = page.locator('#applied-filters-edit-btn');
-    await expect(editBtn).toBeVisible();
     await editBtn.click();
     const activeId = await page.evaluate(() => (document.activeElement && document.activeElement.id) || '');
     expect(['project-search', 'start-date', 'end-date']).toContain(activeId);

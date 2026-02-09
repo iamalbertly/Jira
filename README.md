@@ -131,6 +131,15 @@ The server will start on `http://localhost:3000` (or the port specified in the `
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ## Recent UX & Reliability fixes (2026-02-09)
+- **Sticky chips row:** Report applied-filters chips row (and Edit filters) is sticky so filters are always reachable when scrolled.
+- **One empty state:** Report uses a single empty-state message for no done stories with one "Adjust filters" CTA.
+- **Generated X min ago:** Report sticky summary shows freshness (e.g. "Generated just now" or "Generated N min ago") when preview has meta.
+- **Loading chip minimum 300 ms:** Report loading-status chip only appears after 300 ms to avoid flicker on fast previews.
+- **Login copy:** One-line outcome ("Sprint risks and delivery in under 30 seconds"), shorter trust line, error focus, and rate-limit message (`?error=ratelimit`).
+- **Leadership auto-preview:** Quarter or date change triggers preview without a mandatory Preview click.
+- **Current Sprint copy:** Clearer loading text ("Choose projects above… Then pick a board") and no-boards error with hint ("Check project selection or try Report…").
+- **Report filters tip and subtitle:** Shortened to one sentence; optional "Fast: pick a quarter" label.
+- **Edge cases:** (1) Only latest preview result applied when filters change repeatedly; (2) No partial banner when 0 rows—unified empty state only; (3) Session-expiry message and redirect so user returns to Report after re-login.
 - Report filters keep the last successful results visible while refreshing automatically.
 - Leadership filters now auto-run preview on project/date changes and quarter picks.
 - Report advanced options are now collapsed by default behind an explicit `Options` toggle.

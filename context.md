@@ -21,6 +21,7 @@
   - Report (General Performance) is loaded via `report.html` and `Reporting-App-Report-Page-Init-Controller.js` only; no legacy report.js. Filters panel, preview header, tabs, and content are driven by `Reporting-App-Report-Page-*` modules. Date window uses a scrollable strip of Vodacom quarter pills (5+ quarters up to current) from `/api/quarters-list`.
   - Leadership uses `leadership.html` and `Reporting-App-Leadership-Page-Init-Controller.js`; same quarter strip pattern.
   - `Reporting-App-Shared-Boards-Summary-Builder.js` – SSOT for board summary aggregation (Report and Leadership); both pages use `buildBoardSummaries` only.
+  - `Reporting-App-Shared-AutoPreview-Config.js` – exports `AUTO_PREVIEW_DELAY_MS` (400 ms); Report Init and Leadership Data-Loader use it for auto-preview debounce (single source of truth).
   - `Reporting-App-Report-Utils-Jira-Helpers.js` – buildJiraIssueUrl, getEpicStoryItems, isJiraIssueKey (used by Epic TTM linkification and ad-hoc key detection).
 - **Tests (`tests/*.spec.js`)**
   - `Jira-Reporting-App-E2E-User-Journey-Tests.spec.js` – UI and UX/user-journey coverage
@@ -30,6 +31,7 @@
   - `Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js` – SSOT for report, current-sprint, leadership, and export (telemetry + UI); run by orchestration.
   - `Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js` – board pre-select, burndown summary, empty states, leadership empty preview, report boards; logcat + UI; run by orchestration
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
+  - `Jira-Reporting-App-UX-Customer-Simplicity-Trust-Validation-Tests.spec.js` – Login outcome/trust/error focus/ratelimit, Report sticky chips/empty state/Generated X min ago/filters tip, Current Sprint loading/no-boards copy, Leadership auto-preview; run by orchestration.
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
   - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites; imports steps from `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`; before test steps, calls `POST /api/test/clear-cache` (when NODE_ENV=test) so no test reads stale cache
@@ -101,6 +103,8 @@
     - Shows error banner with guidance
     - Does **not** send a network request
     - Restores the previous export button disabled state
+- **Shared auto-preview delay**
+  - `Reporting-App-Shared-AutoPreview-Config.js` exports `AUTO_PREVIEW_DELAY_MS` (default 400 ms). Report page Init-Controller and Leadership Data-Loader use this constant for `scheduleAutoPreview` debounce so behaviour is consistent and tunable in one place.
 - **Preview button and export buttons**
   - On `Preview` click:
     - `#preview-btn` is disabled immediately to prevent double-clicks

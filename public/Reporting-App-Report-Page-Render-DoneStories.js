@@ -24,27 +24,11 @@ export function renderDoneStoriesTab(rows) {
   const jiraHost = meta?.jiraHost || meta?.host || '';
 
   if (!rows || rows.length === 0) {
-    const searchText = document.getElementById('search-box')?.value || '';
-    const activeProjects = Array.from(document.querySelectorAll('.pill.active')).map(p => p.dataset.project);
-    const requireResolved = !!meta?.requireResolvedBySprintEnd;
-    const totalPreviewRows = (reportState.previewData?.rows || []).length;
-
-    let title = 'No done stories found';
-    let message;
-    let hint;
-
-    if (requireResolved && totalPreviewRows > 0) {
-      message = 'No stories passed the "Require resolved by sprint end" filter.';
-      hint = 'Try turning off this option to see all Done stories, or inspect sprint end dates and resolution dates in Jira.';
-    } else if (searchText || (meta?.selectedProjects && activeProjects.length < meta.selectedProjects.length)) {
-      message = 'No stories match your current filters.';
-      hint = 'Try adjusting your search text or project filters, or check if stories are marked as "Done" in the selected sprints.';
-    } else {
-      message = 'No stories with status "Done" were found in the selected sprints for the chosen projects.';
-      hint = 'This could mean: (1) No stories were completed in these sprints, (2) Stories are not marked as "Done", or (3) the current filters are excluding stories. Try adjusting your filters.';
-    }
-
-    renderEmptyState(content, title, message, hint);
+    const title = 'No done stories';
+    const message = "No done stories in this window. Check: date range, project selection, and 'Resolved by sprint end' (try turning it off).";
+    const hint = '';
+    const ctaLabel = 'Adjust filters';
+    renderEmptyState(content, title, message, hint, ctaLabel);
     if (totalsBar) totalsBar.innerHTML = '';
     const projectPills = document.getElementById('project-pills');
     if (projectPills) {

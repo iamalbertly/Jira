@@ -78,6 +78,8 @@ export function clearPreviewOnFilterChange() {
   updateExportHint();
 }
 
+let previewRunId = 0;
+
 export function initPreviewFlow() {
   const { previewBtn, exportDropdownTrigger, exportExcelBtn, loadingEl, errorEl, previewContent } = reportDom;
   if (!previewBtn) return;
@@ -190,6 +192,8 @@ export function initPreviewFlow() {
   });
 
   previewBtn.addEventListener('click', async () => {
+    previewRunId += 1;
+    const runIdForThisRequest = previewRunId;
     let timeoutId;
     let progressInterval;
     let timeoutMs = PREVIEW_TIMEOUT_LIGHT_MS;
@@ -346,6 +350,7 @@ export function initPreviewFlow() {
     };
 
     const applyPreviewPayload = (payload, options = {}) => {
+      if (runIdForThisRequest !== previewRunId) return;
       const { finalize = true, fromSessionCache = false } = options;
       if (!payload || typeof payload !== 'object') return;
 
@@ -398,7 +403,7 @@ export function initPreviewFlow() {
     };
 
     const cachedPreview = readCachedPreview();
-    if (!hasExistingPreview && cachedPreview && statusEl) {
+    if (!hasExistingPreview && cachedPreview && statusEl && runIdForThisRequest === previewRunId) {
       applyPreviewPayload(cachedPreview, { finalize: false, fromSessionCache: true });
       statusEl.innerHTML = `
         <div class="status-banner info">
@@ -483,7 +488,7 @@ export function initPreviewFlow() {
       writeCachedPreview(responseJson);
 
       updateLoadingMessage('Finalizing...', null);
-      applyPreviewPayload(responseJson);
+      if (runIdForThisRequest === previewRunId) applyPreviewPayload(responseJson);
       try {
         const params = collectFilterParams();
         if (params?.projects && params?.start && params?.end) {

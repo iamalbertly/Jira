@@ -24,12 +24,12 @@
   <div class="container login-container">
     <header>
       <h1>VodaAgileBoard</h1>
-      <p class="subtitle">See sprint risks and delivery trends for your squads in under 30 seconds.</p>
-      <p class="login-outcome-line">After sign-in you can: run General Performance reports, check Current Sprint health, and review Leadership trends in one place.</p>
-      <p class="login-trust-line">Internal-only. Secured with session cookies; your Jira credentials are never stored in the browser.</p>
+      <p class="login-outcome-line">Sprint risks and delivery in under 30 seconds.</p>
+      <p class="subtitle">See sprint risks and delivery trends for your squads.</p>
+      <p class="login-trust-line">Internal use. Session-secured; credentials never stored in browser.</p>
     </header>
     <form class="login-form" action="/login" method="post" id="login-form">
-      <div id="login-error" class="login-error" style="display: none;"></div>
+      <div id="login-error" class="login-error" style="display: none;" tabindex="-1"></div>
       <label for="username">Username</label>
       <input type="text" id="username" name="username" autocomplete="username" required>
       <label for="password">Password</label>
@@ -56,11 +56,14 @@
         message = 'Username or password incorrect. Try again or contact your admin for access.';
       } else if (err === 'bot') {
         message = 'Security check did not pass. Submit the form normally without autofill or bots.';
-      } else if (err === 'timeout') {
-        message = 'Session expired. Sign in again to reload your last report and rerun any previews if needed.';
+      } else if (err === 'timeout' || err === 'session') {
+        message = "Session expired. Sign in again; you'll return to the Report and can rerun the preview.";
+      } else if (err === 'ratelimit') {
+        message = 'Too many attempts. Wait a minute and try again.';
       }
       el.textContent = message;
       el.style.display = 'block';
+      if (el.focus) el.focus(); else document.getElementById('username')?.focus?.();
     }
     var form = document.getElementById('login-form');
     var submitBtn = document.getElementById('login-submit');

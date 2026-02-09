@@ -2,6 +2,21 @@ import { test, expect } from '@playwright/test';
 import { captureBrowserTelemetry, assertTelemetryClean } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Current Sprint Health & SSOT UX Validation', () => {
+  test('current sprint loading copy when no board selected', async ({ page }) => {
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login or home; auth may be required');
+      return;
+    }
+    const loading = page.locator('#current-sprint-loading');
+    await page.waitForTimeout(300);
+    const loadingVisible = await loading.isVisible().catch(() => false);
+    if (loadingVisible) {
+      const text = await loading.textContent().catch(() => '') || '';
+      expect(text).toMatch(/Choose projects.*boards load.*pick a board/i);
+    }
+  });
+
   test('current sprint header shows health outcome line', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
@@ -22,6 +37,22 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     expect(text || '').toMatch(/Sprint health:/i);
 
     assertTelemetryClean(telemetry);
+  });
+
+  test('current sprint no-boards error includes hint when shown', async ({ page }) => {
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login or home; auth may be required');
+      return;
+    }
+    const errorEl = page.locator('#current-sprint-error');
+    const errorVisible = await errorEl.isVisible().catch(() => false);
+    if (errorVisible) {
+      const text = await errorEl.textContent().catch(() => '');
+      if ((text || '').includes('No boards found')) {
+        expect(text).toMatch(/Check project selection|try Report to refresh/i);
+      }
+    }
   });
 
   test('no-active-sprint empty state, when present, explains next steps', async ({ page }) => {

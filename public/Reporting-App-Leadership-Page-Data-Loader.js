@@ -3,6 +3,7 @@ import { renderLeadershipPage } from './Reporting-App-Leadership-Page-Render.js'
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
 import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { getValidLastQuery, getFallbackContext } from './Reporting-App-Shared-Context-From-Storage.js';
 
 function setDefaultDates() {
@@ -217,7 +218,7 @@ async function loadPreview() {
 export function initLeadershipFilters() {
   const { projectsSelect, startInput, endInput, previewBtn } = leadershipDom;
   let autoPreviewTimer = null;
-  const scheduleAutoPreview = (delayMs = 600) => {
+  const scheduleAutoPreview = (delayMs = AUTO_PREVIEW_DELAY_MS) => {
     if (autoPreviewTimer) clearTimeout(autoPreviewTimer);
     autoPreviewTimer = setTimeout(() => {
       autoPreviewTimer = null;

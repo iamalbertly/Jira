@@ -147,7 +147,7 @@ function refreshBoards(preferredId, preferredSprintId) {
       });
       if (!boards.length) {
         setBoardSelectCouldntLoad();
-        showError('No boards found for the selected projects.');
+        showError('No boards found for the selected projects. Check project selection or try Report to refresh project list.');
         appendRetryToError(preferredId, preferredSprintId);
         return null;
       }
@@ -179,7 +179,7 @@ function onBoardChange() {
   const { boardSelect } = currentSprintDom;
   const boardId = boardSelect?.value || '';
   if (!boardId) {
-    showLoading('Select a board to load current sprint data.');
+    showLoading('Choose projects above; boards load for those projects. Then pick a board.');
     return;
   }
   currentBoardId = boardId;

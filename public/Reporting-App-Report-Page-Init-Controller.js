@@ -8,6 +8,7 @@ import { initExportMenu } from './Reporting-App-Report-Page-Export-Menu.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
 import { REPORT_FILTERS_COLLAPSED_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 
@@ -53,7 +54,7 @@ function initReportPage() {
   let autoPreviewTimer = null;
   let autoPreviewInProgress = false;
 
-  function scheduleAutoPreview(delayMs = 650) {
+  function scheduleAutoPreview(delayMs = AUTO_PREVIEW_DELAY_MS) {
     const previewBtn = document.getElementById('preview-btn');
     if (!previewBtn) return;
     if (autoPreviewTimer) clearTimeout(autoPreviewTimer);
@@ -79,7 +80,7 @@ function initReportPage() {
   });
   initProjectSelection();
   initDateRangeControls(() => {
-    scheduleAutoPreview(120);
+    scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS);
   });
   hydrateFromLastQuery();
   updateAppliedFiltersSummary();
@@ -89,19 +90,18 @@ function initReportPage() {
   renderNotificationDock({ pageContext: 'report', collapsedByDefault: true });
   applyDoneStoriesOptionalColumnsPreference();
 
-  const editFiltersBtn = document.getElementById('applied-filters-edit-btn');
-  if (editFiltersBtn) {
-    editFiltersBtn.addEventListener('click', () => {
-      const panel = document.getElementById('filters-panel');
-      const firstField = document.getElementById('project-search') || document.getElementById('start-date');
-      if (panel && typeof panel.scrollIntoView === 'function') {
-        try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { panel.scrollIntoView(true); }
-      }
-      if (firstField && typeof firstField.focus === 'function') {
-        firstField.focus();
-      }
-    });
+  function scrollToFiltersAndFocus() {
+    const panel = document.getElementById('filters-panel');
+    const firstField = document.getElementById('project-search') || document.getElementById('start-date');
+    if (panel && typeof panel.scrollIntoView === 'function') {
+      try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { panel.scrollIntoView(true); }
+    }
+    if (firstField && typeof firstField.focus === 'function') {
+      firstField.focus();
+    }
   }
+  const editFiltersBtn = document.getElementById('applied-filters-edit-btn');
+  if (editFiltersBtn) editFiltersBtn.addEventListener('click', scrollToFiltersAndFocus);
 
   function onFilterChange() {
     updateAppliedFiltersSummary();
@@ -120,6 +120,10 @@ function initReportPage() {
     const btn = ev.target.closest && ev.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.getAttribute('data-action');
+    if (action === 'adjust-filters') {
+      scrollToFiltersAndFocus();
+      return;
+    }
     if (action === 'open-boards-tab') {
       const boardTab = document.getElementById('tab-btn-project-epic-level');
       if (boardTab) {

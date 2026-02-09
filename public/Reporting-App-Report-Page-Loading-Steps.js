@@ -1,6 +1,16 @@
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { LOADING_STEP_LIMIT } from './Reporting-App-Report-Config-Constants.js';
 
+const LOADING_CHIP_MIN_VISIBLE_MS = 300;
+let loadingChipShowTimerId = null;
+
+function clearLoadingChipShowTimer() {
+  if (loadingChipShowTimerId != null) {
+    clearTimeout(loadingChipShowTimerId);
+    loadingChipShowTimerId = null;
+  }
+}
+
 export function updateLoadingMessage(message, step = null) {
   const loadingMessage = document.getElementById('loading-message');
   if (loadingMessage) {
@@ -65,18 +75,32 @@ export async function readResponseJson(response) {
 export function setLoadingVisible(visible = true) {
   const { loadingEl } = reportDom;
   if (!loadingEl) return;
-  loadingEl.style.display = visible ? 'block' : 'none';
-  loadingEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
   const chip = document.getElementById('loading-status-chip');
-  if (chip) {
-    chip.style.display = visible ? 'block' : 'none';
-    if (!visible) {
+  if (visible) {
+    loadingEl.style.display = 'block';
+    loadingEl.setAttribute('aria-hidden', 'false');
+    clearLoadingChipShowTimer();
+    loadingChipShowTimerId = setTimeout(() => {
+      loadingChipShowTimerId = null;
+      if (chip) {
+        chip.style.display = 'block';
+        const msgEl = document.getElementById('loading-message');
+        if (msgEl) chip.textContent = msgEl.textContent || '';
+      }
+    }, LOADING_CHIP_MIN_VISIBLE_MS);
+  } else {
+    clearLoadingChipShowTimer();
+    loadingEl.style.display = 'none';
+    loadingEl.setAttribute('aria-hidden', 'true');
+    if (chip) {
+      chip.style.display = 'none';
       chip.textContent = '';
     }
   }
 }
 
 export function hideLoadingIfVisible() {
+  clearLoadingChipShowTimer();
   const { loadingEl } = reportDom;
   if (loadingEl) {
     loadingEl.style.display = 'none';
@@ -90,10 +114,10 @@ export function hideLoadingIfVisible() {
 }
 
 export function forceHideLoading() {
+  clearLoadingChipShowTimer();
   const { loadingEl } = reportDom;
   try {
     if (loadingEl) {
-      // Remove inline styles and ensure hidden; also clear any animation state
       loadingEl.style.display = 'none';
       loadingEl.setAttribute('aria-hidden', 'true');
       const steps = loadingEl.querySelectorAll('.loading-step');

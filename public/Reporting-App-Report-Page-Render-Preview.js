@@ -120,6 +120,9 @@ function buildPreviewMetaAndStatus(params) {
   const generatedLabel = ageMs >= 0 && ageMs < 3600000
     ? (Math.round(ageMs / 60000) < 1 ? 'Generated: just now' : 'Generated: ' + Math.round(ageMs / 60000) + ' min ago')
     : 'Generated: ' + generatedShort;
+  const generatedAgoSuffix = meta.generatedAt
+    ? (Math.round(ageMs / 60000) < 1 ? ' · Generated just now' : ' · Generated ' + Math.round(ageMs / 60000) + ' min ago')
+    : '';
 
   const previewMetaHTML = `
     <div class="meta-info-summary">
@@ -135,10 +138,10 @@ function buildPreviewMetaAndStatus(params) {
     </div>
   `;
 
-  const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}`;
+  const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generatedAgoSuffix}`;
   let statusHTML = '';
   let statusDisplay = 'none';
-  if (partial || previewMode !== 'normal') {
+  if (rowsCount > 0 && (partial || previewMode !== 'normal')) {
     let bannerMessage;
     if (partial) {
       bannerMessage = 'Partial data: preview hit a time limit. Export shows what you see now; narrow the dates for full history.';
@@ -159,14 +162,6 @@ function buildPreviewMetaAndStatus(params) {
       </div>
     `;
     statusDisplay = 'block';
-  } else if (meta.requireResolvedBySprintEnd === true && rowsCount === 0) {
-    statusHTML = `
-      <div class="status-banner info">
-        <div class="status-banner-message">No stories met "Resolved by sprint end". Turn off the option or check Jira.</div>
-        <button type="button" class="status-close" aria-label="Dismiss">x</button>
-      </div>
-    `;
-    statusDisplay = 'block';
   }
   return { reportSubtitleText, appliedFiltersText, outcomeLineHTML, previewMetaHTML, stickyText, statusHTML, statusDisplay };
 }
@@ -178,6 +173,11 @@ export function renderPreview() {
 
   const meta = getSafeMeta(previewData);
   if (!meta) {
+    const stickyElNoMeta = document.getElementById('preview-summary-sticky');
+    if (stickyElNoMeta) {
+      stickyElNoMeta.setAttribute('aria-hidden', 'true');
+      stickyElNoMeta.textContent = '';
+    }
     if (errorEl) {
       errorEl.style.display = 'block';
       errorEl.innerHTML = `
@@ -208,7 +208,7 @@ export function renderPreview() {
   if (previewMeta) previewMeta.innerHTML = metaBlock.previewMetaHTML;
   const stickyEl = document.getElementById('preview-summary-sticky');
   if (stickyEl) {
-    stickyEl.textContent = metaBlock.stickyText;
+    stickyEl.textContent = metaBlock.stickyText || '';
     stickyEl.setAttribute('aria-hidden', 'false');
   }
   const statusEl = document.getElementById('preview-status');
