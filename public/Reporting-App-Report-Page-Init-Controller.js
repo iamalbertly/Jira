@@ -1,16 +1,52 @@
 import { initFeedbackPanel } from './Reporting-App-Report-UI-Feedback.js';
 import { initTabs } from './Reporting-App-Report-UI-Tabs.js';
 import { initProjectSelection, getSelectedProjects } from './Reporting-App-Report-Page-Selections-Manager.js';
-import { initDateRangeControls } from './Reporting-App-Report-Page-DateRange-Controller.js';
+import { initDateRangeControls, isRangeValid } from './Reporting-App-Report-Page-DateRange-Controller.js';
 import { initPreviewFlow, clearPreviewOnFilterChange } from './Reporting-App-Report-Page-Preview-Flow.js';
 import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear.js';
 import { initExportMenu } from './Reporting-App-Report-Page-Export-Menu.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
-import { REPORT_FILTERS_COLLAPSED_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { REPORT_FILTERS_COLLAPSED_KEY, SHARED_DATE_RANGE_KEY, LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { DEFAULT_WINDOW_START_LOCAL, DEFAULT_WINDOW_END_LOCAL } from './Reporting-App-Report-Config-Constants.js';
 import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
+
+function getShortRangeLabel() {
+  const activePill = document.querySelector('.quarter-pill.is-active');
+  if (activePill && activePill.dataset.quarter) return activePill.dataset.quarter;
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  if (!startInput?.value || !endInput?.value) return '';
+  const s = startInput.value.slice(0, 10);
+  const e = endInput.value.slice(0, 10);
+  if (s && e) return s + ' – ' + e;
+  return '';
+}
+
+function refreshPreviewButtonLabel() {
+  const previewBtn = document.getElementById('preview-btn');
+  if (!previewBtn) return;
+  const projects = getSelectedProjects();
+  const n = projects.length;
+  const rangeLabel = getShortRangeLabel();
+  if (n === 0) {
+    previewBtn.textContent = 'Preview report';
+    previewBtn.title = 'Select at least one project to preview.';
+    previewBtn.disabled = true;
+    return;
+  }
+  if (!isRangeValid()) {
+    previewBtn.disabled = true;
+    previewBtn.title = 'End date must be after start date.';
+    return;
+  }
+  previewBtn.disabled = false;
+  const rangePart = rangeLabel ? ', ' + rangeLabel : '';
+  previewBtn.textContent = 'Preview (' + n + ' project' + (n !== 1 ? 's' : '') + rangePart + ')';
+  previewBtn.title = 'Generate report for selected filters.';
+}
 
 function updateAppliedFiltersSummary() {
   const el = document.getElementById('applied-filters-summary');
@@ -28,12 +64,9 @@ function updateAppliedFiltersSummary() {
   const summaryText = (projLabel !== 'None' && rangeLabel)
     ? 'Applied: ' + projLabel + ' · ' + rangeLabel + (opts.length ? ' · ' + opts.join(', ') : '')
     : 'Select projects and dates, then preview.';
-  if (el) {
-    el.textContent = summaryText;
-  }
-  if (chipsEl) {
-    chipsEl.textContent = summaryText;
-  }
+  if (el) el.textContent = summaryText;
+  if (chipsEl) chipsEl.textContent = summaryText;
+  refreshPreviewButtonLabel();
 }
 
 function hydrateFromLastQuery() {
@@ -78,10 +111,14 @@ function initReportPage() {
   initTabs(() => initExportMenu(), (tabName) => {
     if (tabName === 'done-stories') applyDoneStoriesOptionalColumnsPreference();
   });
+  try {
+    window.__reportPreviewButtonSync = refreshPreviewButtonLabel;
+  } catch (_) {}
   initProjectSelection();
-  initDateRangeControls(() => {
-    scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS);
-  });
+  initDateRangeControls(
+    () => { scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS); },
+    () => { refreshPreviewButtonLabel(); }
+  );
   hydrateFromLastQuery();
   updateAppliedFiltersSummary();
   initExportMenu();
@@ -121,6 +158,23 @@ function initReportPage() {
   document.getElementById('include-predictability')?.addEventListener('change', onFilterChange);
   document.getElementById('include-active-or-missing-end-date-sprints')?.addEventListener('change', onFilterChange);
   document.querySelectorAll('.project-checkbox').forEach((cb) => cb.addEventListener('change', onFilterChange));
+
+  document.addEventListener('click', (ev) => {
+    if (ev.target?.getAttribute('data-action') !== 'reset-filters') return;
+    try {
+      localStorage.removeItem(SHARED_DATE_RANGE_KEY);
+      localStorage.removeItem(LAST_QUERY_KEY);
+    } catch (_) {}
+    document.querySelectorAll('.project-checkbox').forEach((cb) => { cb.checked = false; });
+    const startInput = document.getElementById('start-date');
+    const endInput = document.getElementById('end-date');
+    if (startInput) startInput.value = DEFAULT_WINDOW_START_LOCAL;
+    if (endInput) endInput.value = DEFAULT_WINDOW_END_LOCAL;
+    const quarterStrip = document.querySelector('.quarter-strip-inner');
+    if (quarterStrip) quarterStrip.querySelectorAll('.quarter-pill').forEach((p) => p.classList.remove('is-active'));
+    updateAppliedFiltersSummary();
+    clearPreviewOnFilterChange();
+  });
 
   // Delegated click handlers for small CTA buttons inside Metrics/Boards etc.
   document.addEventListener('click', (ev) => {
@@ -197,6 +251,12 @@ function initReportPage() {
   });
 
   setTimeout(applyStoredFiltersCollapsed, 0);
+
+  const prevRefresh = window.__refreshReportingContextBar;
+  window.__refreshReportingContextBar = function () {
+    updateAppliedFiltersSummary();
+    if (typeof prevRefresh === 'function') prevRefresh();
+  };
 }
 
 if (document.readyState === 'loading') {

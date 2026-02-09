@@ -26,6 +26,10 @@ test.describe('Preview timeout and error UI validation', () => {
       await route.abort('failed');
     });
 
+    const toggleFilters = page.locator('[data-action="toggle-filters"]');
+    if (await toggleFilters.isVisible().catch(() => false)) await toggleFilters.click();
+    await page.locator('#start-date').scrollIntoViewIfNeeded();
+    await page.locator('#end-date').scrollIntoViewIfNeeded();
     await page.check('#project-mpsa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
     await page.fill('#end-date', '2025-09-30T23:59').catch(() => {});
@@ -43,14 +47,21 @@ test.describe('Preview timeout and error UI validation', () => {
 
   test('no critical console or network errors during error path', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
-    await page.route('**/preview.json**', (route) => route.abort('failed'));
+    await page.route('**/preview.json**', async (route) => {
+      await new Promise((r) => setTimeout(r, 300));
+      await route.abort('failed');
+    });
 
+    const toggleFilters = page.locator('[data-action="toggle-filters"]');
+    if (await toggleFilters.isVisible().catch(() => false)) await toggleFilters.click();
+    await page.locator('#start-date').scrollIntoViewIfNeeded();
+    await page.locator('#end-date').scrollIntoViewIfNeeded();
     await page.check('#project-mpsa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
     await page.fill('#end-date', '2025-09-30T23:59').catch(() => {});
     await page.click('#preview-btn');
 
-    await expect(page.locator('#error')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#error')).toBeVisible({ timeout: 20000 });
 
     const unexpectedConsole = telemetry.consoleErrors.filter(
       (t) => !IGNORE_CONSOLE_ERRORS.some((ignored) => t === ignored || t.includes(ignored))

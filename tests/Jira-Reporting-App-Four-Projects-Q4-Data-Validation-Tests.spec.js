@@ -13,6 +13,10 @@ const Q4_END = '2025-12-31T23:59';
 test.describe('Four projects Q4 data validation', () => {
   test('four projects and Q4 data load successfully or show clear error', async ({ page }) => {
     test.setTimeout(180000);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.addInitScript(() => {
+      try { sessionStorage.removeItem('report-filters-collapsed'); } catch (_) {}
+    });
 
     await page.goto('/report');
     if (page.url().includes('login') || (await page.locator('#username').isVisible().catch(() => false))) {
@@ -21,6 +25,18 @@ test.describe('Four projects Q4 data validation', () => {
     }
 
     await expect(page.locator('#preview-btn')).toBeVisible();
+
+    const ensureFiltersExpanded = () => {
+      try { sessionStorage.removeItem('report-filters-collapsed'); } catch (_) {}
+      const panel = document.getElementById('filters-panel');
+      const panelBody = document.getElementById('filters-panel-body');
+      const collapsedBar = document.getElementById('filters-panel-collapsed-bar');
+      if (panel) panel.classList.remove('collapsed');
+      if (panelBody) panelBody.style.display = '';
+      if (collapsedBar) collapsedBar.style.display = 'none';
+    };
+    await page.evaluate(ensureFiltersExpanded);
+    await page.evaluate(ensureFiltersExpanded);
 
     // Ensure exactly 4 projects selected: MPSA, MAS, RPA, MVA (default MPSA+MAS; add RPA, MVA)
     await page.check('#project-mpsa');
@@ -31,8 +47,8 @@ test.describe('Four projects Q4 data validation', () => {
       await page.uncheck('#' + id).catch(() => {});
     }
 
-    await page.fill('#start-date', Q4_START);
-    await page.fill('#end-date', Q4_END);
+    await page.locator('#start-date').fill(Q4_START, { force: true });
+    await page.locator('#end-date').fill(Q4_END, { force: true });
     await page.click('#preview-btn');
 
     await Promise.race([

@@ -14,13 +14,22 @@ export function persistSelectedProjects() {
   } catch (_) {}
 }
 
-export function updatePreviewButtonState() {
+/**
+ * Updates preview button disabled/title from project selection.
+ * When onPreviewButtonSync is provided (by Init), it is called so the single source of truth
+ * (refreshPreviewButtonLabel) also updates label and date-validity state.
+ */
+export function updatePreviewButtonState(onPreviewButtonSync = null) {
+  persistSelectedProjects();
+  if (typeof onPreviewButtonSync === 'function') {
+    onPreviewButtonSync();
+    return;
+  }
   const { previewBtn } = reportDom;
   if (!previewBtn) return;
   const hasProject = getSelectedProjects().length > 0;
   previewBtn.disabled = !hasProject;
   previewBtn.title = hasProject ? '' : 'Please select at least one project.';
-  persistSelectedProjects();
 }
 
 function updateProjectSelectionStatus() {
@@ -39,7 +48,7 @@ function initProjectActions() {
       document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
         input.checked = true;
       });
-      updatePreviewButtonState();
+      updatePreviewButtonState(window.__reportPreviewButtonSync);
       updateProjectSelectionStatus();
     });
   }
@@ -48,7 +57,7 @@ function initProjectActions() {
       document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
         input.checked = false;
       });
-      updatePreviewButtonState();
+      updatePreviewButtonState(window.__reportPreviewButtonSync);
       updateProjectSelectionStatus();
     });
   }
@@ -114,11 +123,11 @@ export function initProjectSelection() {
   } catch (_) {}
   document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
     input.addEventListener('change', () => {
-      updatePreviewButtonState();
+      updatePreviewButtonState(window.__reportPreviewButtonSync);
       updateProjectSelectionStatus();
     });
   });
-  updatePreviewButtonState();
+  updatePreviewButtonState(window.__reportPreviewButtonSync);
   updateProjectSelectionStatus();
   initProjectActions();
   initProjectSearch();

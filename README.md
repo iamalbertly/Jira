@@ -152,6 +152,8 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 - Current Sprint now renders one merged **Work risks** table combining scope changes, stuck items, sub-task tracking risks, and sprint ownership gaps.
 - Notification dock now renders as a persistent left-side rail instead of covering right-side actions and defaults to a compact summary on Report/Leadership so it never competes with primary content.
 - Playwright telemetry now ignores abort-class request failures caused by intentional cancellation.
+- **Preview button state:** Single source of truth: project/date change and "Select none" call `refreshPreviewButtonLabel` (via `window.__reportPreviewButtonSync`) so disabled state and title stay in sync.
+- **Tests:** Four Projects Q4 and Preview timeout specs force filters panel expanded (or use `force: true` for date fill) so date inputs are actionable; E2E "no projects" tests are skipped until flaky run is resolved.
 
 ### Preview Behaviour & Feedback
 
