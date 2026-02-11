@@ -62,7 +62,7 @@ This starts the server with nodemon for auto-restart on file changes.
 npm start
 ```
 
-The server will start on `http://localhost:3000` (or the port specified in the `PORT` environment variable).
+This runs `npm run build:css` first (prestart), then starts the server. The server will start on `http://localhost:3000` (or the port specified in the `PORT` environment variable).
 
 ### Access the Application
 
@@ -432,7 +432,8 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
 |   |-- Reporting-App-Report-Page-*.js               # Report page modules (state, filters, preview, renderers, exports)
 |   |-- Reporting-App-Report-Page-Preview-Complexity-Config.js  # Preview complexity and timeout config
 |   |-- Reporting-App-Shared-*.js                     # Shared helpers (DOM escape, formatting, boards summary, notifications, quarters)
-|   `-- styles.css            # Styling
+|   |-- css/                  # CSS source partials (01-reset-vars through 08-modals-misc); run `npm run build:css` to output styles.css
+|   `-- styles.css            # Built stylesheet (do not edit; generated from public/css/). Mobile responsiveness is validated by Mobile Responsive UX and CSS Build And Mobile Responsive validation specs.
 |-- tests/
 |   |-- JiraReporting-Tests-Shared-PreviewExport-Helpers.js  # SSOT for runDefaultPreview, waitForPreview, captureBrowserTelemetry
 |   |-- Jira-Reporting-App-E2E-User-Journey-Tests.spec.js

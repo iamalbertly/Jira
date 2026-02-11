@@ -18,6 +18,7 @@
   - **Default window SSOT:** `lib/Jira-Reporting-App-Config-DefaultWindow.js` exports `DEFAULT_WINDOW_START`, `DEFAULT_WINDOW_END`; server and `GET /api/default-window` use it.
   - **Vodacom quarters SSOT:** `lib/Jira-Reporting-App-Data-VodacomQuarters-01Bounds.js` – quarter bounds, `getLatestCompletedQuarter(q)`, and `getQuartersUpToCurrent(count)`; `lib/excel.js` uses `getQuarterLabelForRange` for filename labels.
 - **Frontend (`public/report.html`, `public/current-sprint.html`, `public/leadership.html`, `public/styles.css`, and modular `Reporting-App-*` scripts)**
+  - **CSS:** Source lives in `public/css/` (01-reset-vars.css through 08-modals-misc.css). Run `npm run build:css` to concatenate into `public/styles.css`. Do not edit `styles.css` directly; edit partials and rebuild. Mobile header fix (min-width:0, overflow-wrap) is in 02-layout-container.css.
   - Report (General Performance) is loaded via `report.html` and `Reporting-App-Report-Page-Init-Controller.js` only; no legacy report.js. Filters panel, preview header, tabs, and content are driven by `Reporting-App-Report-Page-*` modules. Date window uses a scrollable strip of Vodacom quarter pills (5+ quarters up to current) from `/api/quarters-list`.
   - Leadership uses `leadership.html` and `Reporting-App-Leadership-Page-Init-Controller.js`; same quarter strip pattern.
   - `Reporting-App-Shared-Boards-Summary-Builder.js` – SSOT for board summary aggregation (Report and Leadership); both pages use `buildBoardSummaries` only.
@@ -34,6 +35,7 @@
   - `Jira-Reporting-App-Refactor-SSOT-Validation-Tests.spec.js` – Boards column order, tooltips, capacity columns, CSV SSOT contract
   - `Jira-Reporting-App-UX-Customer-Simplicity-Trust-Validation-Tests.spec.js` – Login outcome/trust/error focus/ratelimit, Report sticky chips/empty state/Generated X min ago/filters tip, Current Sprint loading/no-boards copy, Leadership auto-preview; run by orchestration.
   - `Jira-Reporting-App-UX-Outcome-First-Nav-And-Trust-Validation-Tests.spec.js` – Default Done Stories tab, two-line preview meta, context bar last-run, alert classes, login/nav, Current Sprint hero and loading, Leadership sticky and zero-boards, global nav, Report CTA/loading, edge cases (tab state, project SSOT); run by orchestration.
+  - `Jira-Reporting-App-CSS-Build-And-Mobile-Responsive-Validation-Tests.spec.js` – CSS build output exists, report/current-sprint headers responsive at 375px, nav and filters visible; telemetry + UI per step; run by orchestration.
   - `tests/JiraReporting-Tests-Shared-PreviewExport-Helpers.js` – SSOT for `runDefaultPreview(page, overrides?)` and `waitForPreview(page)`; used by E2E, Excel, UX Critical/Reliability, Column Tooltip, Refactor SSOT, E2E Loading Meta, RED-LINE specs
 - **Scripts**
   - `scripts/Jira-Reporting-App-Test-Orchestration-Runner.js` – sequential runner for Playwright API + E2E suites; imports steps from `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`; before test steps, calls `POST /api/test/clear-cache` (when NODE_ENV=test) so no test reads stale cache

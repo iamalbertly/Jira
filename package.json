@@ -5,7 +5,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "build:css": "node scripts/build-css.js",
     "dev": "nodemon server.js",
+    "prestart": "npm run build:css",
     "start": "node server.js",
     "test:all": "node scripts/Jira-Reporting-App-Test-Orchestration-Runner.js",
     "test:e2e": "playwright test tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js",

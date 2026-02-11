@@ -9,6 +9,7 @@ export function getSteps(projectRoot) {
   return [
     { name: 'Install Dependencies', command: 'npm', args: ['install'], cwd: projectRoot },
     { name: 'Run Focused Mobile Responsive UX Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
+    { name: 'Run CSS Build And Mobile Responsive Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-CSS-Build-And-Mobile-Responsive-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Focused Current Sprint Health & SSOT Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Current-Sprint-Health-And-SSOT-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Focused UX Outcome-First Nav And Trust Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-UX-Outcome-First-Nav-And-Trust-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Four Projects Q4 Data Validation Test', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Four-Projects-Q4-Data-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },

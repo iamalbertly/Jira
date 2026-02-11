@@ -1,5 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
-import { runDefaultPreview, waitForPreview, captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { runDefaultPreview, waitForPreview, captureBrowserTelemetry, assertTelemetryClean } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 // Mobile viewport (iPhone 12-ish)
 const mobile = { viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15A372 Safari/604.1' };
@@ -115,5 +115,35 @@ test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
       expect(telemetry.consoleErrors.some(e => /status of 500/.test(e))).toBeTruthy();
     }
     expect(telemetry.pageErrors).toEqual([]);
+  });
+
+  test('mobile key factors: report and current-sprint headers no horizontal overflow and key text visible', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/report');
+    if (page.url().includes('login')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+    const reportHeaderOverflow = await page.evaluate(() => {
+      const h = document.querySelector('header');
+      return h ? h.scrollWidth > h.clientWidth : false;
+    });
+    expect(reportHeaderOverflow).toBe(false);
+    await expect(page.locator('header h1')).toContainText(/General Performance|High-Level/i);
+    await expect(page.locator('#report-subtitle')).toBeVisible();
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login');
+      return;
+    }
+    const sprintTitleBlockOverflow = await page.evaluate(() => {
+      const block = document.querySelector('header .current-sprint-header > div:first-child, header .current-sprint-header-bar .header-bar-left');
+      return block ? block.scrollWidth > block.clientWidth : false;
+    });
+    expect(sprintTitleBlockOverflow).toBe(false);
+    const mainTitle = page.locator('header h1, .current-sprint-header-bar .header-sprint-name, #current-sprint-title').first();
+    await expect(mainTitle).toBeVisible();
+    assertTelemetryClean(telemetry);
   });
 });

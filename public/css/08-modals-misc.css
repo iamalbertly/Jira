@@ -1,0 +1,77 @@
+/* Login page (outcome-first, trust below form) */
+.login-page .login-container {
+  max-width: 360px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+}
+.login-page .login-container h1 {
+  margin-bottom: 0.5rem;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.login-page .login-outcome-line {
+  font-size: 0.95rem;
+  color: var(--text, #444);
+  margin-bottom: 1.5rem;
+}
+.login-page .login-trust-line {
+  font-size: 0.85rem;
+  color: var(--muted, #555);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.login-page .login-footer {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: var(--muted, #777);
+}
+.login-page .login-value-props {
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--muted, #555);
+}
+.login-page .login-value-props li {
+  margin-top: 0.125rem;
+}
+.login-page .login-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+.login-page .login-form input[type="text"],
+.login-page .login-form input[type="password"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.login-page .login-form button {
+  width: 100%;
+  padding: 0.6rem;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.login-page .login-error {
+  color: var(--danger);
+  margin-bottom: 1rem;
+}
+.login-page .caps-warning {
+  font-size: 0.8rem;
+  color: var(--warning);
+  margin-top: -0.25rem;
+  margin-bottom: 0.75rem;
+  display: none;
+}
+.login-page .honeypot {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  opacity: 0;
+  pointer-events: none;
+}
+

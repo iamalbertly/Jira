@@ -1,4 +1,4 @@
-/* SIZE-EXEMPT: Single global stylesheet; no bundler. Splitting would require import order and duplicate selectors. */
+/* Built from public/css/ – do not edit directly. */
 :root {
   --bg: #f3f6f9;
   --bg-accent: #e9f0f6;
@@ -29,7 +29,6 @@ body {
   color: var(--text);
   background: var(--bg);
 }
-
 .container {
   max-width: 1480px;
   margin: 0 auto;
@@ -134,6 +133,27 @@ header h1 {
 }
 .context-stale-hint:hover {
   color: var(--primary-strong);
+}
+
+
+/* Mobile header: allow shrink and wrap (no horizontal overflow) */
+header .header-row > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+header h1 {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+header .subtitle {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.25rem;
+  }
 }
 
 .app-nav {
@@ -2378,6 +2398,26 @@ body.notification-dock-visible .container {
   font-size: 0.9em;
 }
 
+/* Current-sprint page header: avoid overflow on narrow viewports */
+.current-sprint-header {
+  min-width: 0;
+}
+.current-sprint-header > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+@media (max-width: 720px) {
+  .current-sprint-header {
+    min-width: 0;
+  }
+  .board-select-wrap select {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .main-layout {
@@ -2672,6 +2712,7 @@ body.notification-dock-visible .container {
 .header-bar-left {
   flex: 0 1 auto;
   min-width: 250px;
+  overflow-wrap: break-word;
 }
 
 .header-sprint-name {
@@ -3941,7 +3982,7 @@ body.notification-dock-visible .container {
 }
 
 .capacity-actions li::before {
-  content: '→ ';
+  content: 'ΓåÆ ';
   color: var(--accent);
   font-weight: 600;
   margin-right: 4px;
@@ -4387,6 +4428,22 @@ body.notification-dock-visible .export-dashboard-container {
 }
 
 @media (max-width: 480px) {
+  .current-sprint-header-bar {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .header-bar-left {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .header-sprint-name,
+  .header-board-label,
+  .header-sprint-dates {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
   .header-sprint-name {
     font-size: 0.95rem;
   }
@@ -4433,6 +4490,8 @@ body.notification-dock-visible .export-dashboard-container {
 }
 .login-page .login-container h1 {
   margin-bottom: 0.5rem;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 .login-page .login-outcome-line {
   font-size: 0.95rem;

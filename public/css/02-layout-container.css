@@ -1,0 +1,126 @@
+.container {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+header {
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: sticky; /* keep header visible while scrolling */
+  top: 0;
+  z-index: 1100;
+}
+
+/* Epic key column CSS to prevent wrapping and make click-through easier */
+.data-table .epic-key { display: inline-block; min-width: 120px; }
+.data-table .epic-key a { white-space: nowrap; text-decoration: none; color: var(--primary); }
+
+
+header .header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Sticky header fine-tuning on small screens */
+@media (max-width: 768px) {
+  header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  main { padding-top: 8px; }
+  body:not(.login-page) .container {
+    margin-left: 0;
+  }
+  .app-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+  .sidebar-backdrop.active {
+    display: block;
+  }
+}
+
+header h1 {
+  color: var(--primary);
+  margin-bottom: 6px;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.95em;
+}
+
+.shared-context-bar {
+  display: block;
+}
+.shared-context-bar-text {
+  margin-right: 8px;
+}
+.context-state-badge {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+}
+.context-state-badge--live {
+  color: var(--accent);
+}
+.context-state-badge--cached {
+  color: var(--primary);
+}
+.context-state-badge--partial {
+  color: var(--warning);
+}
+.context-state-badge--closest {
+  color: var(--muted);
+}
+
+.context-stale-hint {
+  margin-left: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.context-stale-hint:hover {
+  color: var(--primary-strong);
+}
+
+
+/* Mobile header: allow shrink and wrap (no horizontal overflow) */
+header .header-row > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+header h1 {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+header .subtitle {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.25rem;
+  }
+}
