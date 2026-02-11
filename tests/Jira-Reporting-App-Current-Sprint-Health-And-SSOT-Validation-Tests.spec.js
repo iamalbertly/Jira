@@ -1,13 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { captureBrowserTelemetry, assertTelemetryClean } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { captureBrowserTelemetry, assertTelemetryClean, skipIfRedirectedToLogin } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Current Sprint Health & SSOT UX Validation', () => {
   test('current sprint loading copy when no board selected', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     const loading = page.locator('#current-sprint-loading');
     await page.waitForTimeout(300);
     const loadingVisible = await loading.isVisible().catch(() => false);
@@ -20,11 +17,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
   test('current sprint header shows health outcome line', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
     const outcome = page.locator('.current-sprint-outcome-line');
@@ -41,10 +34,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
 
   test('current sprint no-boards error includes hint when shown', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     const errorEl = page.locator('#current-sprint-error');
     const errorVisible = await errorEl.isVisible().catch(() => false);
     if (errorVisible) {
@@ -57,10 +47,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
 
   test('no-active-sprint empty state, when present, explains next steps', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     const bodyText = (await page.locator('body').textContent()) || '';
     if (!/No active sprint on this board/i.test(bodyText)) {
@@ -73,10 +60,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
 
   test('projects SSOT sync applies silently and normalizes to one project for current sprint', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     // Simulate Report updating the shared projects SSOT key
     await page.evaluate(() => {
@@ -91,10 +75,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
 
   test('sprint health outcome line stays visible when scrolling', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     const outcome = page.locator('.current-sprint-outcome-line');
     const hasOutcome = await outcome.isVisible().catch(() => false);
@@ -119,10 +100,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
 
   test('work risks table when present has Summary column and displays row data', async ({ page }) => {
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login or home; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     const table = page.locator('#work-risks-table');
     const tableVisible = await table.isVisible().catch(() => false);
     if (!tableVisible) {

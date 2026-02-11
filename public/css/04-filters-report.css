@@ -430,6 +430,25 @@
 }
 
 /* Preview Area */
+.report-context-line {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.report-load-latest-wrap {
+  margin-left: 0.5em;
+}
+.report-load-latest-wrap .link-style {
+  font-size: 0.95rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--link-color, #0a6ebd);
+  text-decoration: underline;
+}
+.report-load-latest-wrap .link-style:hover {
+  text-decoration: none;
+}
 .preview-area {
   background: var(--card);
   padding: 22px;

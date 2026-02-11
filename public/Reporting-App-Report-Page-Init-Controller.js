@@ -6,7 +6,7 @@ import { initDateRangeControls, isRangeValid } from './Reporting-App-Report-Page
 import { initPreviewFlow, clearPreviewOnFilterChange } from './Reporting-App-Report-Page-Preview-Flow.js';
 import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
-import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
+import { getValidLastQuery, getContextDisplayString } from './Reporting-App-Shared-Context-From-Storage.js';
 import { REPORT_FILTERS_COLLAPSED_KEY, SHARED_DATE_RANGE_KEY, LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { DEFAULT_WINDOW_START_LOCAL, DEFAULT_WINDOW_END_LOCAL } from './Reporting-App-Report-Config-Constants.js';
 import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
@@ -138,7 +138,24 @@ function initReportPage() {
   initProjectSelection();
   initDateRangeControls(() => { scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS); }, () => { refreshPreviewButtonLabel(); });
   hydrateFromLastQuery();
+  const reportContextLine = document.getElementById('report-context-line');
+  if (reportContextLine) reportContextLine.textContent = getContextDisplayString();
+  const loadLatestWrap = document.getElementById('report-load-latest-wrap');
+  const loadLatestBtn = document.getElementById('report-load-latest-btn');
+  if (reportContextLine?.textContent?.trim() === 'No report run yet' && loadLatestWrap) {
+    loadLatestWrap.style.display = 'inline';
+    if (loadLatestBtn) {
+      loadLatestBtn.addEventListener('click', () => {
+        const pb = document.getElementById('preview-btn');
+        if (pb && !pb.disabled) pb.click();
+      });
+    }
+  }
   updateAppliedFiltersSummary();
+  if (getContextDisplayString() !== 'No report run yet') {
+    const previewBtn = document.getElementById('preview-btn');
+    if (previewBtn && !previewBtn.disabled) scheduleAutoPreview(1000);
+  }
   initReportExportMenu();
   initPreviewFlow();
   initSearchClearButtons();

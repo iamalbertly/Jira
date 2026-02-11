@@ -22,6 +22,10 @@ export function renderPreview() {
   const { errorEl, previewContent, previewMeta, exportExcelBtn, exportDropdownTrigger } = reportDom;
   if (!previewData) return;
 
+  const reportContextLine = document.getElementById('report-context-line');
+  if (reportContextLine) reportContextLine.textContent = '';
+  const loadLatestWrap = document.getElementById('report-load-latest-wrap');
+  if (loadLatestWrap) loadLatestWrap.style.display = 'none';
   const meta = getSafeMeta(previewData);
   if (!meta) {
     const stickyElNoMeta = document.getElementById('preview-summary-sticky');
