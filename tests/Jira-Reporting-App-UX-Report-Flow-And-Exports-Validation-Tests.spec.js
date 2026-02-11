@@ -7,57 +7,47 @@ test.describe('UX Report Flow & Export Experience', () => {
     await page.goto('/report');
 
     await expect(page.locator('h1')).toContainText(/General Performance/i);
-    await expect(page.locator('#report-subtitle')).toContainText(/Preview updates when you change projects or dates/i);
+    await expect(page.locator('#report-subtitle')).toContainText(/Preview updates automatically when filters change/i);
     await expect(page.locator('#preview-btn')).toBeVisible();
 
     assertTelemetryClean(telemetry);
   });
 
-  test('projects are grouped into Most used and Other squads without breaking search', async ({ page }) => {
+  test('projects are directly selectable and search still works without extra toggles', async ({ page }) => {
     await page.goto('/report');
 
-    const mostUsed = page.locator('.project-group-label', { hasText: 'Most used' });
-    const otherSquads = page.locator('.project-group-label', { hasText: 'Other squads' });
-    await expect(mostUsed).toBeVisible();
-    await expect(otherSquads).toBeVisible();
+    await expect(page.locator('#project-search')).toBeVisible();
+    await expect(page.locator('#projects-no-match')).toBeHidden();
+    await expect(page.locator('#show-all-squads')).toHaveCount(0);
 
-    // Basic sanity for search: filter to a single project and show "no match" state when unmatched
     await page.fill('#project-search', 'MPSA');
     await expect(page.locator('#projects-no-match')).toBeHidden();
     await page.fill('#project-search', 'ZZZ-DOES-NOT-EXIST');
     await expect(page.locator('#projects-no-match')).toBeVisible();
   });
 
-  test('applied filters chips mirror sidebar summary and Edit filters focuses filters panel', async ({ page }) => {
+  test('applied filters summary stays visible and reflects current date range', async ({ page }) => {
     await page.goto('/report');
 
-    // Ensure some filters are applied
     await page.uncheck('#project-rpa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00');
     await page.fill('#end-date', '2025-09-30T23:59');
 
-    const summaryText = await page.locator('#applied-filters-summary').textContent();
-    const chipsText = await page.locator('#applied-filters-chips').textContent();
-    expect((chipsText || '').trim()).toBe((summaryText || '').trim());
+    const summary = page.locator('#applied-filters-summary');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(/2025-07-01/);
+    await expect(summary).toContainText(/2025-09-30/);
 
-    // Sticky chips row remains visible after scroll so Edit filters is always reachable
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(200);
-    await expect(page.locator('.applied-filters-chips-row')).toBeVisible();
-    await expect(page.locator('#applied-filters-edit-btn')).toBeVisible();
-
-    // Edit filters button should bring focus back to filters
-    const editBtn = page.locator('#applied-filters-edit-btn');
-    await editBtn.click();
-    const activeId = await page.evaluate(() => (document.activeElement && document.activeElement.id) || '');
-    expect(['project-search', 'start-date', 'end-date']).toContain(activeId);
+    await expect(summary).toBeVisible();
+    await expect(page.locator('#applied-filters-edit-btn')).toHaveCount(0);
   });
 
-  test('export CTAs are hidden until preview has run then show Export Excel – All data', async ({ page }) => {
+  test('export CTAs are hidden until preview has run then show Export Excel - All data', async ({ page }) => {
     await page.goto('/report');
 
     await expect(page.locator('#export-excel-btn')).toBeHidden();
-    await expect(page.locator('#preview-header-export-excel-btn')).toBeHidden();
 
     await page.check('#project-mpsa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
@@ -66,9 +56,7 @@ test.describe('UX Report Flow & Export Experience', () => {
     await expect(page.locator('#preview-content')).toBeVisible({ timeout: 60000 });
 
     await expect(page.locator('#export-excel-btn')).toBeVisible();
-    await expect(page.locator('#export-excel-btn')).toContainText('Export Excel – All data');
-    await expect(page.locator('#preview-header-export-excel-btn')).toBeVisible();
-    await expect(page.locator('#preview-header-export-excel-btn')).toContainText('Export Excel – All data');
+    await expect(page.locator('#export-excel-btn')).toContainText('Export Excel - All data');
   });
 
   test('loading feedback and sticky context are visible when triggering preview from deep scroll', async ({ page }) => {
@@ -76,10 +64,8 @@ test.describe('UX Report Flow & Export Experience', () => {
 
     await page.goto('/report');
 
-    // Scroll deep into the page to simulate being at the bottom of a long table
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-    // Slow the preview slightly so loading states are visible
     await page.route('/preview.json?*', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
@@ -87,7 +73,6 @@ test.describe('UX Report Flow & Export Experience', () => {
 
     await page.click('#preview-btn');
 
-    // Loading panel should be brought back into the viewport
     const loadingTop = await page.evaluate(() => {
       const el = document.getElementById('loading');
       if (!el) return null;
@@ -97,10 +82,8 @@ test.describe('UX Report Flow & Export Experience', () => {
     expect(loadingTop).not.toBeNull();
     expect(loadingTop).toBeLessThan(320);
 
-    // While loading is in-flight, status chip should be visible
     await expect(page.locator('#loading-status-chip')).toBeVisible();
 
-    // After preview completes, sticky summary context should be visible when rendered
     await page.waitForSelector('#preview-content', { state: 'visible', timeout: 120000 }).catch(() => null);
     const sticky = page.locator('#preview-summary-sticky');
     const ariaHidden = await sticky.getAttribute('aria-hidden');
@@ -111,4 +94,3 @@ test.describe('UX Report Flow & Export Experience', () => {
     await expect(sticky).toBeVisible();
   });
 });
-

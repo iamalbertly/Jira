@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VodaAgileBoard - General Performance</title>
+  <title>VodaAgileBoard - High-Level Performance</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="container">
     <header>
       <div class="header-row">
         <div>
-          <h1>General Performance</h1>
-          <p id="report-subtitle" class="subtitle">Preview updates when you change projects or dates. Use the button to run it manually.</p>
+          <h1>General Performance - High-Level Performance</h1>
+          <p id="report-subtitle" class="subtitle">Preview updates automatically when filters change; use Preview report for heavy ranges.</p>
         </div>
       </div>
       <nav class="app-nav" aria-label="Main">
-        <span class="current">Report</span>
+        <span class="current">High-Level Performance</span>
         <a href="/current-sprint">Current Sprint (Squad)</a>
-        <a href="/sprint-leadership">Leadership</a>
       </nav>
       <div id="feedback-panel" class="feedback-panel" style="display: none;">
         <h2>Share Feedback</h2>
@@ -42,166 +43,158 @@
     <div class="main-layout">
       <!-- Filters Panel -->
       <aside class="filters-panel" id="filters-panel">
-        <div class="filters-panel-collapsed-bar" id="filters-panel-collapsed-bar" style="display: none;" aria-hidden="true">
-          <span id="filters-collapsed-summary" class="filters-collapsed-summary"></span>
-          <button type="button" class="btn btn-secondary btn-compact" data-action="toggle-filters" aria-label="Expand filters">Edit filters</button>
-        </div>
+        <div class="filters-panel-collapsed-bar" id="filters-panel-collapsed-bar" style="display: none;"
+          aria-hidden="true"></div>
         <div class="filters-panel-body" id="filters-panel-body">
-        <h2>Filters</h2>
-        <p class="filters-tip"><small>Pick projects and a quarter (or dates), then check the preview and export.</small></p>
-        <div class="filter-group">
-          <h3>Projects</h3>
-          <div class="project-tools">
-            <div class="search-input-wrap">
-              <input type="text" id="project-search" placeholder="Filter projects..." aria-label="Filter projects">
-              <button type="button" class="search-clear-btn" data-target="project-search" aria-label="Clear project filter" title="Clear">Clear</button>
+          <h2>Filters</h2>
+          <p class="filters-tip"><small>Pick projects and a quarter (or dates), then check the preview and
+              export.</small></p>
+          <div class="filter-group">
+            <h3>Projects</h3>
+            <div class="project-tools">
+              <div class="search-input-wrap">
+                <input type="text" id="project-search" placeholder="Filter projects..." aria-label="Filter projects">
+                <button type="button" class="search-clear-btn" data-target="project-search"
+                  aria-label="Clear project filter" title="Clear">Clear</button>
+              </div>
+              <div id="projects-selection-status" class="selection-status"></div>
+              <div id="projects-no-match" class="selection-status" style="display: none;">No projects match your search.
+              </div>
             </div>
-            <div class="project-actions">
-              <button type="button" id="projects-select-all" class="btn btn-secondary btn-compact">Select all</button>
-              <button type="button" id="projects-select-none" class="btn btn-secondary btn-compact">Select none</button>
-            </div>
-            <div id="projects-selection-status" class="selection-status"></div>
-            <div id="projects-no-match" class="selection-status" style="display: none;">No projects match your search.</div>
-          </div>
-          <p class="project-group-label"><small>Most used</small></p>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
-            <span class="project-code">MPSA</span>
-            <span class="project-desc">M-SQUAD</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-mas" class="project-checkbox" data-project="MAS" checked>
-            <span class="project-code">MAS</span>
-            <span class="project-desc">Mini - Apps Squad</span>
-          </label>
-          <p class="project-group-label"><small>Other squads</small></p>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-rpa" class="project-checkbox" data-project="RPA">
-            <span class="project-code">RPA</span>
-            <span class="project-desc">Robotics Process Automation (RPA)</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-mva" class="project-checkbox" data-project="MVA">
-            <span class="project-code">MVA</span>
-            <span class="project-desc">Digital Squad</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-asg" class="project-checkbox" data-project="ASG">
-            <span class="project-code">ASG</span>
-            <span class="project-desc">Agile and Security Guild</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-fin" class="project-checkbox" data-project="FIN">
-            <span class="project-code">FIN</span>
-            <span class="project-desc">Finance Squad</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-sd" class="project-checkbox" data-project="SD">
-            <span class="project-code">SD</span>
-            <span class="project-desc">DMS Squad (Kilimanjaro Legends)</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-mpsa2" class="project-checkbox" data-project="MPSA2">
-            <span class="project-code">MPSA2</span>
-            <span class="project-desc">TRANSFORMERS</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-trs" class="project-checkbox" data-project="TRS">
-            <span class="project-code">TRS</span>
-            <span class="project-desc">T-Squad</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-vb" class="project-checkbox" data-project="VB">
-            <span class="project-code">VB</span>
-            <span class="project-desc">Vodacom Business</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-ams2" class="project-checkbox" data-project="AMS2">
-            <span class="project-code">AMS2</span>
-            <span class="project-desc">AMS Squad (Tachyons)</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="project-bio" class="project-checkbox" data-project="BIO">
-            <span class="project-code">BIO</span>
-            <span class="project-desc">Bio metric KYC &amp; KYA</span>
-          </label>
-        </div>
-
-        <div class="filter-group">
-          <h3>Date Window</h3>
-          <p class="quarter-strip-label"><small>Pick a quarter or Custom.</small></p>
-          <div class="quick-range-strip" role="group" aria-label="Date range">
-            <div class="quarter-strip-inner" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;"></div>
-          </div>
-          <div id="date-range-summary-wrap" class="date-range-summary-wrap">
-            <span id="date-range-summary" class="date-range-summary" aria-live="polite"></span>
-            <button type="button" id="date-range-edit-btn" class="btn btn-compact btn-link date-range-edit-btn" aria-label="Edit date range">Edit</button>
-          </div>
-          <div id="date-range-custom-wrap" class="date-range-custom-wrap" hidden>
-            <label>Start <input type="datetime-local" id="start-date" value="2025-07-01T00:00"></label>
-            <label>End <input type="datetime-local" id="end-date" value="2025-09-30T23:59"></label>
-          </div>
-          <div class="date-display" id="date-display"></div>
-        </div>
-
-        <div class="filter-group">
-          <h3>Options</h3>
-          <p class="options-note"><small><strong>Note:</strong> Story Points, Epic TTM, and Bugs/Rework are always included in reports.</small></p>
-          <button type="button" id="advanced-options-toggle" class="btn btn-secondary btn-compact" aria-expanded="false" aria-controls="advanced-options">Options</button>
-          <div id="advanced-options" class="advanced-options" hidden>
-            <label class="toggle-label">
-              <input type="checkbox" id="require-resolved-by-sprint-end">
-              <span>Require Resolved by Sprint End</span>
+            <p class="project-group-label"><small>Most used</small></p>
+            <label class="checkbox-label">
+              <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
+              <span class="project-code">MPSA</span>
+              <span class="project-desc">M-SQUAD</span>
             </label>
-            <label class="toggle-label">
-              <input type="checkbox" id="include-predictability">
-              <span>Include Predictability</span>
+            <label class="checkbox-label">
+              <input type="checkbox" id="project-mas" class="project-checkbox" data-project="MAS" checked>
+              <span class="project-code">MAS</span>
+              <span class="project-desc">Mini - Apps Squad</span>
             </label>
-            <div id="predictability-mode-group" style="display: none; margin-left: 20px; margin-top: 8px;">
-              <label class="radio-label">
-                <input type="radio" name="predictability-mode" value="approx" checked>
-                <span>Approximation</span>
+            <p class="project-group-label"><small>Other squads</small></p>
+            <div id="other-squads-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-rpa" class="project-checkbox" data-project="RPA">
+                <span class="project-code">RPA</span>
+                <span class="project-desc">Robotics Process Automation (RPA)</span>
               </label>
-              <label class="radio-label">
-                <input type="radio" name="predictability-mode" value="strict">
-                <span>Strict</span>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-mva" class="project-checkbox" data-project="MVA">
+                <span class="project-code">MVA</span>
+                <span class="project-desc">Digital Squad</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-asg" class="project-checkbox" data-project="ASG">
+                <span class="project-code">ASG</span>
+                <span class="project-desc">Agile and Security Guild</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-fin" class="project-checkbox" data-project="FIN">
+                <span class="project-code">FIN</span>
+                <span class="project-desc">Finance Squad</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-sd" class="project-checkbox" data-project="SD">
+                <span class="project-code">SD</span>
+                <span class="project-desc">DMS Squad (Kilimanjaro Legends)</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-mpsa2" class="project-checkbox" data-project="MPSA2">
+                <span class="project-code">MPSA2</span>
+                <span class="project-desc">TRANSFORMERS</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-trs" class="project-checkbox" data-project="TRS">
+                <span class="project-code">TRS</span>
+                <span class="project-desc">T-Squad</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-vb" class="project-checkbox" data-project="VB">
+                <span class="project-code">VB</span>
+                <span class="project-desc">Vodacom Business</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-ams2" class="project-checkbox" data-project="AMS2">
+                <span class="project-code">AMS2</span>
+                <span class="project-desc">AMS Squad (Tachyons)</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="project-bio" class="project-checkbox" data-project="BIO">
+                <span class="project-code">BIO</span>
+                <span class="project-desc">Bio metric KYC &amp; KYA</span>
               </label>
             </div>
-            <label class="toggle-label">
-              <input type="checkbox" id="include-active-or-missing-end-date-sprints">
-              <span>Include Active/Missing End Date Sprints</span>
-            </label>
           </div>
-        </div>
 
-        <div id="applied-filters-summary" class="applied-filters-summary" aria-live="polite"></div>
-        <p id="range-hint" class="range-hint" style="display: none;" aria-live="polite"><small>Large ranges may be slow. For faster results, try last quarter.</small></p>
+          <div class="filter-group">
+            <h3>Date Window</h3>
+            <p class="quarter-strip-label"><small>Pick a quarter or Custom.</small></p>
+            <div class="quick-range-strip" role="group" aria-label="Date range">
+              <div class="quarter-strip-inner" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;">
+              </div>
+            </div>
+            <div id="date-range-summary-wrap" class="date-range-summary-wrap">
+              <span id="date-range-summary" class="date-range-summary" aria-live="polite"></span>
+            </div>
+            <div id="date-range-custom-wrap" class="date-range-custom-wrap">
+              <label>Start <input type="datetime-local" id="start-date" value="2025-07-01T00:00"></label>
+              <label>End <input type="datetime-local" id="end-date" value="2025-09-30T23:59"></label>
+            </div>
+            <div class="date-display" id="date-display"></div>
+          </div>
+
+          <div class="filter-group">
+            <h3>Options</h3>
+            <p class="options-note"><small><strong>Note:</strong> Story Points, Epic TTM, and Bugs/Rework are always
+                included in reports.</small></p>
+            <button type="button" id="advanced-options-toggle" class="btn btn-secondary btn-compact"
+              aria-expanded="false" aria-controls="advanced-options">Options</button>
+            <div id="advanced-options" class="advanced-options" hidden>
+              <label class="toggle-label">
+                <input type="checkbox" id="require-resolved-by-sprint-end">
+                <span>Require Resolved by Sprint End</span>
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="include-predictability">
+                <span>Include Predictability</span>
+              </label>
+              <div id="predictability-mode-group" style="display: none; margin-left: 20px; margin-top: 8px;">
+                <label class="radio-label">
+                  <input type="radio" name="predictability-mode" value="approx" checked>
+                  <span>Approximation</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="predictability-mode" value="strict">
+                  <span>Strict</span>
+                </label>
+              </div>
+              <label class="toggle-label">
+                <input type="checkbox" id="include-active-or-missing-end-date-sprints">
+                <span>Include Active/Missing End Date Sprints</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="applied-filters-summary" class="applied-filters-summary" aria-live="polite"></div>
+          <p id="range-hint" class="range-hint" style="display: none;" aria-live="polite"><small>Large ranges may be
+              slow. For faster results, try last quarter.</small></p>
           <div class="button-group filters-actions">
-          <button id="preview-btn" class="btn btn-primary" title="Generate report for selected filters.">Preview report</button>
-          <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-compact" data-action="reset-filters" title="Clear project selection and reset date range">Reset filters</button>
-          <div class="export-split-group">
-            <button id="export-excel-btn" class="btn btn-secondary" title="Preview first to export. Export all preview data to Excel." disabled style="display: none;">Export Excel – All data</button>
-            <button id="export-dropdown-trigger" class="btn btn-secondary export-dropdown-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu" aria-label="More export options" title="More export options: filtered view and CSV" disabled style="display: none;">Options &#9662;</button>
-            <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true" aria-label="Export options">
-              <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to Excel (full)</button>
-              <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem" title="Exports only rows visible after applying search and filters in this tab.">Export CSV (filtered)</button>
-              <button type="button" class="export-dropdown-item" data-export="excel-filtered" role="menuitem" title="Only rows currently visible in this tab (after filters).">Export to Excel (filtered)</button>
-            </div>
+            <button id="preview-btn" class="btn btn-primary" title="Generate report for selected filters.">Preview
+              report</button>
+            <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-compact"
+              data-action="reset-filters" title="Clear project selection and reset date range">Reset filters</button>
+            <div id="export-hint" class="export-hint"></div>
           </div>
-          <div id="export-hint" class="export-hint"></div>
-        </div>
         </div>
       </aside>
 
       <!-- Preview Area -->
       <main class="preview-area">
-        <div class="applied-filters-chips-row">
-          <div id="applied-filters-chips" class="applied-filters-chips" aria-live="polite"></div>
-          <button type="button" id="applied-filters-edit-btn" class="btn btn-secondary btn-compact">Edit filters</button>
-        </div>
         <div id="loading" class="loading loading-skeleton" style="display: none;" aria-live="polite" aria-busy="true">
           <div class="loading-progress-wrap">
-            <div class="loading-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Report loading progress">
+            <div class="loading-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+              aria-label="Report loading progress">
               <div id="loading-progress-fill" class="loading-progress-fill" style="width: 0%;"></div>
             </div>
             <p id="loading-message" class="loading-stage-label">Connecting to Jira…</p>
@@ -210,7 +203,8 @@
           <div class="skeleton-preview" aria-hidden="true">
             <div class="skeleton-row skeleton-chips"></div>
             <div class="skeleton-block skeleton-tabs">
-              <span class="skeleton-line"></span><span class="skeleton-line"></span><span class="skeleton-line"></span><span class="skeleton-line"></span>
+              <span class="skeleton-line"></span><span class="skeleton-line"></span><span
+                class="skeleton-line"></span><span class="skeleton-line"></span>
             </div>
             <div class="skeleton-block skeleton-table">
               <div class="skeleton-line skeleton-table-header"></div>
@@ -228,70 +222,108 @@
           <div id="preview-outcome-line" class="preview-outcome-line" aria-live="polite"></div>
           <div class="preview-header">
             <div id="preview-meta"></div>
-            <div class="preview-header-export-wrap">
-              <button type="button" id="preview-header-export-excel-btn" class="btn btn-secondary btn-compact" data-action="trigger-export-excel" title="Export all preview data to Excel." disabled aria-label="Export" style="display: none;">Export Excel – All data</button>
+            <div class="preview-header-export-wrap">              <button type="button" id="export-excel-btn" class="btn btn-secondary btn-compact"
+                data-action="trigger-export-excel" title="Export all preview data to Excel." disabled
+                aria-label="Export" style="display: none;">Export Excel - All data</button>
+              <button id="export-dropdown-trigger" class="btn btn-secondary btn-compact export-dropdown-trigger"
+                aria-haspopup="true" aria-expanded="false" aria-controls="export-dropdown-menu"
+                aria-label="More export options" title="More export options: filtered view and CSV" disabled
+                style="display: none;">&#9662;</button>
+              <div id="export-dropdown-menu" class="export-dropdown-menu" role="menu" aria-hidden="true"
+                aria-label="Export options">
+                <button type="button" class="export-dropdown-item" data-export="excel-full" role="menuitem">Export to
+                  Excel (full)</button>
+                <button type="button" class="export-dropdown-item" data-export="csv-filtered" role="menuitem"
+                  title="Exports only rows visible after applying search and filters in this tab.">Export CSV
+                  (filtered)</button>
+                <button type="button" class="export-dropdown-item" data-export="excel-filtered" role="menuitem"
+                  title="Only rows currently visible in this tab (after filters).">Export to Excel (filtered)</button>
+              </div>
             </div>
             <div id="preview-status" class="preview-status" style="display: none;"></div>
           </div>
           <div id="preview-summary-sticky" class="preview-summary-sticky" aria-hidden="true"></div>
-          <!-- Tabs: Done Stories first (default); order: Done Stories | Project & Epic Level | Sprints | Unusable Sprints -->
+          <!-- Tabs: Team performance first (default); order: Outcome list | Team performance | Sprint history | Trends | Excluded sprints -->
           <div class="tabs" role="tablist">
-            <button id="tab-btn-done-stories" class="tab-btn active" data-tab="done-stories" role="tab" aria-selected="true" aria-controls="tab-done-stories" tabindex="0">Done Stories</button>
-            <button id="tab-btn-project-epic-level" class="tab-btn" data-tab="project-epic-level" role="tab" aria-selected="false" aria-controls="tab-project-epic-level" tabindex="-1">Project & Epic Level</button>
-            <button id="tab-btn-sprints" class="tab-btn" data-tab="sprints" role="tab" aria-selected="false" aria-controls="tab-sprints" tabindex="-1">Sprints</button>
-            <button id="tab-btn-unusable-sprints" class="tab-btn" data-tab="unusable-sprints" role="tab" aria-selected="false" aria-controls="tab-unusable-sprints" tabindex="-1">Unusable Sprints</button>
+            <button id="tab-btn-done-stories" class="tab-btn" data-tab="done-stories" role="tab"
+              aria-selected="false" aria-controls="tab-done-stories" tabindex="-1">Outcome list</button>
+            <button id="tab-btn-project-epic-level" class="tab-btn active" data-tab="project-epic-level" role="tab"
+              aria-selected="true" aria-controls="tab-project-epic-level" tabindex="0">Team performance</button>
+            <button id="tab-btn-sprints" class="tab-btn" data-tab="sprints" role="tab" aria-selected="false"
+              aria-controls="tab-sprints" tabindex="-1">Sprint history</button>
+            <button id="tab-btn-unusable-sprints" class="tab-btn" data-tab="unusable-sprints" role="tab"
+              aria-selected="false" aria-controls="tab-unusable-sprints" tabindex="-1">Excluded sprints</button>
+            <button id="tab-btn-trends" class="tab-btn" data-tab="trends" role="tab" aria-selected="false"
+              aria-controls="tab-trends" tabindex="-1">Trends</button>
           </div>
-          <p class="tab-hint" id="tab-outcome-hint"><small>Export from any tab; Done Stories is the main list for stakeholders.</small></p>
+          <p class="tab-hint" id="tab-outcome-hint"><small>Done Stories outcome list shows finished work; Trends shows delivery
+              health over time; use Export for stakeholder updates.</small></p>
 
           <!-- Tab Content -->
           <div class="tab-content">
-            <div id="tab-project-epic-level" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-project-epic-level">
+            <div id="tab-project-epic-level" class="tab-pane active" role="tabpanel"
+              aria-labelledby="tab-btn-project-epic-level">
               <div class="boards-controls done-stories-controls">
                 <div class="search-input-wrap">
-                  <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..." aria-label="Search boards by name or ID">
-                  <button type="button" class="search-clear-btn" data-target="boards-search-box" aria-label="Clear boards search" title="Clear">Clear</button>
+                  <input type="text" id="boards-search-box" placeholder="Search boards by name or ID..."
+                    aria-label="Search boards by name or ID">
+                  <button type="button" class="search-clear-btn" data-target="boards-search-box"
+                    aria-label="Clear boards search" title="Clear">Clear</button>
                 </div>
                 <div class="project-pills" id="boards-project-pills"></div>
               </div>
               <div id="project-epic-level-content"></div>
               <div class="section-export">
-                <button class="export-section-btn btn btn-secondary" data-section="project-epic-level" style="display: none;">Export CSV</button>
+                <button class="export-section-btn btn btn-secondary" data-section="project-epic-level"
+                  style="display: none;">Export CSV</button>
               </div>
             </div>
 
             <div id="tab-sprints" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-sprints">
               <div class="sprints-controls done-stories-controls">
                 <div class="search-input-wrap">
-                  <input type="text" id="sprints-search-box" placeholder="Search sprints by name..." aria-label="Search sprints by name">
-                  <button type="button" class="search-clear-btn" data-target="sprints-search-box" aria-label="Clear sprints search" title="Clear">Clear</button>
+                  <input type="text" id="sprints-search-box" placeholder="Search sprints by name..."
+                    aria-label="Search sprints by name">
+                  <button type="button" class="search-clear-btn" data-target="sprints-search-box"
+                    aria-label="Clear sprints search" title="Clear">Clear</button>
                 </div>
                 <div class="project-pills" id="sprints-project-pills"></div>
               </div>
               <div id="sprints-content"></div>
               <div class="section-export">
-                <button class="export-section-btn btn btn-secondary" data-section="sprints" style="display: none;">Export CSV</button>
+                <button class="export-section-btn btn btn-secondary" data-section="sprints"
+                  style="display: none;">Export CSV</button>
               </div>
             </div>
 
-            <div id="tab-done-stories" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-done-stories">
+            <div id="tab-done-stories" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-done-stories">
               <div class="done-stories-controls">
                 <div class="search-input-wrap">
-                  <input type="text" id="search-box" placeholder="Search by key or summary..." aria-label="Search done stories">
-                  <button type="button" class="search-clear-btn" data-target="search-box" aria-label="Clear done stories search" title="Clear">Clear</button>
+                  <input type="text" id="search-box" placeholder="Search by key or summary..."
+                    aria-label="Search done stories">
+                  <button type="button" class="search-clear-btn" data-target="search-box"
+                    aria-label="Clear done stories search" title="Clear">Clear</button>
                 </div>
                 <div class="project-pills" id="project-pills"></div>
-                <button type="button" class="btn btn-secondary btn-compact" id="done-stories-columns-toggle" data-action="toggle-done-stories-optional-columns" aria-expanded="false" title="Subtask Est, Spent, Remaining, Variance">Show more columns (4)</button>
+                <button type="button" class="btn btn-secondary btn-compact" id="done-stories-columns-toggle"
+                  data-action="toggle-done-stories-optional-columns" aria-expanded="false"
+                  title="Subtask Est, Spent, Remaining, Variance">Show more columns (4)</button>
               </div>
               <div id="done-stories-content"></div>
               <div id="done-stories-totals" class="totals-bar"></div>
               <div class="section-export">
-                <button class="export-section-btn btn btn-secondary" data-section="done-stories" style="display: none;">Export CSV</button>
+                <button class="export-section-btn btn btn-secondary" data-section="done-stories"
+                  style="display: none;">Export CSV</button>
               </div>
             </div>
 
 
             <div id="tab-unusable-sprints" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-unusable-sprints">
               <div id="unusable-sprints-content"></div>
+            </div>
+
+            <div id="tab-trends" class="tab-pane" role="tabpanel" aria-labelledby="tab-btn-trends">
+              <div id="leadership-content"></div>
             </div>
           </div>
         </div>
@@ -308,8 +340,6 @@
   <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
   <script type="module" src="Reporting-App-Report-Page-Init-Controller.js"></script>
 </body>
+
 </html>
-
-
-
 

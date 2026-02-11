@@ -63,7 +63,7 @@ test.describe('Server errors and export validation', () => {
       return;
     }
     const sidebarExport = page.locator('#export-excel-btn');
-    const headerExport = page.locator('#preview-header-export-excel-btn');
+    const headerExport = page.locator('#export-excel-btn');
     const headerVisible = await headerExport.isVisible().catch(() => false);
     const exportBtn = headerVisible ? headerExport : sidebarExport;
     await expect(exportBtn).toBeEnabled();
@@ -152,3 +152,4 @@ test.describe('Server errors and export validation', () => {
     expect(body).toHaveProperty('ok', true);
   });
 });
+

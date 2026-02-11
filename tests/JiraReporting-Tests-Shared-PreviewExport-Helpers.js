@@ -8,7 +8,9 @@ export const IGNORE_CONSOLE_ERRORS = [
   'ResizeObserver loop limit exceeded',
   'The operation is insecure.',
   'AbortError: signal is aborted without reason',
-  'signal is aborted without reason'
+  'signal is aborted without reason',
+  'Receiving end does not exist',
+  'Unchecked runtime.lastError'
 ];
 
 export const IGNORE_REQUEST_PATTERNS = [

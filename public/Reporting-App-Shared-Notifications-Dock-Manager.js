@@ -89,67 +89,25 @@ export function renderNotificationDock(options = {}) {
     state.collapsed = true;
   }
 
-  if (!resolvedSummary || resolvedSummary.total <= 0) {
-    if (existing) existing.remove();
-    const toggle = document.getElementById(toggleId);
-    if (toggle) toggle.remove();
-    document.body.classList.remove('notification-dock-visible');
-    return;
-  }
+  const total = resolvedSummary && resolvedSummary.total != null ? Number(resolvedSummary.total) : 0;
 
-  if (state.hidden) {
-    if (existing) existing.remove();
-    renderToggleButton({ toggleId, stateKey, onShow: () => renderNotificationDock(options), summary: resolvedSummary });
-    document.body.classList.remove('notification-dock-visible');
-    return;
-  }
+  if (existing) existing.remove();
+  const toggle = document.getElementById(toggleId);
+  if (toggle) toggle.remove();
+  document.body.classList.remove('notification-dock-visible');
 
-  const dock = existing || document.createElement('div');
-  dock.id = dockId;
-  dock.className = 'app-notification-dock';
-  dock.classList.toggle('is-collapsed', state.collapsed);
-  const boardName = resolvedSummary.boardName || 'Board';
-  const sprintName = resolvedSummary.sprintName || 'Sprint';
-  const missingEstimate = resolvedSummary.missingEstimate ?? 0;
-  const missingLogged = resolvedSummary.missingLogged ?? 0;
-  const isSummaryContext = pageContext === 'report' || pageContext === 'leadership';
-
-  dock.innerHTML = `
-    <div class="app-notification-title">
-      <span class="app-notification-badge">${resolvedSummary.total}</span>
-      ${title}
-      <div class="app-notification-actions">
-        <button type="button" class="btn-ghost" data-action="toggle">${state.collapsed ? 'Expand' : 'Minimize'}</button>
-        <button type="button" class="btn-ghost" data-action="close" aria-label="Hide notifications">x</button>
-      </div>
-    </div>
-    ${
-      isSummaryContext
-        ? '<div class="app-notification-body app-notification-body-compact">Time tracking alerts exist on Current Sprint.</div>'
-        : '<div class="app-notification-body">' + boardName + ' - ' + sprintName + '</div><div class="app-notification-sub">Missing estimates: ' + missingEstimate + ' | No log: ' + missingLogged + '</div>'
+  const sprintNavLink = document.querySelector('.app-nav a[href*="current-sprint"]');
+  if (sprintNavLink) {
+    if (total > 0) {
+      sprintNavLink.innerHTML = 'Current Sprint (Squad) <span class="nav-alert-badge">' + total + '</span>';
+      sprintNavLink.title = 'Time tracking alerts: ' + total + '. Open to resolve.';
+    } else {
+      sprintNavLink.textContent = 'Current Sprint (Squad)';
+      sprintNavLink.removeAttribute('title');
     }
-    <a class="app-notification-link" href="${linkHref}">Open Current Sprint</a>
-  `;
-  if (!existing) document.body.appendChild(dock);
-  document.body.classList.add('notification-dock-visible');
-
-  const toggleBtn = dock.querySelector('[data-action="toggle"]');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      const nextState = readNotificationDockState(stateKey);
-      nextState.collapsed = !nextState.collapsed;
-      writeNotificationDockState(nextState, stateKey);
-      renderNotificationDock(options);
-    });
   }
 
-  const closeBtn = dock.querySelector('[data-action="close"]');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      writeNotificationDockState({ ...readNotificationDockState(stateKey), hidden: true }, stateKey);
-      renderNotificationDock(options);
-    });
-  }
+  if (total <= 0) return;
 }
 
 export const NOTIFICATION_STORE_KEY = DEFAULT_NOTIFICATION_STORE_KEY;

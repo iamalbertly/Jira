@@ -1,9 +1,11 @@
+
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { getSafeMeta, renderEmptyState } from './Reporting-App-Report-Page-Render-Helpers.js';
 import { formatDateForDisplay } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
+import { VirtualScroller } from './Reporting-App-Shared-Virtual-Scroller.js';
 
 export function toggleSprint(id) {
   const content = document.getElementById(id);
@@ -11,9 +13,14 @@ export function toggleSprint(id) {
   const isVisible = content.style.display !== 'none';
   content.style.display = isVisible ? 'none' : 'block';
   const header = content.previousElementSibling;
+
   if (header) {
     const icon = header.querySelector('.toggle-icon');
     if (icon) icon.textContent = isVisible ? '>' : 'v';
+    // If opening, trigger layout check for virtual scroller if needed
+    if (!isVisible) {
+      window.dispatchEvent(new Event('resize'));
+    }
   }
 }
 
@@ -24,224 +31,133 @@ export function renderDoneStoriesTab(rows) {
   const jiraHost = meta?.jiraHost || meta?.host || '';
 
   if (!rows || rows.length === 0) {
-    const title = 'No done stories';
-    const message = "No done stories in this window. Check: date range, project selection, and 'Resolved by sprint end' (try turning it off).";
-    const hint = '';
-    const ctaLabel = 'Adjust filters';
-    renderEmptyState(content, title, message, hint, ctaLabel);
+    renderEmptyState(content, 'No done stories', "No done stories in this window.", '', 'Adjust filters');
     if (totalsBar) totalsBar.innerHTML = '';
-    const projectPills = document.getElementById('project-pills');
-    if (projectPills) {
-      projectPills.innerHTML = '';
-    }
-    if (reportDom.exportDropdownTrigger) reportDom.exportDropdownTrigger.disabled = true;
     return;
   }
 
-  const hasStatusCategory = rows.some(row => row.issueStatusCategory);
-  const hasPriority = rows.some(row => row.issuePriority);
-  const hasLabels = rows.some(row => row.issueLabels);
-  const hasComponents = rows.some(row => row.issueComponents);
-  const hasFixVersions = rows.some(row => row.issueFixVersions);
-  const hasSubtasks = rows.some(row => Number(row.subtaskCount) > 0);
-  const hasTimeTracking = rows.some(row =>
-    row.timeOriginalEstimateHours !== '' ||
-    row.timeRemainingEstimateHours !== '' ||
-    row.timeSpentHours !== '' ||
-    row.timeVarianceHours !== ''
-  );
-  const hasSubtaskTimeTracking = rows.some(row =>
-    row.subtaskTimeOriginalEstimateHours !== '' ||
-    row.subtaskTimeRemainingEstimateHours !== '' ||
-    row.subtaskTimeSpentHours !== '' ||
-    row.subtaskTimeVarianceHours !== ''
-  );
-  const hasEbmTeam = rows.some(row => row.ebmTeam);
-  const hasEbmProductArea = rows.some(row => row.ebmProductArea);
-  const hasEbmCustomerSegments = rows.some(row => row.ebmCustomerSegments);
-  const hasEbmValue = rows.some(row => row.ebmValue);
-  const hasEbmImpact = rows.some(row => row.ebmImpact);
-  const hasEbmSatisfaction = rows.some(row => row.ebmSatisfaction);
-  const hasEbmSentiment = rows.some(row => row.ebmSentiment);
-  const hasEbmSeverity = rows.some(row => row.ebmSeverity);
-  const hasEbmSource = rows.some(row => row.ebmSource);
-  const hasEbmWorkCategory = rows.some(row => row.ebmWorkCategory);
-  const hasEbmGoals = rows.some(row => row.ebmGoals);
-  const hasEbmTheme = rows.some(row => row.ebmTheme);
-  const hasEbmRoadmap = rows.some(row => row.ebmRoadmap);
-  const hasEbmFocusAreas = rows.some(row => row.ebmFocusAreas);
-  const hasEbmDeliveryStatus = rows.some(row => row.ebmDeliveryStatus);
-  const hasEbmDeliveryProgress = rows.some(row => row.ebmDeliveryProgress);
-
+  // Group by Sprint
   const sprintGroups = new Map();
   for (const row of rows) {
     if (!sprintGroups.has(row.sprintId)) {
       sprintGroups.set(row.sprintId, {
-        sprint: {
-          id: row.sprintId,
-          name: row.sprintName,
-          startDate: row.sprintStartDate,
-          endDate: row.sprintEndDate,
-        },
+        sprint: { id: row.sprintId, name: row.sprintName, startDate: row.sprintStartDate, endDate: row.sprintEndDate },
         rows: [],
       });
     }
     sprintGroups.get(row.sprintId).rows.push(row);
   }
 
-  // Show most recent sprints first (descending by start date)
   const sortedSprints = Array.from(sprintGroups.values()).sort((a, b) => {
-    const dateA = new Date(a.sprint.startDate || 0).getTime();
-    const dateB = new Date(b.sprint.startDate || 0).getTime();
-    return dateB - dateA;
+    return new Date(b.sprint.startDate || 0).getTime() - new Date(a.sprint.startDate || 0).getTime();
   });
 
-  let html = '<div class="sprint-groups">';
+  content.innerHTML = `<div class="sprint-groups-container"></div>`;
+  const container = content.querySelector('.sprint-groups-container');
+
+  // Render Sprint Headers (Not virtualized, usually < 50 sprints)
+  // Inside each sprint, we use Virtual Scroller for the table body if > 50 items
 
   for (const group of sortedSprints) {
     const sprintId = group.sprint.id;
     const sprintKey = `sprint-${sprintId}`;
-    const sprintStartLabel = formatDateForDisplay(group.sprint.startDate);
-    const sprintEndLabel = formatDateForDisplay(group.sprint.endDate);
-
-    html += `
-      <div class="sprint-group">
-        <button class="sprint-header" data-sprint-target="${sprintKey}">
-          <span class="toggle-icon">></span>
-          <strong>${escapeHtml(group.sprint.name)}</strong>
-          <span class="sprint-meta">${escapeHtml(sprintStartLabel)} to ${escapeHtml(sprintEndLabel)}</span>
-          <span class="story-count">${group.rows.length} stories</span>
-        </button>
-        <div class="sprint-content" id="${sprintKey}" style="display: none;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th title="Jira issue key.">Key</th>
-                <th class="cell-wrap" title="Issue summary from Jira.">Summary</th>
-                <th title="Current Jira status.">Status</th>
-                <th title="Issue type (Story, Bug, etc.).">Type</th>
-                ${hasStatusCategory ? '<th class="col-optional" title="Status group (To Do / In Progress / Done).">Status Group</th>' : ''}
-                ${hasPriority ? '<th class="col-optional" title="Priority from Jira.">Priority</th>' : ''}
-                ${hasLabels ? '<th class="cell-wrap col-optional" title="Issue labels.">Labels</th>' : ''}
-                ${hasComponents ? '<th class="cell-wrap col-optional" title="Components on the issue.">Components</th>' : ''}
-                ${hasFixVersions ? '<th class="col-optional" title="Fix versions on the issue.">Fix Versions</th>' : ''}
-                ${hasEbmTeam ? '<th class="col-optional" title="EBM Team: who owns the value. Use to compare outcomes and focus by team.">EBM Team</th>' : ''}
-                ${hasEbmProductArea ? '<th class="col-optional" title="EBM Product Area: links work to the customer or product slice it serves.">EBM Product Area</th>' : ''}
-                ${hasEbmCustomerSegments ? '<th class="col-optional" title="EBM Customer Segments: who benefits. Helps assess Current Value and gaps.">EBM Customer Segments</th>' : ''}
-                ${hasEbmValue ? '<th class="col-optional" title="EBM Value: value signal tied to CV/UV. Higher value should drive priority.">EBM Value</th>' : ''}
-                ${hasEbmImpact ? '<th class="col-optional" title="EBM Impact: expected outcome size. Use to compare impact vs effort.">EBM Impact</th>' : ''}
-                ${hasEbmSatisfaction ? '<th class="col-optional" title="EBM Satisfaction: customer happiness signal. Low values indicate CV risk.">EBM Satisfaction</th>' : ''}
-                ${hasEbmSentiment ? '<th class="col-optional" title="EBM Sentiment: team/customer sentiment. Track trends to protect CV.">EBM Sentiment</th>' : ''}
-                ${hasEbmSeverity ? '<th class="col-optional" title="EBM Severity: urgency and business impact. High severity drains A2I.">EBM Severity</th>' : ''}
-                ${hasEbmSource ? '<th class="col-optional" title="EBM Source: where demand started (customer, ops, internal). Balance CV vs A2I.">EBM Source</th>' : ''}
-                ${hasEbmWorkCategory ? '<th class="col-optional" title="EBM Work Category: feature/defect/debt. High defect or debt reduces A2I.">EBM Work Category</th>' : ''}
-                ${hasEbmGoals ? '<th class="col-optional" title="EBM Goals: strategic goal linkage. Strengthens UV alignment.">EBM Goals</th>' : ''}
-                ${hasEbmTheme ? '<th class="col-optional" title="EBM Theme: strategic theme grouping. Shows where investment clusters.">EBM Theme</th>' : ''}
-                ${hasEbmRoadmap ? '<th class="col-optional" title="EBM Roadmap: roadmap linkage. Highlights UV delivery progress.">EBM Roadmap</th>' : ''}
-                ${hasEbmFocusAreas ? '<th class="col-optional" title="EBM Focus Areas: focus topics for investment. Compare spend vs outcomes.">EBM Focus Areas</th>' : ''}
-                ${hasEbmDeliveryStatus ? '<th class="col-optional" title="EBM Delivery Status: current delivery state. Useful for flow visibility.">EBM Delivery Status</th>' : ''}
-                ${hasEbmDeliveryProgress ? '<th class="col-optional" title="EBM Delivery Progress: percent/stage toward done. Useful for predictability.">EBM Delivery Progress</th>' : ''}
-                <th class="col-optional" title="Assignee display name.">Assignee</th>
-                <th class="col-optional" title="Created date (local display).">Created</th>
-                <th title="Resolved date (local display).">Resolved</th>
-                ${hasSubtasks ? '<th class="col-optional" title="Count of subtasks.">Subtasks</th>' : ''}
-                ${hasTimeTracking ? '<th class="col-optional" title="Original estimate (hours).">Est (Hrs)</th><th class="col-optional" title="Time spent (hours).">Spent (Hrs)</th><th class="col-optional" title="Remaining estimate (hours).">Remaining (Hrs)</th><th class="col-optional" title="Actual hours minus estimate. Positive = over estimate; negative = under. Large swings mean estimation risk.">Variance (Hrs)</th>' : ''}
-                ${hasSubtaskTimeTracking ? '<th class="col-optional" title="Subtask estimate (hours).">Subtask Est (Hrs)</th><th class="col-optional" title="Subtask spent (hours).">Subtask Spent (Hrs)</th><th class="col-optional" title="Subtask remaining (hours).">Subtask Remaining (Hrs)</th><th class="col-optional" title="Actual subtask hours minus estimate. Large swings signal hidden work or poor slicing.">Subtask Variance (Hrs)</th>' : ''}
-                ${meta?.discoveredFields?.storyPointsFieldId ? '<th title="Story Points.">SP</th>' : ''}
-                ${meta?.discoveredFields?.epicLinkFieldId ? '<th title="Epic key (planned work).">Epic</th><th title="Epic title.">Epic Title</th><th class="cell-wrap" title="Epic summary (truncated in UI).">Epic Summary</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>
+    const headerHtml = `
+      <button class="sprint-header" data-sprint-target="${sprintKey}">
+        <span class="toggle-icon">></span>
+        <strong>${escapeHtml(group.sprint.name)}</strong>
+        <span class="sprint-meta">${formatDateForDisplay(group.sprint.startDate)} to ${formatDateForDisplay(group.sprint.endDate)}</span>
+        <span class="story-count">${group.rows.length} stories</span>
+      </button>
+      <div class="sprint-content" id="${sprintKey}" style="display: none; height: 500px;"></div>
     `;
 
-    const sortedRows = group.rows.sort((a, b) => a.issueKey.localeCompare(b.issueKey));
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'sprint-group';
+    groupDiv.innerHTML = headerHtml;
+    container.appendChild(groupDiv);
 
-    for (const row of sortedRows) {
-      const issueKey = row.issueKey || '';
-      const issueUrl = buildJiraIssueUrl(jiraHost, issueKey);
-      const epicKey = row.epicKey || '';
-      const epicUrl = buildJiraIssueUrl(jiraHost, epicKey);
-      let epicSummaryDisplay = '';
-      let epicSummaryTitle = '';
-      if (meta?.discoveredFields?.epicLinkFieldId && row.epicSummary && typeof row.epicSummary === 'string' && row.epicSummary.length > 0) {
-        if (row.epicSummary.length > 100) {
-          epicSummaryDisplay = row.epicSummary.substring(0, 100) + '...';
-          epicSummaryTitle = row.epicSummary;
-        } else {
-          epicSummaryDisplay = row.epicSummary;
-        }
-      }
-
-      html += `
-        <tr>
-          <td>${
-            issueUrl
-              ? `<a href="${escapeHtml(issueUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`
-              : escapeHtml(issueKey)
-          }</td>
-          <td class="cell-wrap">${escapeHtml(row.issueSummary)}</td>
-          <td>${escapeHtml(row.issueStatus)}</td>
-          <td>${row.issueType ? escapeHtml(row.issueType) : '<em>Unknown</em>'}</td>
-          ${hasStatusCategory ? `<td class="col-optional">${escapeHtml(row.issueStatusCategory || '')}</td>` : ''}
-          ${hasPriority ? `<td class="col-optional">${escapeHtml(row.issuePriority || '')}</td>` : ''}
-          ${hasLabels ? `<td class="cell-wrap col-optional">${escapeHtml(row.issueLabels || '')}</td>` : ''}
-          ${hasComponents ? `<td class="cell-wrap col-optional">${escapeHtml(row.issueComponents || '')}</td>` : ''}
-          ${hasFixVersions ? `<td class="col-optional">${escapeHtml(row.issueFixVersions || '')}</td>` : ''}
-          ${hasEbmTeam ? `<td class="col-optional">${escapeHtml(row.ebmTeam || '')}</td>` : ''}
-          ${hasEbmProductArea ? `<td class="col-optional">${escapeHtml(row.ebmProductArea || '')}</td>` : ''}
-          ${hasEbmCustomerSegments ? `<td class="col-optional">${escapeHtml(row.ebmCustomerSegments || '')}</td>` : ''}
-          ${hasEbmValue ? `<td class="col-optional">${escapeHtml(row.ebmValue || '')}</td>` : ''}
-          ${hasEbmImpact ? `<td class="col-optional">${escapeHtml(row.ebmImpact || '')}</td>` : ''}
-          ${hasEbmSatisfaction ? `<td class="col-optional">${escapeHtml(row.ebmSatisfaction || '')}</td>` : ''}
-          ${hasEbmSentiment ? `<td class="col-optional">${escapeHtml(row.ebmSentiment || '')}</td>` : ''}
-          ${hasEbmSeverity ? `<td class="col-optional">${escapeHtml(row.ebmSeverity || '')}</td>` : ''}
-          ${hasEbmSource ? `<td class="col-optional">${escapeHtml(row.ebmSource || '')}</td>` : ''}
-          ${hasEbmWorkCategory ? `<td class="col-optional">${escapeHtml(row.ebmWorkCategory || '')}</td>` : ''}
-          ${hasEbmGoals ? `<td class="col-optional">${escapeHtml(row.ebmGoals || '')}</td>` : ''}
-          ${hasEbmTheme ? `<td class="col-optional">${escapeHtml(row.ebmTheme || '')}</td>` : ''}
-          ${hasEbmRoadmap ? `<td class="col-optional">${escapeHtml(row.ebmRoadmap || '')}</td>` : ''}
-          ${hasEbmFocusAreas ? `<td class="col-optional">${escapeHtml(row.ebmFocusAreas || '')}</td>` : ''}
-          ${hasEbmDeliveryStatus ? `<td class="col-optional">${escapeHtml(row.ebmDeliveryStatus || '')}</td>` : ''}
-          ${hasEbmDeliveryProgress ? `<td class="col-optional">${escapeHtml(row.ebmDeliveryProgress || '')}</td>` : ''}
-          <td class="col-optional">${escapeHtml(row.assigneeDisplayName)}</td>
-          <td class="col-optional" title="${escapeHtml(formatDateForDisplay(row.created))}">${escapeHtml(formatDateForDisplay(row.created))}</td>
-          <td title="${escapeHtml(formatDateForDisplay(row.resolutionDate || ''))}">${escapeHtml(formatDateForDisplay(row.resolutionDate || ''))}</td>
-          ${hasSubtasks ? `<td class="col-optional">${row.subtaskCount || 0}</td>` : ''}
-          ${hasTimeTracking ? `
-            <td class="col-optional">${row.timeOriginalEstimateHours ?? ''}</td>
-            <td class="col-optional">${row.timeSpentHours ?? ''}</td>
-            <td class="col-optional">${row.timeRemainingEstimateHours ?? ''}</td>
-            <td class="col-optional">${row.timeVarianceHours ?? ''}</td>
-          ` : ''}
-          ${hasSubtaskTimeTracking ? `
-            <td class="col-optional">${row.subtaskTimeOriginalEstimateHours ?? ''}</td>
-            <td class="col-optional">${row.subtaskTimeSpentHours ?? ''}</td>
-            <td class="col-optional">${row.subtaskTimeRemainingEstimateHours ?? ''}</td>
-            <td class="col-optional">${row.subtaskTimeVarianceHours ?? ''}</td>
-          ` : ''}
-          ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${row.storyPoints ?? ''}</td>` : ''}
-          ${meta?.discoveredFields?.epicLinkFieldId
-            ? `<td>${
-                epicUrl
-                  ? `<span class="epic-key"><a href="${escapeHtml(epicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(epicKey)}</a></span>`
-                  : `<span class="epic-key">${escapeHtml(epicKey)}</span>`
-              }</td><td>${escapeHtml(row.epicTitle || '')}</td><td class="cell-wrap" title="${escapeHtml(epicSummaryTitle)}">${escapeHtml(epicSummaryDisplay)}</td>`
-            : ''}
-        </tr>
-      `;
-    }
-
-    html += '</tbody></table></div></div>';
-  }
-
-  html += '</div>';
-  content.innerHTML = html;
-  try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#tab-done-stories table.data-table th, #tab-done-stories table.data-table td')).catch(() => {}); } catch (e) {}
-
-  document.querySelectorAll('.sprint-header[data-sprint-target]').forEach(btn => {
+    // Initial Toggle Handler
+    const btn = groupDiv.querySelector('.sprint-header');
     btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-sprint-target');
-      if (targetId) toggleSprint(targetId);
+      const target = document.getElementById(sprintKey);
+      if (target.style.display === 'none') {
+        target.style.display = 'block';
+        btn.querySelector('.toggle-icon').textContent = 'v';
+
+        // Initialize Virtual Scroller ONLY when opened and if meaningful size
+        if (!target.dataset.scrollerInitialized && group.rows.length > 0) {
+          target.dataset.scrollerInitialized = 'true';
+          if (group.rows.length < 50) {
+            target.style.height = 'auto';
+            target.innerHTML = renderTableHtml(group.rows, meta, jiraHost);
+          } else {
+            // Virtual Path
+            target.innerHTML = `
+                <div class="virtual-header">
+                  ${renderTableHeader(meta)} 
+                </div>
+                <div class="virtual-body-container" style="height: 400px; overflow-y: auto;"></div>
+             `;
+            const bodyContainer = target.querySelector('.virtual-body-container');
+            new VirtualScroller(bodyContainer, group.rows, (row) => renderRowHtml(row, meta, jiraHost), { rowHeight: 40 });
+          }
+        }
+      } else {
+        target.style.display = 'none';
+        btn.querySelector('.toggle-icon').textContent = '>';
+      }
     });
-  });
+  }
+}
+
+function renderTableHeader(meta) {
+  // Styles for Div-Table alignment matching original CSS would be needed. 
+  return `<div class="table-header-row" style="display: flex; font-weight: bold; padding: 10px; border-bottom: 2px solid #ddd;">
+      <div style="flex: 1">Key</div>
+      <div style="flex: 3">Summary</div>
+      <div style="flex: 1">Status</div>
+      <div style="flex: 1">Type</div>
+      ${meta?.discoveredFields?.storyPointsFieldId ? '<div style="flex: 0.5">SP</div>' : ''}
+      <div style="flex: 1">Assignee</div>
+  </div>`;
+}
+
+function renderTableHtml(rows, meta, jiraHost) {
+  return `<table class="data-table">
+    <thead>
+       <tr>
+       <th>Key</th>
+       <th>Summary</th>
+       <th>Status</th>
+       <th>Type</th>
+       ${meta?.discoveredFields?.storyPointsFieldId ? '<th>SP</th>' : ''}
+       <th>Assignee</th>
+       </tr>
+    </thead>
+    <tbody>${rows.map(r => renderRowHtmlAsTr(r, meta, jiraHost)).join('')}</tbody>
+  </table>`;
+}
+
+function renderRowHtml(row, meta, jiraHost) {
+  const issueUrl = buildJiraIssueUrl(jiraHost, row.issueKey);
+  return `<div style="display: flex; padding: 5px 10px; border-bottom: 1px solid #eee; height: 40px; align-items: center;">
+     <div style="flex: 1"><a href="${issueUrl}" target="_blank">${row.issueKey}</a></div>
+     <div style="flex: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(row.issueSummary)}</div>
+     <div style="flex: 1">${escapeHtml(row.issueStatus)}</div>
+     <div style="flex: 1">${escapeHtml(row.issueType)}</div>
+     ${meta?.discoveredFields?.storyPointsFieldId ? `<div style="flex: 0.5">${row.storyPoints || ''}</div>` : ''}
+     <div style="flex: 1">${escapeHtml(row.assigneeDisplayName || '')}</div>
+  </div>`;
+}
+
+function renderRowHtmlAsTr(row, meta, jiraHost) {
+  const issueUrl = buildJiraIssueUrl(jiraHost, row.issueKey);
+  return `<tr>
+     <td><a href="${issueUrl}" target="_blank">${row.issueKey}</a></td>
+     <td>${escapeHtml(row.issueSummary)}</td>
+     <td>${escapeHtml(row.issueStatus)}</td>
+     <td>${escapeHtml(row.issueType)}</td>
+     ${meta?.discoveredFields?.storyPointsFieldId ? `<td>${row.storyPoints || ''}</td>` : ''}
+     <td>${escapeHtml(row.assigneeDisplayName || '')}</td>
+  </tr>`;
 }

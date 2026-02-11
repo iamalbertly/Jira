@@ -137,13 +137,12 @@ export function initQuarterQuickRange(options = {}) {
 }
 
 /**
- * Populates a scrollable strip with Vodacom quarter pills from /api/quarters-list (5+ quarters).
- * On pill click: sets start/end inputs, marks pill selected (aria-pressed), calls onApply.
- * On manual start/end change: clears quarter selection.
+ * Populates a scrollable strip with Vodacom quarter pills from /api/quarters-list (5+ quarters) plus a Custom pill.
+ * Quarter = primary: selecting one hides custom date inputs. Custom = reveals start/end inputs.
  * @param {string} containerSelector - Selector for the inner strip container (gets pills appended).
  * @param {HTMLInputElement} startInput - Start date/datetime input.
  * @param {HTMLInputElement} endInput - End date/datetime input.
- * @param {Object} options - { formatInputValue(date, isEnd?), updateDateDisplay?, onApply?(data) }
+ * @param {Object} options - { formatInputValue, updateDateDisplay, onApply, onClearSelection, onQuartersLoaded, onShowCustom?, onHideCustom? }
  */
 export function initQuarterStrip(containerSelector, startInput, endInput, options = {}) {
   const {
@@ -152,6 +151,8 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
     onApply,
     onClearSelection,
     onQuartersLoaded,
+    onShowCustom,
+    onHideCustom,
   } = options;
   const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
   if (!container || !startInput || !endInput) return;
@@ -164,7 +165,8 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
       b.classList.remove('is-active');
       b.setAttribute('aria-pressed', 'false');
     });
-    if (options.onClearSelection && typeof options.onClearSelection === 'function') options.onClearSelection();
+    if (typeof onShowCustom === 'function') onShowCustom();
+    if (typeof options.onClearSelection === 'function') options.onClearSelection();
   };
 
   const applyQuarter = (q) => {
@@ -175,9 +177,18 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
     const endVal = formatInputValue(endDate, true);
     startInput.value = startVal;
     endInput.value = endVal;
+    if (typeof onHideCustom === 'function') onHideCustom();
     if (updateDateDisplay) updateDateDisplay();
     if (onApply) onApply({ startDate, endDate, data: q });
-  }
+  };
+
+  const selectCustom = () => {
+    container.querySelectorAll('.quarter-pill').forEach((b) => {
+      b.classList.remove('is-active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    if (typeof onShowCustom === 'function') onShowCustom();
+  };
 
   startInput.addEventListener('change', clearSelection);
   startInput.addEventListener('input', clearSelection);
@@ -237,6 +248,19 @@ export function initQuarterStrip(containerSelector, startInput, endInput, option
         });
         container.appendChild(btn);
       });
+      const customBtn = document.createElement('button');
+      customBtn.type = 'button';
+      customBtn.className = 'btn btn-secondary btn-compact quarter-pill quarter-pill-custom';
+      customBtn.setAttribute('aria-pressed', 'false');
+      customBtn.setAttribute('data-quarter', 'custom');
+      customBtn.textContent = 'Custom';
+      customBtn.setAttribute('aria-label', 'Custom date range');
+      customBtn.addEventListener('click', () => {
+        selectCustom();
+        const wrap = document.getElementById('date-range-custom-wrap');
+        if (wrap) { wrap.hidden = false; startInput.focus(); }
+      });
+      container.appendChild(customBtn);
       if (onQuartersLoaded && typeof onQuartersLoaded === 'function') onQuartersLoaded();
     });
 }

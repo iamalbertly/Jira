@@ -9,17 +9,16 @@ import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDate } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { exportRisksInsightsAsMarkdown } from './Reporting-App-CurrentSprint-Risks-Insights.js';
 
-export function renderExportButton() {
-  let html = '<div class="export-dashboard-container">';
-  html += '<button class="btn btn-primary export-dashboard-btn" type="button" aria-label="Export sprint dashboard">';
-  html += '📤 Export Dashboard';
-  html += '</button>';
+export function renderExportButton(inline = false) {
+  const containerClass = 'export-dashboard-container' + (inline ? ' header-export-inline' : '');
+  let html = '<div class="' + containerClass + '">';
+  html += '<button class="btn btn-secondary btn-compact export-dashboard-btn" type="button" aria-label="Export sprint dashboard" aria-haspopup="true" aria-expanded="false">Export ▼</button>';
   html += '<div class="export-menu hidden" id="export-menu" role="menu">';
-  html += '<button class="export-option" data-action="export-png-1920" role="menuitem">📸 PNG (1920×1080)</button>';
-  html += '<button class="export-option" data-action="export-png-1200" role="menuitem">📸 PNG (1200×800)</button>';
-  html += '<button class="export-option" data-action="export-markdown" role="menuitem">📄 Markdown</button>';
-  html += '<button class="export-option" data-action="copy-link" role="menuitem">🔗 Copy Dashboard Link</button>';
-  html += '<button class="export-option" data-action="email" role="menuitem">📧 Email to Team</button>';
+  html += '<button class="export-option" data-action="export-png-1920" role="menuitem">PNG (1920×1080)</button>';
+  html += '<button class="export-option" data-action="export-png-1200" role="menuitem">PNG (1200×800)</button>';
+  html += '<button class="export-option" data-action="export-markdown" role="menuitem">Markdown</button>';
+  html += '<button class="export-option" data-action="copy-link" role="menuitem">Copy link</button>';
+  html += '<button class="export-option" data-action="email" role="menuitem">Email</button>';
   html += '</div>';
   html += '</div>';
   return html;

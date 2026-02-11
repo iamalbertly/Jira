@@ -34,17 +34,10 @@ export function renderRisksAndInsights(data) {
   let html = '<div class="transparency-card risks-insights-card" id="risks-insights-card">';
   html += '<h2>Risks & Insights</h2>';
 
-  // Tab navigation
   html += '<div class="insights-tabs" role="tablist" aria-label="Sprint insights">';
-  html += '<button class="insights-tab active" role="tab" aria-selected="true" data-tab="blockers" aria-controls="blockers-panel">';
-  html += '📊 Blockers (' + (blockersText.length > 0 ? blockersText.length : '0') + ')';
-  html += '</button>';
-  html += '<button class="insights-tab" role="tab" aria-selected="false" data-tab="learnings" aria-controls="learnings-panel">';
-  html += '💡 Learnings (' + (learnings.length > 0 ? learnings.length : '0') + ')';
-  html += '</button>';
-  html += '<button class="insights-tab" role="tab" aria-selected="false" data-tab="assumptions" aria-controls="assumptions-panel">';
-  html += '⚠️ Assumptions & Risks (' + (assumptions.length > 0 ? assumptions.length : '0') + ')';
-  html += '</button>';
+  html += '<button class="insights-tab active" role="tab" aria-selected="true" data-tab="blockers" aria-controls="blockers-panel">Blockers<span class="insights-tab-badge">' + blockersText.length + '</span></button>';
+  html += '<button class="insights-tab" role="tab" aria-selected="false" data-tab="learnings" aria-controls="learnings-panel">Learnings<span class="insights-tab-badge">' + learnings.length + '</span></button>';
+  html += '<button class="insights-tab" role="tab" aria-selected="false" data-tab="assumptions" aria-controls="assumptions-panel">Risks<span class="insights-tab-badge">' + assumptions.length + '</span></button>';
   html += '</div>';
 
   // Tab 1: Blockers / Dependencies
@@ -59,8 +52,10 @@ export function renderRisksAndInsights(data) {
     });
     html += '</div>';
     html += '<div class="insight-actions">';
-    html += '<p class="insight-hint">💡 Add recommended unblock actions below:</p>';
-    html += '<textarea id="blockers-mitigation" rows="4" placeholder="e.g., Escalate to architecture team, Schedule review meeting..." class="insight-input"></textarea>';
+    html += '<p class="insight-hint">Add recommended unblock actions:</p>';
+    html += '<select id="blockers-action-type" class="insight-action-type" aria-label="Action type"><option value="">— Action type —</option><option value="Escalate">Escalate</option><option value="Reassign">Reassign</option><option value="Defer">Defer</option><option value="Custom">Custom</option></select>';
+    html += '<textarea id="blockers-mitigation" rows="4" maxlength="1000" placeholder="e.g., Escalate to architecture team, Schedule review meeting" class="insight-input" aria-describedby="blockers-char-count"></textarea>';
+    html += '<span id="blockers-char-count" class="insight-char-count" aria-live="polite">0 / 1000</span>';
     html += '</div>';
   } else {
     html += '<div class="insight-empty">';
@@ -118,9 +113,13 @@ export function renderRisksAndInsights(data) {
   html += '<div class="insights-actions-bar">';
   html += '<button id="insights-save" class="btn btn-primary btn-compact" type="button">Save All Insights</button>';
   html += '<div id="insights-status" class="insights-status"></div>';
-  if (notes.updatedAt) {
-    html += '<p class="insights-updated">Last updated: ' + escapeHtml(formatDate(notes.updatedAt)) + '</p>';
-  }
+  const savedAgoText = notes.updatedAt
+    ? (() => {
+        const mins = Math.max(0, Math.floor((Date.now() - new Date(notes.updatedAt).getTime()) / 60000));
+        return mins < 1 ? 'Just now' : (mins < 60 ? mins + 'm ago' : Math.floor(mins / 60) + 'h ago');
+      })()
+    : '';
+  html += '<p class="insights-updated" id="insights-saved-ago"' + (savedAgoText ? '' : ' style="display: none;"') + '>Saved ' + (savedAgoText || 'just now') + '</p>';
   html += '</div>';
 
   html += '</div>';
@@ -177,13 +176,25 @@ export function wireRisksAndInsightsHandlers() {
     });
   });
 
-  // Save insights
+  const blockersTa = card.querySelector('#blockers-mitigation');
+  const blockersCount = card.querySelector('#blockers-char-count');
+  if (blockersTa && blockersCount) {
+    function updateCount() {
+      const len = (blockersTa.value || '').length;
+      blockersCount.textContent = len + ' / 1000';
+    }
+    blockersTa.addEventListener('input', updateCount);
+    updateCount();
+  }
+
   const saveBtn = card.querySelector('#insights-save');
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
-      const blockersMitigation = card.querySelector('#blockers-mitigation')?.value || '';
-      const learningsNew = card.querySelector('#learnings-new')?.value || '';
-      const assumptionsNew = card.querySelector('#assumptions-new')?.value || '';
+      const actionType = card.querySelector('#blockers-action-type')?.value || '';
+      let blockersMitigation = card.querySelector('#blockers-mitigation')?.value || '';
+      if (actionType) blockersMitigation = '[' + actionType + '] ' + blockersMitigation;
+      const learningsNew = (card.querySelector('#learnings-new')?.value || '').slice(0, 1000);
+      const assumptionsNew = (card.querySelector('#assumptions-new')?.value || '').slice(0, 1000);
 
       const payload = {
         blockerMitigation: blockersMitigation,
@@ -200,18 +211,27 @@ export function wireRisksAndInsightsHandlers() {
 
         if (response.ok) {
           const statusEl = card.querySelector('#insights-status');
-          statusEl.textContent = '✓ Insights saved';
-          statusEl.style.color = 'var(--success, green)';
+          if (statusEl) {
+            statusEl.textContent = '✓ Saved';
+            statusEl.style.color = 'var(--accent)';
+          }
+          const savedAgoEl = card.querySelector('#insights-saved-ago');
+          if (savedAgoEl) {
+            savedAgoEl.textContent = 'Saved just now';
+            savedAgoEl.style.display = 'block';
+          }
           setTimeout(() => {
-            statusEl.textContent = '';
+            if (statusEl) statusEl.textContent = '';
           }, 3000);
         } else {
           throw new Error('Failed to save insights');
         }
       } catch (err) {
         const statusEl = card.querySelector('#insights-status');
-        statusEl.textContent = '❌ Error saving insights';
-        statusEl.style.color = 'var(--danger, red)';
+        if (statusEl) {
+          statusEl.textContent = 'Error saving';
+          statusEl.style.color = 'var(--danger)';
+        }
       }
     });
   }

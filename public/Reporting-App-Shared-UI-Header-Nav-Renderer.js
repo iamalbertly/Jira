@@ -2,7 +2,28 @@
  * Ensures consistent header layout and wires feedback FAB and toggle into header.
  */
 import { initFeedbackPanel } from './Reporting-App-Report-UI-Feedback.js';
-import { getContextDisplayString } from './Reporting-App-Shared-Context-From-Storage.js';
+import { getContextDisplayString, getLastMetaFreshnessInfo } from './Reporting-App-Shared-Context-From-Storage.js';
+import { REPORT_LAST_META_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+
+function getContextStateBadge() {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem(REPORT_LAST_META_KEY);
+    if (!raw || !raw.trim()) return null;
+    const meta = JSON.parse(raw);
+    const isPartial = meta?.partial === true;
+    const isClosest = meta?.reducedScope === true;
+    const isCached = meta?.fromCache === true && !isPartial && !isClosest;
+    const isLive = !isCached && !isPartial && !isClosest;
+    if (isPartial) return { label: 'Partial', kind: 'partial' };
+    if (isClosest) return { label: 'Closest', kind: 'closest' };
+    if (isCached) return { label: 'Cached', kind: 'cached' };
+    if (isLive) return { label: 'Live', kind: 'live' };
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
 
 export function ensureSharedHeader() {
   try {
@@ -12,62 +33,97 @@ export function ensureSharedHeader() {
 
     header.classList.add('app-header');
 
-    // Context bar: one line showing current projects and date range (SSOT / last query)
+    // Context bar: one line showing current projects and date range (SSOT / last query) + freshness and state
     let contextBar = header.querySelector('[data-context-bar]');
     if (!contextBar) {
       contextBar = document.createElement('div');
       contextBar.setAttribute('data-context-bar', 'true');
-      contextBar.className = 'subtitle';
-      contextBar.style.cssText = 'margin: 0.25rem 0 0; font-size: 0.875rem; color: #6c757d;';
+      contextBar.className = 'subtitle shared-context-bar';
+      contextBar.style.cssText = 'margin: 0.35rem 0 0; font-size: 0.9rem; font-weight: 600;';
       const row = header.querySelector('.header-row');
       if (row) row.after(contextBar);
       else header.appendChild(contextBar);
     }
-    contextBar.textContent = getContextDisplayString();
+    const contextText = getContextDisplayString();
+    const state = getContextStateBadge();
+    const freshnessInfo = getLastMetaFreshnessInfo();
+    contextBar.innerHTML = '';
+    const textSpan = document.createElement('span');
+    textSpan.className = 'shared-context-bar-text';
+    textSpan.textContent = contextText;
+    contextBar.appendChild(textSpan);
+    if (state) {
+      const badge = document.createElement('span');
+      badge.setAttribute('data-context-state-badge', 'true');
+      badge.className = 'context-state-badge context-state-badge--' + state.kind;
+      badge.textContent = ` [${state.label}]`;
+      contextBar.appendChild(badge);
+    }
 
     /**
      * Call after persisting last query (e.g. after successful preview) to update the bar without reload.
      */
+    function attachStaleHint(container, info) {
+      if (!info || !info.isStale) return;
+      const hint = document.createElement('button');
+      hint.type = 'button';
+      hint.className = 'context-stale-hint';
+      hint.textContent = 'Context may be stale — click to refresh';
+      hint.addEventListener('click', () => {
+        try {
+          const path = window.location && window.location.pathname;
+          if (path === '/report' || (path || '').endsWith('/report')) {
+            const previewBtn = document.getElementById('preview-btn');
+            if (previewBtn && !previewBtn.disabled) previewBtn.click();
+          } else if (path === '/current-sprint' || (path || '').endsWith('/current-sprint')) {
+            document.dispatchEvent(new Event('refreshSprint'));
+          }
+        } catch (_) {}
+      });
+      container.appendChild(hint);
+    }
+
     window.__refreshReportingContextBar = function refreshContextBar() {
-      const bar = document.querySelector('header [data-context-bar]');
-      if (bar) bar.textContent = getContextDisplayString();
+      const headerEl = document.querySelector('header');
+      if (!headerEl) return;
+      const bar = headerEl.querySelector('[data-context-bar]');
+      if (!bar) return;
+      const text = getContextDisplayString();
+      const state = getContextStateBadge();
+      const info = getLastMetaFreshnessInfo();
+      bar.innerHTML = '';
+      const textSpanInner = document.createElement('span');
+      textSpanInner.className = 'shared-context-bar-text';
+      textSpanInner.textContent = text;
+      bar.appendChild(textSpanInner);
+      if (state) {
+        const badgeInner = document.createElement('span');
+        badgeInner.setAttribute('data-context-state-badge', 'true');
+        badgeInner.className = 'context-state-badge context-state-badge--' + state.kind;
+        badgeInner.textContent = ` [${state.label}]`;
+        bar.appendChild(badgeInner);
+      }
+      attachStaleHint(bar, info);
     };
 
-    // Ensure feedback toggle exists and is positioned in header-row right side
     let feedbackToggle = document.getElementById('feedback-toggle');
     if (!feedbackToggle) {
+      let corner = document.getElementById('feedback-corner');
+      if (!corner) {
+        corner = document.createElement('div');
+        corner.id = 'feedback-corner';
+        corner.className = 'feedback-corner';
+        document.body.appendChild(corner);
+      }
       feedbackToggle = document.createElement('button');
+      feedbackToggle.type = 'button';
       feedbackToggle.id = 'feedback-toggle';
-      feedbackToggle.className = 'btn btn-secondary btn-compact';
-      feedbackToggle.textContent = 'Give Feedback';
-      feedbackToggle.title = 'Send feedback (press f)';
-      // Append to header-row if present, else header
-      const row = header.querySelector('.header-row');
-      if (row) row.appendChild(feedbackToggle);
-      else header.appendChild(feedbackToggle);
-    } else {
-      // Ensure button has consistent classes
-      feedbackToggle.classList.add('btn', 'btn-secondary', 'btn-compact');
+      feedbackToggle.className = 'feedback-corner-btn';
+      feedbackToggle.textContent = '?';
+      feedbackToggle.setAttribute('aria-label', 'Feedback and help');
+      corner.appendChild(feedbackToggle);
     }
-
-    // Initialize feedback panel behavior (idempotent)
     initFeedbackPanel();
-
-    // Ensure FAB exists for mobile
-    let fab = document.getElementById('feedback-fab');
-    if (!fab) {
-      fab = document.createElement('button');
-      fab.id = 'feedback-fab';
-      fab.className = 'feedback-fab';
-      fab.title = 'Send feedback';
-      fab.type = 'button';
-      fab.textContent = '✉';
-      document.body.appendChild(fab);
-      fab.addEventListener('click', () => {
-        const panel = document.getElementById('feedback-panel');
-        if (panel) panel.style.display = 'block';
-      });
-    }
 
     // Mark header as unified for styling hooks
     header.setAttribute('data-shared-header', 'true');

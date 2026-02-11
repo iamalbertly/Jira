@@ -5,10 +5,12 @@ export function initSearchClearButtons() {
     const btn = document.querySelector(`.search-clear-btn[data-target="${id}"]`);
     if (!input || !btn) return;
     const update = () => {
-      btn.classList.toggle('is-visible', !!input.value);
+      btn.classList.add('is-visible');
+      btn.disabled = !input.value;
     };
     input.addEventListener('input', update);
     btn.addEventListener('click', () => {
+      if (btn.disabled) return;
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
       update();

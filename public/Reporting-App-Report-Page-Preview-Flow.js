@@ -9,9 +9,7 @@ import { persistDoneStoriesOptionalColumnsPreference } from './Reporting-App-Rep
 import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
-import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
-import { getValidLastQuery } from './Reporting-App-Shared-Context-From-Storage.js';
-import { formatDateTimeLocalForInput } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY, REPORT_LAST_META_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible, setLoadingStage } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
@@ -32,6 +30,26 @@ function setQuickRangeButtonsDisabled(disabled) {
   });
 }
 
+function formatDateTimeLocalValue(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+function buildRetryActionsHtml() {
+  return `
+    <div class="status-banner-actions" style="margin-top:8px;">
+      <button type="button" class="btn btn-secondary btn-compact" data-action="retry-with-smaller-range">Try smaller date range</button>
+      <button type="button" class="btn btn-secondary btn-compact" data-action="retry-preview">Retry preview</button>
+    </div>
+  `;
+}
+
 function showReportError(shortText, detailsText) {
   const errorEl = reportDom.errorEl;
   if (!errorEl) return;
@@ -42,11 +60,8 @@ function showReportError(shortText, detailsText) {
     <div role="alert">
       <strong>${escapeHtml(shortText || 'Check filters')}</strong>
       <p style="margin: 8px 0 0 0;">${fullEscaped}</p>
-      <div style="margin-top: 12px;">
-        <button type="button" data-action="adjust-dates" class="btn btn-compact btn-primary">Adjust dates</button>
-      </div>
-      <button type="button" class="btn btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">Technical details</button>
-      <div class="error-details" hidden>${fullEscaped}</div>
+      ${buildRetryActionsHtml()}
+      <div class="error-details" style="display:none;">${fullEscaped}</div>
       <button type="button" class="error-close" aria-label="Dismiss">x</button>
     </div>
   `;
@@ -64,7 +79,6 @@ export function clearPreviewOnFilterChange() {
     statusEl.innerHTML = `
       <div class="status-banner warning">
         Filters changed. Refreshing automatically. Showing previous results until the updated preview is ready.
-        <button type="button" data-action="retry-preview" class="btn btn-compact">Refresh now</button>
         <button type="button" class="status-close" aria-label="Dismiss">x</button>
       </div>
     `;
@@ -79,18 +93,13 @@ export function clearPreviewOnFilterChange() {
     stickyEl.textContent = '';
     stickyEl.setAttribute('aria-hidden', 'true');
   }
-  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-  if (headerExportBtn) {
-    headerExportBtn.disabled = true;
-    headerExportBtn.style.display = 'none';
+  const exportExcelActionBtn = document.getElementById('export-excel-btn');
+  if (exportExcelActionBtn) {
+    exportExcelActionBtn.disabled = true;
+    exportExcelActionBtn.style.display = '';
   }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
-  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-  if (headerExportBtn) {
-    headerExportBtn.disabled = true;
-    headerExportBtn.style.display = 'none';
-  }
   updateExportHint();
 }
 
@@ -107,6 +116,23 @@ export function cancelPreviewRequest() {
 export function initPreviewFlow() {
   const { previewBtn, exportDropdownTrigger, exportExcelBtn, loadingEl, errorEl, previewContent } = reportDom;
   if (!previewBtn) return;
+
+  const queueRetryPreview = () => {
+    const tryClick = () => {
+      if (previewBtn.disabled) return false;
+      previewBtn.click();
+      return true;
+    };
+    if (tryClick()) return;
+    // Retry click after the short anti-double-click lock clears.
+    setTimeout(() => {
+      if (!tryClick()) {
+        // Last resort for explicit user retry actions.
+        previewBtn.disabled = false;
+        tryClick();
+      }
+    }, 600);
+  };
 
   document.addEventListener('click', (event) => {
     const target = event.target;
@@ -133,80 +159,29 @@ export function initPreviewFlow() {
       }
     }
 
-    // Retry action (for refresh failures)
-    if (target.getAttribute && target.getAttribute('data-action') === 'retry-preview') {
-      if (previewBtn && !previewBtn.disabled) {
-        previewBtn.click();
-      }
+    if (target.getAttribute && target.getAttribute('data-action') === 'trigger-export-excel') {
+      triggerExcelExport();
     }
 
-    if (target.getAttribute && target.getAttribute('data-action') === 'force-full-refresh') {
-      if (previewBtn && !previewBtn.disabled) {
-        previewBtn.dataset.bypassCache = 'true';
-        previewBtn.click();
-      }
+    if (target.getAttribute && target.getAttribute('data-action') === 'retry-preview') {
+      queueRetryPreview();
     }
 
     if (target.getAttribute && target.getAttribute('data-action') === 'retry-with-smaller-range') {
       const endInput = document.getElementById('end-date');
       const startInput = document.getElementById('start-date');
-      const pad = (num) => String(num).padStart(2, '0');
-      if (endInput && startInput) {
-        const lastQuery = getValidLastQuery();
-        if (lastQuery && lastQuery.start && lastQuery.end) {
-          startInput.value = formatDateTimeLocalForInput(lastQuery.start);
-          endInput.value = formatDateTimeLocalForInput(lastQuery.end, true);
-        } else {
-          const endValue = endInput.value || '';
-          const endDate = endValue ? new Date(endValue) : new Date();
-          if (endDate && !Number.isNaN(endDate.getTime())) {
-            const newEnd = new Date(endDate);
-            const newStart = new Date(newEnd);
-            newStart.setDate(newStart.getDate() - 30);
-            const startStr = `${newStart.getFullYear()}-${pad(newStart.getMonth() + 1)}-${pad(newStart.getDate())}T00:00`;
-            const endStr = `${newEnd.getFullYear()}-${pad(newEnd.getMonth() + 1)}-${pad(newEnd.getDate())}T23:59`;
-            startInput.value = startStr;
-            endInput.value = endStr;
-          }
-        }
+      const endDate = endInput && endInput.value ? new Date(endInput.value) : new Date();
+      const effectiveEnd = Number.isNaN(endDate.getTime()) ? new Date() : endDate;
+      const adjustedStart = new Date(effectiveEnd.getTime() - (30 * 24 * 60 * 60 * 1000));
+      if (startInput) {
+        startInput.value = formatDateTimeLocalValue(adjustedStart);
+        startInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      if (previewBtn && !previewBtn.disabled) {
-        previewBtn.click();
+      if (endInput && !endInput.value) {
+        endInput.value = formatDateTimeLocalValue(effectiveEnd);
+        endInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
-    }
-
-    if (target.getAttribute && target.getAttribute('data-action') === 'toggle-preview-meta-details') {
-      const detailsEl = document.getElementById('preview-meta-details');
-      if (detailsEl) {
-        const isHidden = detailsEl.hidden;
-        detailsEl.hidden = !isHidden;
-        if (target.getAttribute('aria-expanded') !== null) target.setAttribute('aria-expanded', String(!isHidden));
-        target.textContent = isHidden ? 'Hide technical details' : 'Technical details';
-      }
-    }
-
-    if (target.getAttribute && target.getAttribute('data-action') === 'trigger-export-excel') {
-      triggerExcelExport();
-    }
-
-    if (target.getAttribute && target.getAttribute('data-action') === 'toggle-error-details') {
-      const detailsEl = target.nextElementSibling;
-      if (detailsEl && detailsEl.classList && detailsEl.classList.contains('error-details')) {
-        const isHidden = detailsEl.hidden;
-        detailsEl.hidden = !isHidden;
-        target.setAttribute('aria-expanded', String(!isHidden));
-        target.textContent = isHidden ? 'Hide technical details' : 'Technical details';
-      }
-    }
-
-    if (target.getAttribute && target.getAttribute('data-action') === 'adjust-dates') {
-      const startInput = document.getElementById('start-date');
-      const endInput = document.getElementById('end-date');
-      const toFocus = startInput || endInput;
-      if (toFocus && typeof toFocus.focus === 'function') {
-        toFocus.focus();
-        try { toFocus.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { toFocus.scrollIntoView(true); }
-      }
+      queueRetryPreview();
     }
 
     if (target.getAttribute && target.getAttribute('data-action') === 'toggle-done-stories-optional-columns') {
@@ -222,6 +197,8 @@ export function initPreviewFlow() {
   });
 
   previewBtn.addEventListener('click', async () => {
+    const previewRunStartedAt = Date.now();
+    reportState.previewInProgress = true;
     previewRunId += 1;
     const runIdForThisRequest = previewRunId;
     let timeoutId;
@@ -240,8 +217,8 @@ export function initPreviewFlow() {
     previewBtn.disabled = true;
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
-    const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-    if (headerExportBtn) headerExportBtn.disabled = true;
+    const exportExcelActionBtn = document.getElementById('export-excel-btn');
+    if (exportExcelActionBtn) exportExcelActionBtn.disabled = true;
     updateExportHint();
     setQuickRangeButtonsDisabled(true);
 
@@ -272,13 +249,11 @@ export function initPreviewFlow() {
       previewContent.style.display = 'none';
     }
 
-    clearLoadingSteps();
-    setLoadingStage(0, 'Syncing with Jira…');
-
     let params;
     try {
       params = collectFilterParams();
     } catch (error) {
+      reportState.previewInProgress = false;
       if (loadingEl) loadingEl.style.display = 'none';
       showReportError('Check filters', (error && typeof error.message === 'string') ? error.message : 'Please fix the filters above and try again.');
       previewBtn.disabled = false;
@@ -342,6 +317,25 @@ export function initPreviewFlow() {
         params.requireResolvedBySprintEnd === true || params.requireResolvedBySprintEnd === 'true',
     });
 
+    clearLoadingSteps();
+    setLoadingStage(0, 'Syncing with Jira…', complexityLevel);
+
+    const rangeHintEl = document.getElementById('range-hint');
+    if (rangeHintEl) {
+      if (!complexityLevel) {
+        rangeHintEl.style.display = 'none';
+      } else if (complexityLevel === 'light') {
+        rangeHintEl.style.display = 'block';
+        rangeHintEl.textContent = 'Fast range — usually under 30s for one quarter.';
+      } else if (complexityLevel === 'medium') {
+        rangeHintEl.style.display = 'block';
+        rangeHintEl.textContent = 'Medium range — expect 30–60s; recent data returns first.';
+      } else {
+        rangeHintEl.style.display = 'block';
+        rangeHintEl.textContent = 'Heavy range — 60–90s; latest 2 weeks first, then history.';
+      }
+    }
+
     let previewMode = 'normal';
     if (complexityLevel === 'heavy') {
       previewMode = 'recent-first';
@@ -401,8 +395,22 @@ export function initPreviewFlow() {
           const prevRows = (prev.rows || []).length;
           const prevSprints = (prev.sprintsIncluded || []).length;
           const prevUnusable = (prev.sprintsUnusable || []).length;
-          sessionStorage.setItem(REPORT_LAST_RUN_KEY, JSON.stringify({ doneStories: prevRows, sprintsCount: prevSprints, unusableCount: prevUnusable, at: Date.now() }));
+          sessionStorage.setItem(
+            REPORT_LAST_RUN_KEY,
+            JSON.stringify({ doneStories: prevRows, sprintsCount: prevSprints, unusableCount: prevUnusable, at: Date.now() }),
+          );
         }
+        const meta = payload.meta || {};
+        const ctxForHeader = {
+          projects: Array.isArray(meta.selectedProjects) ? meta.selectedProjects : [],
+          start: meta.windowStart || null,
+          end: meta.windowEnd || null,
+          generatedAt: meta.generatedAt || null,
+          fromCache: meta.fromCache === true,
+          partial: meta.partial === true,
+          reducedScope: meta.reducedScope === true,
+        };
+        sessionStorage.setItem(REPORT_LAST_META_KEY, JSON.stringify(ctxForHeader));
       } catch (_) {}
       reportState.previewData = payload;
       reportState.previewRows = reportState.previewData.rows || [];
@@ -434,16 +442,16 @@ export function initPreviewFlow() {
       } catch (_) {}
       if (exportExcelBtn) {
         exportExcelBtn.disabled = !reportState.previewHasRows;
-        exportExcelBtn.style.display = reportState.previewHasRows ? '' : 'none';
+        exportExcelBtn.style.display = '';
       }
       if (exportDropdownTrigger) {
         exportDropdownTrigger.disabled = !reportState.previewHasRows;
-        exportDropdownTrigger.style.display = reportState.previewHasRows ? '' : 'none';
+        exportDropdownTrigger.style.display = '';
       }
-      const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-      if (headerExportBtn) {
-        headerExportBtn.disabled = !reportState.previewHasRows;
-        headerExportBtn.style.display = reportState.previewHasRows ? '' : 'none';
+      const exportExcelActionBtn = document.getElementById('export-excel-btn');
+      if (exportExcelActionBtn) {
+        exportExcelActionBtn.disabled = !reportState.previewHasRows;
+        exportExcelActionBtn.style.display = '';
       }
       updateExportHint();
       updateExportFilteredState();
@@ -475,7 +483,6 @@ export function initPreviewFlow() {
       }, timeoutMs);
 
       let elapsedSeconds = 0;
-      let softTimeoutShown = false;
       progressInterval = setInterval(() => {
         elapsedSeconds += 2;
         const minutes = Math.floor(elapsedSeconds / 60);
@@ -483,22 +490,6 @@ export function initPreviewFlow() {
         const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
         updateLoadingMessage(`Gathering sprint history… (${timeStr})`, null);
 
-        // Soft-timeout hint after ~20 seconds to offer a faster, smaller range
-        if (!softTimeoutShown && elapsedSeconds >= 20) {
-          softTimeoutShown = true;
-          if (statusEl && runIdForThisRequest === previewRunId) {
-            statusEl.innerHTML = `
-              <div class="status-banner info">
-                This preview is taking longer than usual. For a faster answer, you can use a smaller date window.
-                <div class="status-banner-actions">
-                  <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller range</button>
-                  <button type="button" class="status-close" aria-label="Keep waiting">Keep waiting</button>
-                </div>
-              </div>
-            `;
-            statusEl.style.display = 'block';
-          }
-        }
       }, 2000);
 
       // Emit telemetry that a preview fetch is starting (captured by tests)
@@ -608,12 +599,8 @@ export function initPreviewFlow() {
           <div role="alert">
             <strong>${escapeHtml(shortText)}</strong>
             <p style="margin: 8px 0 0 0;">${escapeHtml(errorMsg)}</p>
-            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller date range</button>
-              <button type="button" data-action="retry-preview" class="btn btn-compact">Re-run exact range</button>
-            </div>
-            <button type="button" class="btn btn-secondary btn-compact error-details-toggle" data-action="toggle-error-details" aria-expanded="false" style="margin-top: 8px;">View technical details</button>
-            <div class="error-details" hidden><pre style="margin: 4px 0; white-space: pre-wrap;">${escapeHtml(errorMsg)}</pre><button type="button" data-action="force-full-refresh" class="btn btn-secondary btn-compact">Force full refresh</button></div>
+            ${buildRetryActionsHtml()}
+            <div class="error-details" style="display:none;">${escapeHtml(errorMsg)}</div>
             <button type="button" class="error-close" aria-label="Dismiss">x</button>
           </div>
         `;
@@ -628,8 +615,7 @@ export function initPreviewFlow() {
           statusEl.innerHTML = `
             <div class="status-banner warning">
               Refresh failed. Showing the last successful preview.
-              <br><small>Tip: Try a smaller date window (for example, the last 30 days) or fewer projects to reduce load.</small>
-              <button type="button" data-action="retry-preview" class="btn btn-compact">Retry now</button>
+              <br><small>Try narrowing date range or projects to reduce load.</small>
               <button type="button" class="status-close" aria-label="Dismiss">x</button>
             </div>
           `;
@@ -655,18 +641,25 @@ export function initPreviewFlow() {
       if (timeoutId) clearTimeout(timeoutId);
       if (progressInterval) clearInterval(progressInterval);
 
-      previewBtn.disabled = false;
-      if (typeof window.__refreshReportingContextBar === 'function') window.__refreshReportingContextBar();
-      setQuickRangeButtonsDisabled(false);
+      const restorePreviewControls = () => {
+        reportState.previewInProgress = false;
+        previewBtn.disabled = false;
+        if (typeof window.__refreshReportingContextBar === 'function') window.__refreshReportingContextBar();
+        setQuickRangeButtonsDisabled(false);
+      };
+      const elapsedMs = Date.now() - previewRunStartedAt;
+      const minDisabledMs = 500;
+      if (elapsedMs < minDisabledMs) setTimeout(restorePreviewControls, minDisabledMs - elapsedMs);
+      else restorePreviewControls();
 
       const hasRows = Array.isArray(reportState.previewRows) && reportState.previewRows.length > 0;
       if (exportDropdownTrigger) {
         exportDropdownTrigger.disabled = !hasRows;
-        exportDropdownTrigger.style.display = hasRows ? '' : 'none';
+        exportDropdownTrigger.style.display = '';
       }
       if (exportExcelBtn) {
         exportExcelBtn.disabled = !hasRows;
-        exportExcelBtn.style.display = hasRows ? '' : 'none';
+        exportExcelBtn.style.display = '';
       }
       updateExportHint();
     }

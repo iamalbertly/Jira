@@ -12,6 +12,11 @@
     <header>
       <h1>VodaAgileBoard</h1>
       <p class="login-outcome-line">Sprint risks and delivery in under 30 seconds.</p>
+      <ul class="login-value-props">
+        <li>One sheet for all squads — no manual Excel stitching.</li>
+        <li>Aligned to Vodacom fiscal quarters out of the box.</li>
+        <li>Sprint risks surfaced before standup, not after.</li>
+      </ul>
     </header>
     <form class="login-form" action="/login" method="post" id="login-form">
       <div id="login-error" class="login-error" style="display: none;" tabindex="-1"></div>
@@ -41,7 +46,7 @@
       if (err === 'invalid') {
         message = 'Username or password incorrect. Try again or contact your admin for access.';
       } else if (err === 'bot') {
-        message = 'Security check did not pass. Submit the form normally without autofill or bots.';
+        message = 'We could not verify this sign-in. Try again without a password manager, or contact your admin.';
       } else if (err === 'timeout' || err === 'session') {
         message = "Session expired. Sign in again; you'll return to the Report and can rerun the preview.";
       } else if (err === 'ratelimit') {

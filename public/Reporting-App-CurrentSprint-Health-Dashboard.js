@@ -52,8 +52,26 @@ export function renderHealthDashboard(data) {
   let html = '<div class="transparency-card health-dashboard-card" id="health-dashboard-card">';
   html += '<h2>Sprint Health Dashboard</h2>';
 
-  // Risk indicator chip
-  html += '<div class="health-status-chip ' + riskColor + '">' + riskMessage + '</div>';
+  const breakdownReasons = [];
+  if (stuckCount > 0) {
+    const stuckKeys = (data.stuckCandidates || []).slice(0, 5).map(s => s.issueKey || s.key).filter(Boolean);
+    breakdownReasons.push('(' + stuckCount + ') issues stuck >24h. Fix: Unblock ' + (stuckKeys.length ? stuckKeys.join(', ') : '—') + '.');
+  }
+  const scopeCount = (data.scopeChanges || []).length;
+  if (scopeCount > 0) breakdownReasons.push('Scope grew: ' + scopeCount + ' item(s) added mid-sprint.');
+  if (missingEstimates > 0) breakdownReasons.push(missingEstimates + ' sub-task(s) missing estimates.');
+  if (missingLoggedItems > 0) breakdownReasons.push(missingLoggedItems + ' sub-task(s) with no time logged.');
+  const breakdownText = breakdownReasons.length ? breakdownReasons.join(' ') : 'No risks.';
+  const formulaText = 'Health = 2+ risks → red, 1 risk → yellow, 0 → green.';
+
+  html += '<div class="health-status-row">';
+  html += '<div class="health-status-chip ' + riskColor + '" title="' + escapeHtml(breakdownText) + '" id="health-status-chip">' + riskMessage + '</div>';
+  html += '<button type="button" class="btn btn-compact health-breakdown-toggle" aria-expanded="false" aria-controls="health-breakdown-detail" data-action="toggle-health-breakdown">Why?</button>';
+  html += '</div>';
+  html += '<div id="health-breakdown-detail" class="health-breakdown-detail" hidden>';
+  html += '<p class="health-breakdown-reasons">' + escapeHtml(breakdownText) + '</p>';
+  html += '<p class="health-breakdown-formula"><small>' + escapeHtml(formulaText) + '</small></p>';
+  html += '</div>';
 
   // Progress bar (story points)
   html += '<div class="health-progress-section">';

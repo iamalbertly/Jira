@@ -3,72 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sprint Leadership View - VodaAgileBoard</title>
+  <title>Growth HUD | VodaAgile</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    .leadership-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
-    .leadership-header h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 4px; }
-    .leadership-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
-    .leadership-filters label { font-weight: 500; color: var(--muted); }
-    .leadership-filters input, .leadership-filters select { padding: 8px; border-radius: var(--radius); border: 1px solid var(--border); }
-    .leadership-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
-    .leadership-card h2 { color: var(--primary); font-size: 1.15rem; margin-bottom: 12px; }
-    #leadership-loading, #leadership-error { padding: 20px; text-align: center; color: var(--muted); }
-    #leadership-error { color: var(--danger); }
-    .metrics-hint { font-size: 0.9em; color: var(--muted); margin-bottom: 12px; }
+    :root {
+      --hud-bg: #0f172a;
+      --hud-card-bg: #1e293b;
+      --hud-text: #f8fafc;
+      --hud-accent: #38bdf8;
+      --hud-success: #4ade80;
+      --hud-danger: #f87171;
+      --hud-warning: #fbbf24;
+    }
+    body.hud-mode {
+      background-color: var(--hud-bg);
+      color: var(--hud-text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 2rem;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    .hud-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .hud-meta {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .live-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: var(--hud-success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--hud-success);
+      margin-right: 0.5rem;
+    }
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      flex: 1;
+      align-content: start;
+    }
+    .hud-card {
+      background-color: var(--hud-card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease;
+    }
+    .hud-card:hover {
+      transform: translateY(-2px);
+    }
+    .metric-label {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--hud-text);
+      line-height: 1.1;
+    }
+    .metric-unit {
+      font-size: 1rem;
+      color: #64748b;
+      font-weight: 400;
+      margin-left: 0.25rem;
+    }
+    .metric-trend {
+      font-size: 0.875rem;
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .trend-up { color: var(--hud-success); }
+    .trend-down { color: var(--hud-danger); }
+    .trend-neutral { color: #94a3b8; }
+    
+    .loading-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    
+    /* Mobile Stack */
+    @media (max-width: 600px) {
+      body.hud-mode { padding: 1rem; height: auto; }
+      .hud-title { font-size: 1.25rem; }
+      .metric-value { font-size: 2rem; }
+    }
   </style>
 </head>
-<body>
-  <div class="container">
-    <header>
-      <div class="leadership-header">
-        <div>
-          <h1>Sprint Leadership View</h1>
-          <p class="subtitle">Trend view for boards – normalized delivery, predictability, and risk signals. No rankings or individual comparison.</p>
-        </div>
+<body class="hud-mode">
+  <header class="hud-header">
+    <div>
+      <h1 class="hud-title">Sprint Leadership - Executive HUD</h1>
+      <div id="project-context" class="text-sm text-slate-500 mt-1">All Projects</div>
+    </div>
+    <div class="hud-meta">
+      <span id="connection-status"><span class="live-indicator"></span>Live</span>
+      <span id="last-updated">Updating...</span>
+    </div>
+  </header>
+
+  <main class="hud-grid" id="hud-grid">
+    <!-- Velocity Card -->
+    <div class="hud-card loading-pulse">
+      <div>
+        <div class="metric-label">Velocity (Avg)</div>
+        <div class="metric-value">--<span class="metric-unit">SP</span></div>
       </div>
-      <div class="leadership-filters">
-        <label>Projects</label>
-        <select id="leadership-projects">
-          <option value="MPSA,MAS">MPSA, MAS</option>
-          <option value="MPSA">MPSA - M-SQUAD</option>
-          <option value="MAS">MAS - Mini - Apps Squad</option>
-          <option value="RPA">RPA - Robotics Process Automation (RPA)</option>
-          <option value="MVA">MVA - Digital Squad</option>
-          <option value="ASG">ASG - Agile and Security Guild</option>
-          <option value="FIN">FIN - Finance Squad</option>
-          <option value="SD">SD - DMS Squad (Kilimanjaro Legends)</option>
-          <option value="MPSA2">MPSA2 - TRANSFORMERS</option>
-          <option value="TRS">TRS - T-Squad</option>
-          <option value="VB">VB - Vodacom Business</option>
-          <option value="AMS2">AMS2 - AMS Squad (Tachyons)</option>
-          <option value="BIO">BIO - Bio metric KYC &amp; KYA</option>
-          <option value="MPSA,MAS,RPA,MVA,ASG,FIN,SD,MPSA2,TRS,VB,AMS2,BIO">All projects</option>
-        </select>
-        <span class="quick-range-label"><small>Quick range:</small></span>
-        <div class="quick-range-strip" role="group" aria-label="Vodacom quarters">
-          <div class="quarter-strip-inner quarter-strip-inner-leadership" style="overflow-x: auto; display: flex; gap: 6px; flex-wrap: nowrap;"></div>
-        </div>
-        <label>Start</label>
-        <input type="date" id="leadership-start">
-        <label>End</label>
-        <input type="date" id="leadership-end">
-        <button id="leadership-preview" class="btn btn-primary">Preview</button>
+    </div>
+    <!-- Risk Card -->
+    <div class="hud-card loading-pulse">
+      <div>
+        <div class="metric-label">Risk Index</div>
+        <div class="metric-value">--<span class="metric-unit">%</span></div>
       </div>
-      <nav class="app-nav" aria-label="Main">
-        <a href="/report">Report</a>
-        <a href="/current-sprint">Current Sprint (Squad)</a>
-        <span class="current">Leadership</span>
-      </nav>
-    </header>
-    <main>
-      <div id="leadership-loading">Trends load when you pick a quarter or date range.</div>
-      <div id="leadership-error" class="alert alert-error" style="display: none;"></div>
-      <div id="leadership-content"></div>
-    </main>
-  </div>
-  <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
-  <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
-  <script type="module" src="Reporting-App-Leadership-Page-Init-Controller.js"></script>
+    </div>
+    <!-- Quality Card -->
+    <div class="hud-card loading-pulse">
+      <div>
+        <div class="metric-label">Rework Ratio</div>
+        <div class="metric-value">--<span class="metric-unit">%</span></div>
+      </div>
+    </div>
+    <!-- Predictability Card -->
+    <div class="hud-card loading-pulse">
+      <div>
+        <div class="metric-label">Predictability</div>
+        <div class="metric-value">--<span class="metric-unit">%</span></div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="Reporting-App-Leadership-HUD-Controller.js"></script>
 </body>
 </html>

@@ -7,6 +7,7 @@ import {
   SHARED_DATE_RANGE_KEY,
   LAST_QUERY_KEY,
   REPORT_LAST_RUN_KEY,
+  REPORT_LAST_META_KEY,
 } from './Reporting-App-Shared-Storage-Keys.js';
 
 function parseDate(s) {
@@ -92,19 +93,53 @@ function getLastRunSummary() {
 }
 
 /**
+ * Returns freshness info like { label: 'Generated 3 min ago', isStale: true }
+ * based on the last preview meta stored in sessionStorage.
+ */
+export function getLastMetaFreshnessInfo() {
+  try {
+    if (typeof sessionStorage === 'undefined') return { label: null, isStale: false };
+    const raw = sessionStorage.getItem(REPORT_LAST_META_KEY);
+    if (!raw || !raw.trim()) return { label: null, isStale: false };
+    const obj = JSON.parse(raw);
+    const generatedAt = typeof obj?.generatedAt === 'string' ? obj.generatedAt.trim() : '';
+    if (!generatedAt) return { label: null, isStale: false };
+    const ts = new Date(generatedAt);
+    if (Number.isNaN(ts.getTime())) return { label: null, isStale: false };
+    const diffMs = Date.now() - ts.getTime();
+    if (diffMs < 0) return { label: null, isStale: false };
+    const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+    const isStale = diffMs >= FIFTEEN_MIN_MS;
+    if (diffMs < 60000) return { label: 'Generated just now', isStale };
+    const minutes = Math.round(diffMs / 60000);
+    if (minutes < 60) return { label: `Generated ${minutes} min ago`, isStale };
+    const hours = Math.round(minutes / 60);
+    return { label: `Generated ${hours}h ago`, isStale };
+  } catch (_) {
+    return { label: null, isStale: false };
+  }
+}
+
+/**
  * Returns a one-line display string for the context bar, or a fallback message.
  * When sessionStorage has last-run data, prepends "Last: X stories, Y sprints · " to projects/range.
+ * When preview meta is available, appends a freshness fragment: "Generated N min ago".
  */
 export function getContextDisplayString() {
   const ctx = getValidLastQuery() || getFallbackContext();
   const lastRun = getLastRunSummary();
+  const freshnessInfo = getLastMetaFreshnessInfo();
+  const freshness = freshnessInfo.label;
   const proj = ctx ? ctx.projects.replace(/,/g, ', ') : '';
   const startStr = ctx ? formatDateForContext(ctx.start) : '';
   const endStr = ctx ? formatDateForContext(ctx.end) : '';
   const rangeStr = startStr && endStr ? `${startStr} – ${endStr}` : '';
   const contextPart = rangeStr ? `Projects: ${proj} · ${rangeStr}` : (proj ? `Projects: ${proj}` : '');
-  if (lastRun && contextPart) return `${lastRun} · ${contextPart}`;
-  if (lastRun) return lastRun;
-  if (contextPart) return contextPart;
+  const freshnessPart = freshness ? freshness : '';
+  const pieces = [];
+  if (lastRun) pieces.push(lastRun);
+  if (contextPart) pieces.push(contextPart);
+  if (freshnessPart) pieces.push(freshnessPart);
+  if (pieces.length) return pieces.join(' · ');
   return 'No report run yet';
 }

@@ -48,6 +48,23 @@ function initLeadershipPage() {
     if (ev.target && ev.target.getAttribute && ev.target.getAttribute('data-action') === 'export-leadership-boards-csv') {
       exportLeadershipBoardsCsv();
     }
+    const viewBtn = ev.target && ev.target.closest ? ev.target.closest('#leadership-content [data-leadership-view]') : null;
+    if (viewBtn) {
+      const view = viewBtn.getAttribute('data-leadership-view');
+      const cardsEl = document.getElementById('leadership-boards-cards');
+      const tableWrap = document.getElementById('leadership-boards-table-wrap');
+      const content = document.getElementById('leadership-content');
+      const allViewBtns = content ? content.querySelectorAll('[data-leadership-view]') : [];
+      allViewBtns.forEach((b) => { b.classList.toggle('active', b.getAttribute('data-leadership-view') === view); b.setAttribute('aria-pressed', b.getAttribute('data-leadership-view') === view ? 'true' : 'false'); });
+      if (view === 'cards') {
+        if (cardsEl) cardsEl.hidden = false;
+        if (tableWrap) tableWrap.hidden = true;
+      } else {
+        if (cardsEl) cardsEl.hidden = true;
+        if (tableWrap) tableWrap.hidden = false;
+      }
+      return;
+    }
     const th = ev.target && ev.target.closest ? ev.target.closest('#leadership-content th.sortable[data-sort]') : null;
     if (!th) return;
     const table = th.closest('table.leadership-boards-table');

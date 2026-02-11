@@ -7,6 +7,7 @@
 
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDate } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { renderExportButton } from './Reporting-App-CurrentSprint-Export-Dashboard.js';
 
 export function renderHeaderBar(data) {
   const sprint = data.sprint || {};
@@ -98,6 +99,7 @@ export function renderHeaderBar(data) {
   html += '<div class="status-badge ' + statusClass + '">' + statusBadge + '</div>';
   html += '<div class="header-updated">' + (updatedLabel ? ('Data as of <small class="last-updated">' + escapeHtml(updatedLabel) + '</small>') : '') + '</div>';
   html += '<button class="btn btn-compact header-refresh-btn" title="Refresh sprint data">Refresh</button>';
+  html += renderExportButton(true);
   html += '</div>';
 
   html += '</div>';

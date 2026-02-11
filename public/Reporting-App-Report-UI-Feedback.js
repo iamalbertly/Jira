@@ -6,10 +6,14 @@ function setFeedbackStatus(statusEl, message, tone = 'info') {
 
 function toggleFeedbackPanel(panelEl, statusEl, show) {
   if (!panelEl) return;
-  const shouldShow = typeof show === 'boolean' ? show : panelEl.style.display === 'none';
-  panelEl.style.display = shouldShow ? 'block' : 'none';
+  const shouldShow = typeof show === 'boolean' ? show : !panelEl.classList.contains('feedback-panel-open');
   if (shouldShow) {
+    panelEl.style.display = 'block';
     setFeedbackStatus(statusEl, '');
+    requestAnimationFrame(() => panelEl.classList.add('feedback-panel-open'));
+  } else {
+    panelEl.classList.remove('feedback-panel-open');
+    setTimeout(() => { panelEl.style.display = 'none'; }, 250);
   }
 }
 
@@ -27,30 +31,6 @@ export function initFeedbackPanel() {
 
   if (feedbackToggle) {
     feedbackToggle.addEventListener('click', () => toggleFeedbackPanel(feedbackPanel, feedbackStatus));
-  }
-
-  // Mobile: create a floating feedback FAB for easy access on small screens (visible via CSS media query)
-  const existingFab = document.getElementById('feedback-fab');
-  if (!existingFab) {
-    const fab = document.createElement('button');
-    fab.id = 'feedback-fab';
-    fab.className = 'feedback-fab';
-    fab.title = 'Send feedback (press "f")';
-    fab.setAttribute('aria-label', 'Send feedback');
-    fab.type = 'button';
-    fab.textContent = '✉';
-    fab.addEventListener('click', () => toggleFeedbackPanel(feedbackPanel, feedbackStatus, true));
-    // Show small sent indicator if feedback was recently sent
-    try {
-      const last = Number(localStorage.getItem('feedback-last-sent') || 0);
-      const dayMs = 24 * 60 * 60 * 1000;
-      if (last && (Date.now() - last) < dayMs) {
-        const badge = document.createElement('span');
-        badge.className = 'feedback-fab-badge';
-        fab.appendChild(badge);
-      }
-    } catch (e) {}
-    document.body.appendChild(fab);
   }
 
   // Keyboard shortcut: press 'f' to open feedback unless typing in an input/textarea

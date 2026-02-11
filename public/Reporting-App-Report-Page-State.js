@@ -6,4 +6,5 @@ export const reportState = {
   visibleSprintRows: [],
   previewHasRows: false,
   predictabilityPerSprint: null,
+  previewInProgress: false,
 };

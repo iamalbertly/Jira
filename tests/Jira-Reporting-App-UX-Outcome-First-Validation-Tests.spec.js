@@ -9,7 +9,6 @@ import { test, expect } from '@playwright/test';
 import {
   captureBrowserTelemetry,
   runDefaultPreview,
-  waitForPreview,
   assertTelemetryClean,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
@@ -34,8 +33,12 @@ test.describe('UX Outcome-First', () => {
   test('Report – Single Export CTA', async ({ page }) => {
     test.setTimeout(120000);
     const telemetry = captureBrowserTelemetry(page);
-    await page.goto('/report');
-    await waitForPreview(page, { timeout: 15000 }).catch(() => {});
+    await runDefaultPreview(page);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) {
+      test.skip(true, 'Preview not visible within timeout; may require Jira credentials');
+      return;
+    }
     const hasExport = await page.getByRole('button', { name: /Export/ }).first().isVisible().catch(() => false);
     const hasExportToExcel = await page.getByText('Export to Excel').first().isVisible().catch(() => false);
     expect(hasExport || hasExportToExcel).toBeTruthy();
@@ -168,14 +171,21 @@ test.describe('UX Outcome-First', () => {
       test.skip(true, 'Redirected to login');
       return;
     }
-    await page.fill('#leadership-start', '2025-07-01').catch(() => {});
-    await page.fill('#leadership-end', '2025-09-30').catch(() => {});
-    await page.click('#leadership-preview');
-    const contentVisible = await page.waitForSelector('#leadership-content', { state: 'visible', timeout: 60000 }).then(() => true).catch(() => false);
-    if (!contentVisible) {
-      test.skip(true, 'Leadership content not loaded');
+
+    await expect(page).toHaveURL(/\/report(#trends)?/);
+    await page.click('#preview-btn');
+    await Promise.race([
+      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }).catch(() => null),
+      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }).catch(() => null),
+    ]);
+
+    const hasPreview = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!hasPreview) {
+      test.skip(true, 'Preview did not load for current data set');
       return;
     }
+
+    await page.click('#tab-btn-trends');
     const hasOutcome = (await page.locator('.leadership-outcome-line').count()) > 0;
     const body = await page.locator('body').textContent().catch(() => '');
     const hasBoardsText = /boards.*on-time|attention/.test(body);
@@ -192,14 +202,21 @@ test.describe('UX Outcome-First', () => {
       test.skip(true, 'Redirected to login');
       return;
     }
-    await page.fill('#leadership-start', '2025-07-01').catch(() => {});
-    await page.fill('#leadership-end', '2025-09-30').catch(() => {});
-    await page.click('#leadership-preview');
-    const contentVisible = await page.waitForSelector('#leadership-content', { state: 'visible', timeout: 60000 }).then(() => true).catch(() => false);
-    if (!contentVisible) {
-      test.skip(true, 'Leadership content not loaded');
+
+    await expect(page).toHaveURL(/\/report(#trends)?/);
+    await page.click('#preview-btn');
+    await Promise.race([
+      page.waitForSelector('#preview-content', { state: 'visible', timeout: 60000 }).catch(() => null),
+      page.waitForSelector('#error', { state: 'visible', timeout: 60000 }).catch(() => null),
+    ]);
+
+    const hasPreview = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!hasPreview) {
+      test.skip(true, 'Preview did not load for current data set');
       return;
     }
+
+    await page.click('#tab-btn-trends');
     const exportBtn = page.locator('[data-action="export-leadership-boards-csv"]');
     await expect(exportBtn).toBeVisible();
 
@@ -222,3 +239,5 @@ test.describe('UX Outcome-First', () => {
     assertTelemetryClean(telemetry);
   });
 });
+
+

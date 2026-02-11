@@ -73,11 +73,25 @@ export function renderDailyCompletion(data) {
   return html;
 }
 
+function burndownHealth(remaining, ideal, total) {
+  if (!remaining.length || !ideal.length || total <= 0) return { label: '', class: '' };
+  const actualLast = remaining[remaining.length - 1].remainingSP || 0;
+  const idealLast = ideal[ideal.length - 1]?.remainingSP ?? 0;
+  const diff = actualLast - idealLast;
+  const threshold = total * 0.1;
+  if (diff > threshold) return { label: 'Behind', class: 'burndown-behind' };
+  if (diff < -threshold) return { label: 'Ahead', class: 'burndown-ahead' };
+  return { label: 'On track', class: 'burndown-on-track' };
+}
+
 export function renderBurndown(data) {
   const remaining = data.remainingWorkByDay || [];
   const ideal = data.idealBurndown || [];
+  const daysMeta = data.daysMeta || {};
+  const sprintEnded = daysMeta.daysRemainingCalendar != null && daysMeta.daysRemainingCalendar <= 0;
+
   if (!remaining.length) {
-    return '<div class="transparency-card"><p class="meta-row"><small>Burndown will appear when story points and resolutions are available.</small></p></div>';
+    return '<div class="transparency-card" id="burndown-card"><h2>Burndown</h2><p class="meta-row"><small>Burndown will appear when story points and resolutions are available.</small></p></div>';
   }
 
   const totalSP = remaining[0].remainingSP || 0;
@@ -85,10 +99,33 @@ export function renderBurndown(data) {
   const doneSP = totalSP - lastRemaining;
   const pct = totalSP > 0 ? Math.round((doneSP / totalSP) * 100) : 0;
 
+  if (totalSP === 0) {
+    return '<div class="transparency-card" id="burndown-card"><h2>Burndown</h2><p class="burndown-status-card">No work planned for this sprint.</p></div>';
+  }
+
+  const sprintJustStarted = remaining.length <= 2 && doneSP === 0;
+  const noWorkDone = doneSP === 0;
+  const burstDelivery = remaining.length >= 2 && doneSP > 0 && lastRemaining === 0 && (remaining[remaining.length - 2].remainingSP || 0) > 0;
+
   let html = '<div class="transparency-card" id="burndown-card">';
   html += '<h2>Burndown</h2>';
-  html += '<p><strong>' + pct + '%</strong> complete (' + formatNumber(doneSP, 1, '-') + ' SP done of ' + formatNumber(totalSP, 1, '-') + ' SP).</p>';
-  html += buildBurndownChart(remaining, ideal);
+
+  if (sprintJustStarted) {
+    html += '<p class="burndown-status-card burndown-status-info">Sprint just started. Burndown will update as work is completed.</p>';
+    html += '<p><strong>0%</strong> complete (0 SP done of ' + formatNumber(totalSP, 1, '-') + ' SP).</p>';
+  } else if (noWorkDone && remaining.length > 2) {
+    html += '<div class="burndown-status-card burndown-status-empty">';
+    html += '<p><strong>No story points completed.</strong> ' + formatNumber(lastRemaining, 1, '-') + ' SP remaining.' + (sprintEnded ? ' Sprint ended.' : '') + '</p>';
+    html += '<a href="#stories-card" class="btn btn-secondary btn-compact">View work items</a>';
+    html += '</div>';
+  } else {
+    html += '<p><strong>' + pct + '%</strong> complete (' + formatNumber(doneSP, 1, '-') + ' SP done of ' + formatNumber(totalSP, 1, '-') + ' SP).</p>';
+    const health = burndownHealth(remaining, ideal, totalSP);
+    if (health.label) html += '<p class="burndown-health ' + health.class + '"><span class="burndown-health-label">' + escapeHtml(health.label) + '</span></p>';
+    if (burstDelivery) html += '<p class="burndown-annotation"><small>Burst delivery: work completed on final day.</small></p>';
+    html += buildBurndownChart(remaining, ideal);
+  }
+
   html += '<table class="data-table" id="burndown-table">';
   html += '<thead><tr><th>Date</th><th>Remaining SP</th><th>Ideal Remaining</th></tr></thead><tbody>';
   const burndownInitial = 7;

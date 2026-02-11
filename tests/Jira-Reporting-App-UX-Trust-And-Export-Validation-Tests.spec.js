@@ -19,7 +19,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
-    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
+    await expect(page.locator('h1')).toContainText(/High-Level Performance|VodaAgileBoard/i);
     await expect(page.locator('#project-mpsa')).toBeVisible();
     await expect(page.locator('#preview-btn')).toBeVisible();
     await expect(page.locator('#export-excel-btn')).toBeHidden();
@@ -27,7 +27,6 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     await expect(page.locator('#preview-content')).toBeHidden();
     await expect(page.locator('nav.app-nav')).toBeVisible();
     await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
-    await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');
 
     assertTelemetryClean(telemetry);
   });
@@ -63,7 +62,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       return;
     }
     await expect(page.locator('.tabs')).toBeVisible();
-    await expect(page.locator('.tab-btn')).toHaveCount(4);
+    await expect(page.locator('.tab-btn')).toHaveCount(5);
     await expect(page.locator('#tab-project-epic-level')).toBeVisible();
     await expect(page.locator('#export-excel-btn')).toBeVisible();
     await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
@@ -80,14 +79,13 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     }
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
-    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
-    await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');
+    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('High-Level Performance');
     const options = await page.locator('#board-select option').allTextContents();
     expect(options.length).toBeGreaterThanOrEqual(1);
     assertTelemetryClean(telemetry);
   });
 
-  test('sprint-leadership page loads and shows date inputs and Preview with no console errors', async ({ page }) => {
+  test('sprint-leadership URL redirects to report#trends with Trends tab active', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
 
@@ -95,13 +93,8 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       test.skip(true, 'Redirected to login; auth may be required');
       return;
     }
-    await expect(page.locator('h1')).toContainText('Sprint Leadership');
-    await expect(page.locator('#leadership-start')).toBeVisible();
-    await expect(page.locator('#leadership-end')).toBeVisible();
-    await expect(page.locator('#leadership-preview')).toBeVisible();
-    await expect(page.locator('#leadership-preview')).toContainText('Preview');
-    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
-    await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
+    await expect(page).toHaveURL(/\/report#trends$/);
+    await expect(page.locator('#tab-btn-trends')).toHaveClass(/active/);
     assertTelemetryClean(telemetry);
   });
 
@@ -207,3 +200,4 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     assertTelemetryClean(telemetry);
   });
 });
+

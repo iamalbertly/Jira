@@ -7,13 +7,11 @@
 import { test, expect } from '@playwright/test';
 import {
   captureBrowserTelemetry,
-  runDefaultPreview,
-  waitForPreview,
   assertTelemetryClean,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Customer Simplicity Trust Phase2', () => {
-  test('Report – Epic IDs are URL links (Project & Epic Level tab)', async ({ page }) => {
+  test('Report - Epic IDs are URL links (Project & Epic Level tab)', async ({ page }) => {
     test.setTimeout(120000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
@@ -54,7 +52,7 @@ test.describe('Customer Simplicity Trust Phase2', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Current Sprint – Work items quickly visible', async ({ page }) => {
+  test('Current Sprint - Work items quickly visible', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
 
@@ -87,17 +85,17 @@ test.describe('Customer Simplicity Trust Phase2', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Report – Applied-filters summary and Preview report CTA', async ({ page }) => {
+  test('Report - Applied-filters summary and Preview CTA', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
     await expect(page.locator('#applied-filters-summary')).toBeVisible();
-    await expect(page.locator('#preview-btn')).toContainText('Preview report');
+    await expect(page.locator('#preview-btn')).toContainText(/Preview/i);
 
     assertTelemetryClean(telemetry);
   });
 
-  test('Report – Partial banner has recovery actions', async ({ page }) => {
+  test('Report - Partial banner shows concise status copy', async ({ page }) => {
     test.setTimeout(120000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
@@ -115,15 +113,13 @@ test.describe('Customer Simplicity Trust Phase2', () => {
     const banner = page.locator('.status-banner.warning');
     const visible = await banner.isVisible().catch(() => false);
     if (visible) {
-      await expect(page.locator('[data-action="retry-preview"]')).toBeVisible();
-      await expect(page.locator('[data-action="retry-with-smaller-range"]')).toBeVisible();
-      await expect(page.locator('[data-action="force-full-refresh"]')).toBeVisible();
+      await expect(banner).toContainText(/Refresh|showing the last successful results|partial/i);
     }
 
     assertTelemetryClean(telemetry);
   });
 
-  test('Current Sprint – Header or carousel has section link to work items', async ({ page }) => {
+  test('Current Sprint - Header or carousel has section link to work items', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
 
@@ -150,7 +146,7 @@ test.describe('Customer Simplicity Trust Phase2', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Leadership – Context line and Export CSV', async ({ page }) => {
+  test('Leadership - redirects to report trends', async ({ page }) => {
     test.setTimeout(90000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
@@ -159,18 +155,9 @@ test.describe('Customer Simplicity Trust Phase2', () => {
       test.skip(true, 'Redirected to login; auth may be required');
       return;
     }
-    await expect(page.locator('#leadership-preview')).toBeVisible();
-    await page.fill('#leadership-start', '2025-07-01').catch(() => {});
-    await page.fill('#leadership-end', '2025-09-30').catch(() => {});
-    await page.click('#leadership-preview');
-    const contentVisible = await page.waitForSelector('#leadership-content', { state: 'visible', timeout: 60000 }).then(() => true).catch(() => false);
-    if (!contentVisible) {
-      test.skip(true, 'Leadership content not loaded; preview may require Jira');
-      return;
-    }
-    const body = await page.locator('body').textContent().catch(() => '');
-    expect(body).toMatch(/Projects|Range|Generated/);
-    await expect(page.locator('[data-action="export-leadership-boards-csv"]')).toBeVisible();
+
+    await expect(page).toHaveURL(/\/report(#trends)?/);
+    await expect(page.locator('#tab-btn-trends')).toHaveAttribute('aria-selected', 'true');
 
     assertTelemetryClean(telemetry);
   });

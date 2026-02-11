@@ -9,8 +9,10 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 
-export function renderAlertBanner(data) {
-  // Collect all alerts
+/**
+ * Build alerts array from sprint data (shared for verdict bar and banner).
+ */
+export function buildAlerts(data) {
   const alerts = [];
   const stuckCount = (data.stuckCandidates || []).length;
   const scopeChanges = data.scopeChanges || [];
@@ -126,10 +128,36 @@ export function renderAlertBanner(data) {
     });
   }
 
-  // If no alerts, return empty
-  if (alerts.length === 0) {
-    return '';
+  return alerts;
+}
+
+/**
+ * Single-line verdict bar: one sentence, one color, one action (Flaw 3).
+ */
+export function renderVerdictBar(data) {
+  const alerts = buildAlerts(data);
+  const first = alerts[0];
+  const moreCount = alerts.length - 1;
+  if (!first) {
+    return '<div class="verdict-bar verdict-bar-green" role="status" aria-live="polite">' +
+      '<span class="verdict-text">On Track</span>' +
+      '<span class="verdict-detail">No critical risks. Review Work risks for details.</span>' +
+      '</div>';
   }
+  const color = first.color === 'red' ? 'red' : (first.color === 'orange' ? 'orange' : 'yellow');
+  let html = '<div class="verdict-bar verdict-bar-' + color + '" role="alert" aria-live="polite">';
+  html += '<span class="verdict-text">' + escapeHtml(first.title) + '</span>';
+  if (moreCount > 0) {
+    html += '<span class="verdict-more" data-action="expand-verdict" aria-expanded="false">+' + moreCount + ' more</span>';
+  }
+  html += ' <a href="' + (first.actionHref || '#stuck-card') + '" class="verdict-action btn btn-primary btn-compact">' + escapeHtml(first.action || 'View') + '</a>';
+  html += '</div>';
+  return html;
+}
+
+export function renderAlertBanner(data) {
+  const alerts = buildAlerts(data);
+  if (alerts.length === 0) return '';
 
   // Determine overall banner severity (worst of all alerts)
   const maxSeverity = alerts.reduce((max, a) => {
@@ -147,11 +175,8 @@ export function renderAlertBanner(data) {
   const fourHoursMs = 4 * 60 * 60 * 1000;
   const isDismissed = dismissedTime && (now - parseInt(dismissedTime)) < fourHoursMs;
 
-  if (isDismissed) {
-    return '';
-  }
+  if (isDismissed) return '';
 
-  // Build banner HTML
   let html = '<div class="alert-banner ' + bannerColor + '" role="alert" aria-live="polite">';
   html += '<div class="alert-banner-content">';
 

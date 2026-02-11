@@ -1,8 +1,21 @@
-import { formatDateForDisplay, formatDateTimeLocalForInput } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { formatDateForDisplay, formatDateTimeLocalForInput, formatDateShort } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { toUtcIsoFromLocalInput } from './Reporting-App-Report-Utils-Data-Helpers.js';
 import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.js';
-import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { SHARED_DATE_RANGE_KEY, REPORT_HAS_RUN_PREVIEW_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+
+let lastQuarterLabel = null;
+
+export function isRangeValid() {
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  if (!startVal || !endVal) return true;
+  const start = new Date(startVal).getTime();
+  const end = new Date(endVal).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return true;
+  return end >= start;
+}
 
 export function updateDateDisplay() {
   const startDate = document.getElementById('start-date')?.value || '';
@@ -63,12 +76,33 @@ function hydrateSharedDateRange(startInput, endInput) {
   }
 }
 
-function updateCustomRangeLabelVisibility() {
-  const label = document.getElementById('custom-range-label');
-  if (!label) return;
-  const strip = document.querySelector('.quarter-strip-inner');
-  const hasActivePill = strip && strip.querySelector('.quarter-pill.is-active');
-  label.style.display = hasActivePill ? 'none' : '';
+function updateRangeSummary(quarterLabel) {
+  const summaryEl = document.getElementById('date-range-summary');
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  if (!summaryEl) return;
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  const valid = isRangeValid();
+  if (!valid && startVal && endVal) {
+    summaryEl.textContent = 'End date must be after start date.';
+    return;
+  }
+  if (quarterLabel != null) {
+    lastQuarterLabel = quarterLabel;
+  } else {
+    lastQuarterLabel = null;
+  }
+  if (!startVal || !endVal) {
+    summaryEl.textContent = 'Select a quarter or enter dates.';
+    return;
+  }
+  const startDate = new Date(startVal);
+  const endDate = new Date(endVal);
+  const startStr = Number.isNaN(startDate.getTime()) ? '' : formatDateShort(startDate);
+  const endStr = Number.isNaN(endDate.getTime()) ? '' : formatDateShort(endDate);
+  const suffix = lastQuarterLabel ? ` (${lastQuarterLabel})` : ' (Custom range)';
+  summaryEl.textContent = startStr && endStr ? `${startStr} – ${endStr}${suffix}` : 'Select a quarter or enter dates.';
 }
 
 export function updateRangeHint() {
@@ -135,17 +169,28 @@ function tryFirstRunAutoSetRange(startInput, endInput) {
     });
 }
 
-export function initDateRangeControls(onApply) {
+export function initDateRangeControls(onApply, onValidationChange) {
   const startInput = document.getElementById('start-date');
   const endInput = document.getElementById('end-date');
   hydrateSharedDateRange(startInput, endInput);
-  if (startInput) startInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); });
-  if (endInput) endInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); });
-  if (startInput) startInput.addEventListener('change', persistSharedDateRange);
-  if (endInput) endInput.addEventListener('change', persistSharedDateRange);
+
+  const syncSummaryAndValidation = () => {
+    updateRangeSummary(null);
+    if (typeof onValidationChange === 'function') onValidationChange(isRangeValid());
+  };
+  if (startInput) {
+    startInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); persistSharedDateRange(); syncSummaryAndValidation(); });
+    startInput.addEventListener('input', syncSummaryAndValidation);
+  }
+  if (endInput) {
+    endInput.addEventListener('change', () => { updateDateDisplay(); updateRangeHint(); persistSharedDateRange(); syncSummaryAndValidation(); });
+    endInput.addEventListener('input', syncSummaryAndValidation);
+  }
   updateDateDisplay();
   updateRangeHint();
   tryFirstRunAutoSetRange(startInput, endInput);
+
+  updateRangeSummary(null);
 
   initQuarterStrip('.quarter-strip-inner', startInput, endInput, {
     formatInputValue: formatDateTimeLocalForInput,
@@ -154,13 +199,19 @@ export function initDateRangeControls(onApply) {
       persistSharedDateRange();
       updateRangeHint();
     },
-    onClearSelection: () => { updateCustomRangeLabelVisibility(); updateRangeHint(); },
-    onQuartersLoaded: () => { updateCustomRangeLabelVisibility(); updateRangeHint(); },
-    onApply: () => {
-      updateCustomRangeLabelVisibility();
+    onShowCustom: () => {
+      updateRangeSummary(null);
+      if (typeof onValidationChange === 'function') onValidationChange(isRangeValid());
+    },
+    onHideCustom: () => {},
+    onClearSelection: () => { updateRangeHint(); },
+    onQuartersLoaded: () => { updateRangeHint(); updateRangeSummary(lastQuarterLabel); },
+    onApply: (data) => {
+      updateRangeSummary(data?.data?.label ?? null);
       persistSharedDateRange();
       updateRangeHint();
       if (typeof onApply === 'function') onApply();
+      if (typeof onValidationChange === 'function') onValidationChange(isRangeValid());
     },
   });
 }

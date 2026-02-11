@@ -84,6 +84,7 @@ export function renderLeadershipPage(data) {
     const summaries = data.boardSummaries || new Map();
     let onTime80Plus = 0;
     let needAttention = 0;
+    let minSprintCount = null;
     for (const board of boards) {
       const summary = summaries.get(board.id);
       const doneStories = summary?.doneStories || 0;
@@ -91,8 +92,15 @@ export function renderLeadershipPage(data) {
       const onTimePct = doneStories > 0 ? (doneByEnd / doneStories) * 100 : null;
       if (onTimePct != null && onTimePct >= 80) onTime80Plus++;
       if (onTimePct == null || onTimePct < 80) needAttention++;
+      const sprintCount = summary?.sprintCount;
+      if (typeof sprintCount === 'number') {
+        minSprintCount = minSprintCount == null ? sprintCount : Math.min(minSprintCount, sprintCount);
+      }
     }
     outcomeLine = boards.length + ' boards | ' + onTime80Plus + ' on-time >=80% | ' + needAttention + ' need attention.';
+    if (minSprintCount != null && minSprintCount < 3) {
+      html += '<p class="metrics-hint leadership-low-sample-hint"><small>Trends stabilise after at least 3 closed sprints per board. Use these early signals as directional only.</small></p>';
+    }
   }
   if (outcomeLine) {
     html += '<p class="leadership-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</p>';
@@ -102,7 +110,12 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<div class="leadership-card-header">';
   html += '<h2>Boards - normalized delivery</h2>';
+  html += '<p class="leadership-delivery-hint"><small>Delivery % adjusted for scope changes.</small></p>';
+  html += '<div class="leadership-view-actions">';
+  html += '<button type="button" class="btn btn-secondary btn-compact active" data-leadership-view="cards" aria-pressed="true">Cards</button>';
+  html += '<button type="button" class="btn btn-secondary btn-compact" data-leadership-view="table" aria-pressed="false">Table</button>';
   html += '<div class="leadership-export-wrap"><button type="button" class="btn btn-secondary btn-compact" data-action="export-leadership-boards-csv" title="Export boards table to CSV">Export CSV</button></div>';
+  html += '</div>';
   html += '</div>';
   if (boards.length === 0) {
     const hint = 'Change projects above or open Report to check project configuration.';
@@ -114,6 +127,33 @@ export function renderLeadershipPage(data) {
       { href: '/report' }
     );
   } else {
+    const summaries = data.boardSummaries || new Map();
+    let allStrong = boards.length > 0;
+    const boardCards = [];
+    for (const board of boards) {
+      const summary = summaries.get(board.id);
+      const onTimePct = summary?.doneStories > 0 ? ((summary.doneBySprintEnd || 0) / summary.doneStories * 100) : null;
+      const grade = gradeFromSignals(onTimePct ?? null, null);
+      if (grade !== 'Strong') allStrong = false;
+      const sprintCount = summary?.sprintCount ?? 0;
+      boardCards.push({ board, summary, onTimePct, grade, sprintCount, hasLimitedHistory: sprintCount < 2 });
+    }
+    if (allStrong && boards.length > 0) {
+      html += '<p class="leadership-all-strong">All boards delivering on track.</p>';
+    }
+    html += '<div id="leadership-boards-cards" class="leadership-boards-cards" role="region" aria-label="Boards overview">';
+    for (const card of boardCards) {
+      const onTimeStr = card.onTimePct != null ? card.onTimePct.toFixed(0) + '%' : '—';
+      const gradeClass = (card.grade || '').toLowerCase().replace(/\s+/g, '-');
+      html += '<div class="leadership-board-card' + (card.hasLimitedHistory ? ' leadership-board-card--limited' : '') + '">';
+      html += '<div class="leadership-board-card-grade ' + gradeClass + '">' + escapeHtml(card.grade || '—') + '</div>';
+      html += '<div class="leadership-board-card-name">' + escapeHtml(card.board.name) + '</div>';
+      html += '<div class="leadership-board-card-metric">On-time ' + onTimeStr + '</div>';
+      if (card.hasLimitedHistory) html += '<div class="leadership-board-card-note">Insufficient data</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '<div id="leadership-boards-table-wrap" class="leadership-boards-table-wrap" hidden>';
     html += '<div id="leadership-sort-label" class="leadership-sort-label" aria-live="polite"></div>';
     html += '<table class="data-table leadership-boards-table"><thead><tr>';
     html += '<th class="sortable" data-sort="board" scope="col">Board</th>';
@@ -160,6 +200,7 @@ export function renderLeadershipPage(data) {
       html += '</tr>';
     }
     html += '</tbody></table>';
+    html += '</div>';
   }
   html += '</div>';
 
@@ -239,4 +280,15 @@ export function renderLeadershipPage(data) {
   }
 
   return html;
+}
+
+/**
+ * Render Leadership-style content into an arbitrary container.
+ * This thin wrapper allows the Leadership view to be embedded
+ * inside other pages (for example, the Report "Trends" tab)
+ * without depending on the standalone leadership.html layout.
+ */
+export function renderLeadershipContent(data, container) {
+  if (!container) return;
+  container.innerHTML = renderLeadershipPage(data || {});
 }

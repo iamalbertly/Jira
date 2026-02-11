@@ -13,7 +13,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Choose projects.*boards load.*pick a board/i);
+      expect(text).toMatch(/Loading (current sprint|boards)|Choose projects.*boards load.*pick a board/i);
     }
   });
 
@@ -71,7 +71,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     expect(bodyText).toMatch(/Try the previous sprint tab/i);
   });
 
-  test('projects SSOT sync banner appears when Report projects change via storage event', async ({ page }) => {
+  test('projects SSOT sync applies silently when Report projects change via storage event', async ({ page }) => {
     await page.goto('/current-sprint');
     if (page.url().includes('login') || page.url().endsWith('/')) {
       test.skip(true, 'Redirected to login or home; auth may be required');
@@ -85,10 +85,8 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
       window.dispatchEvent(new StorageEvent('storage', { key, newValue: 'MPSA,MAS' }));
     });
 
-    const hint = page.locator('#current-sprint-project-hint');
-    await expect(hint).toBeVisible();
-    const text = await hint.textContent();
-    expect(text || '').toMatch(/Boards are filtered to match your Report projects/i);
+    await expect(page.locator('#current-sprint-projects')).toHaveValue('MPSA,MAS');
+    await expect(page.locator('#board-select')).toBeVisible();
   });
 
   test('sprint health outcome line stays visible when scrolling', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { currentSprintDom, currentSprintKeys } from './Reporting-App-CurrentSprint-Page-Context.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { updateNotificationStore } from './Reporting-App-CurrentSprint-Notifications-Helpers.js';
-import { showLoading, showError, showContent, clearError } from './Reporting-App-CurrentSprint-Page-Status.js';
+import { showLoading, showError, showContent } from './Reporting-App-CurrentSprint-Page-Status.js';
 import { loadBoards, loadCurrentSprint } from './Reporting-App-CurrentSprint-Page-Data-Loaders.js';
 import { renderCurrentSprintPage } from './Reporting-App-CurrentSprint-Render-Page.js';
 import { wireDynamicHandlers } from './Reporting-App-CurrentSprint-Page-Handlers.js';
@@ -82,16 +82,6 @@ let currentBoardId = null;
 let currentSprintId = null;
 let lastBoardsRefreshRequestId = 0;
 
-function normalizeProjects(value) {
-  if (!value || typeof value !== 'string') return '';
-  return value
-    .split(',')
-    .map((p) => (p || '').trim())
-    .filter(Boolean)
-    .sort()
-    .join(',');
-}
-
 function setBoardSelectCouldntLoad() {
   const { boardSelect } = currentSprintDom;
   if (!boardSelect) return;
@@ -100,29 +90,6 @@ function setBoardSelectCouldntLoad() {
   opt.value = '';
   opt.textContent = "Couldn't load boards";
   boardSelect.appendChild(opt);
-}
-
-function appendRetryToError(preferredId, preferredSprintId) {
-  try {
-    const { errorEl } = currentSprintDom;
-    if (errorEl && !errorEl.querySelector('.retry-btn')) {
-      const retry = document.createElement('button');
-      retry.type = 'button';
-      retry.className = 'btn btn-primary btn-sm retry-btn';
-      retry.textContent = 'Retry';
-      retry.style.marginLeft = '8px';
-      retry.addEventListener('click', () => {
-        retry.disabled = true;
-        retry.textContent = 'Retrying...';
-        clearError();
-        refreshBoards(preferredId, preferredSprintId).finally(() => {
-          retry.disabled = false;
-          retry.textContent = 'Retry';
-        });
-      });
-      errorEl.appendChild(retry);
-    }
-  } catch (_) {}
 }
 
 function refreshBoards(preferredId, preferredSprintId) {
@@ -148,7 +115,6 @@ function refreshBoards(preferredId, preferredSprintId) {
       if (!boards.length) {
         setBoardSelectCouldntLoad();
         showError('No boards found for the selected projects. Check project selection or try Report to refresh project list.');
-        appendRetryToError(preferredId, preferredSprintId);
         return null;
       }
       const boardIds = boards.map((b) => String(b.id));
@@ -170,7 +136,6 @@ function refreshBoards(preferredId, preferredSprintId) {
       setBoardSelectCouldntLoad();
       showError(msg || "Couldn't load boards.");
       if ((msg || '').includes('Session expired')) addLoginLink();
-      appendRetryToError(preferredId, preferredSprintId);
       return null;
     });
 }
@@ -200,32 +165,7 @@ function onBoardChange() {
 }
 
 function updateProjectHint() {
-  const hintEl = document.getElementById('current-sprint-project-hint');
-  if (!hintEl) return;
-  const current = normalizeProjects(getProjectsParam());
-  const stored = normalizeProjects(getStoredProjects() || '');
-  if (!stored) {
-    hintEl.innerHTML = '';
-    return;
-  }
-  if (current === stored) {
-    hintEl.innerHTML = '<span class="same-as-report-label">Boards are filtered to match your Report projects (Same as Report).</span>';
-    return;
-  }
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn btn-secondary btn-compact';
-  btn.textContent = 'Use Report selection';
-  btn.addEventListener('click', () => {
-    syncProjectsSelect(stored);
-    persistProjectsSelection(stored);
-    updateProjectHint();
-    currentBoardId = null;
-    currentSprintId = null;
-    refreshBoards(getPreferredBoardId(), getPreferredSprintId());
-  });
-  hintEl.innerHTML = '';
-  hintEl.appendChild(btn);
+  // Projects are already synchronized from shared storage.
 }
 
 function onProjectsChange() {
@@ -323,10 +263,6 @@ function init() {
   window.addEventListener('storage', (event) => {
     if (event.key === projectsKey) {
       syncProjectsSelect(event.newValue || '');
-      const hintEl = document.getElementById('current-sprint-project-hint');
-      if (hintEl) {
-        hintEl.innerHTML = '<span class="same-as-report-label">Projects updated to match Report; reloading boards…</span>';
-      }
       initHandlers.onProjectsChange();
     }
   });

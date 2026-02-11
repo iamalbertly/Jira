@@ -14,3 +14,4 @@ export const REPORT_HAS_RUN_PREVIEW_KEY = 'report-has-run-preview';
 export const REPORT_LAST_RUN_KEY = 'report-last-run';
 export const REPORT_FILTERS_COLLAPSED_KEY = 'report-filters-collapsed';
 export const REPORT_ADVANCED_OPTIONS_OPEN_KEY = 'reportAdvancedOptionsOpen';
+export const REPORT_LAST_META_KEY = 'report-last-meta';

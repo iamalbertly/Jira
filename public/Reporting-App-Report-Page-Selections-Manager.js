@@ -40,29 +40,6 @@ function updateProjectSelectionStatus() {
   statusEl.textContent = `${selected} of ${total} projects selected`;
 }
 
-function initProjectActions() {
-  const selectAllBtn = document.getElementById('projects-select-all');
-  const selectNoneBtn = document.getElementById('projects-select-none');
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener('click', () => {
-      document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
-        input.checked = true;
-      });
-      updatePreviewButtonState(window.__reportPreviewButtonSync);
-      updateProjectSelectionStatus();
-    });
-  }
-  if (selectNoneBtn) {
-    selectNoneBtn.addEventListener('click', () => {
-      document.querySelectorAll('.project-checkbox[data-project]').forEach(input => {
-        input.checked = false;
-      });
-      updatePreviewButtonState(window.__reportPreviewButtonSync);
-      updateProjectSelectionStatus();
-    });
-  }
-}
-
 function initProjectSearch() {
   const searchInput = document.getElementById('project-search');
   const noMatchEl = document.getElementById('projects-no-match');
@@ -129,7 +106,6 @@ export function initProjectSelection() {
   });
   updatePreviewButtonState(window.__reportPreviewButtonSync);
   updateProjectSelectionStatus();
-  initProjectActions();
   initProjectSearch();
   initAdvancedOptionsToggle();
 

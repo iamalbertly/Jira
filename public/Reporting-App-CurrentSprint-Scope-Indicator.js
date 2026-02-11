@@ -36,7 +36,8 @@ export function renderScopeIndicator(data) {
   const features = scopeChanges.filter(i => (i.issuetype || '').toLowerCase() !== 'bug').length;
   const bugs = scopeChanges.filter(i => (i.issuetype || '').toLowerCase() === 'bug').length;
 
-  let html = '<div class="scope-indicator-chip ' + color + '" id="scope-indicator">';
+  let html = '<div class="scope-indicator-card" id="scope-changes-card">';
+  html += '<div class="scope-indicator-chip ' + color + '" id="scope-indicator">';
   html += '<span class="scope-icon">📈</span>';
   html += '<span class="scope-text">Scope: +' + scopePercent.toFixed(0) + '% (' + scopeChanges.length + ' item' + (scopeChanges.length !== 1 ? 's' : '') + ')</span>';
   
@@ -59,16 +60,27 @@ export function renderScopeIndicator(data) {
     html += '<button class="scope-details-btn scope-view-all-btn" aria-label="View scope details" style="display: none;">Details</button>';
   }
   html += '</div>';
+  html += '</div>';
+
+  const unestimatedCount = scopeChanges.filter(i => i.storyPoints == null || i.storyPoints === '').length;
+  if (unestimatedCount > 0) {
+    html += '<p class="scope-risk-line"><small>' + unestimatedCount + ' unestimated item' + (unestimatedCount !== 1 ? 's' : '') + ' added mid-sprint — commitment reliability unknown.</small></p>';
+  }
 
   if (itemsToShow.length > 0) {
-    html += '<div class="scope-inline-table-wrap"><table class="scope-inline-table"><thead><tr><th>Issue</th><th>Type</th><th>SP</th><th>Status</th></tr></thead><tbody>';
+    html += '<p class="scope-impact-line"><strong>Scope added: ' + scopeChanges.length + ' item' + (scopeChanges.length !== 1 ? 's' : '') + ', +' + formatNumber(scopeSP, 1, '0') + ' SP (+' + scopePercent.toFixed(0) + '% of committed).</strong></p>';
+    html += '<div class="scope-inline-table-wrap"><table class="scope-inline-table"><thead><tr><th>Issue</th><th class="cell-wrap">Summary</th><th>Type</th><th>SP</th><th>Status</th></tr></thead><tbody>';
     itemsToShow.forEach(issue => {
       const key = issue.key || issue.issueKey || '';
       const url = issue.issueUrl || buildJiraIssueUrl(jiraHost, key);
+      const summary = issue.summary || issue.title || '';
+      const spVal = issue.storyPoints;
+      const spCell = (spVal != null && spVal !== '') ? formatNumber(Number(spVal), 1, String(spVal)) : '<span class="scope-unestimated">Unestimated</span>';
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(key, url) + '</td>';
+      html += '<td class="cell-wrap" title="' + escapeHtml(summary) + '">' + escapeHtml(summary || '-').slice(0, 60) + (summary.length > 60 ? '…' : '') + '</td>';
       html += '<td>' + escapeHtml(issue.issuetype || '-') + '</td>';
-      html += '<td>' + (issue.storyPoints || '-') + '</td>';
+      html += '<td>' + spCell + '</td>';
       html += '<td>' + escapeHtml(issue.status || '-') + '</td>';
       html += '</tr>';
     });
@@ -116,15 +128,19 @@ export function renderScopeModal(data) {
     html += '<div class="scope-epic-group">';
     html += '<h4>' + escapeHtml(epicName) + ' (' + epicSP + ' SP)</h4>';
     html += '<table class="scope-issues-table">';
-    html += '<thead><tr><th>Issue</th><th>Type</th><th>SP</th><th>Status</th></tr></thead>';
+    html += '<thead><tr><th>Issue</th><th class="cell-wrap">Summary</th><th>Type</th><th>SP</th><th>Status</th></tr></thead>';
     html += '<tbody>';
     issues.forEach(issue => {
       const key = issue.key || issue.issueKey || '';
       const url = issue.issueUrl || buildJiraIssueUrl(jiraHost, key);
+      const summary = issue.summary || issue.title || '';
+      const spVal = issue.storyPoints;
+      const spCell = (spVal != null && spVal !== '') ? formatNumber(Number(spVal), 1, String(spVal)) : '<span class="scope-unestimated">Unestimated</span>';
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(key, url) + '</td>';
+      html += '<td class="cell-wrap" title="' + escapeHtml(summary) + '">' + escapeHtml(summary || '-') + '</td>';
       html += '<td>' + escapeHtml(issue.issuetype || '-') + '</td>';
-      html += '<td>' + (issue.storyPoints || '-') + '</td>';
+      html += '<td>' + spCell + '</td>';
       html += '<td>' + escapeHtml(issue.status || '-') + '</td>';
       html += '</tr>';
     });

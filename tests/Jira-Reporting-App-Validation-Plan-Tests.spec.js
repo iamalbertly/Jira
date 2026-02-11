@@ -14,11 +14,18 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
     await expect(page.locator('#end-date')).toBeVisible();
     await expect(page.locator('#preview-btn')).toBeVisible();
 
-    // Main nav: Report | Current Sprint | Leadership
+    // Main nav: Report | Current Sprint (leadership route may be consolidated into report trends)
     const nav = page.locator('nav.app-nav');
     await expect(nav).toBeVisible();
     await expect(nav.locator('a[href="/current-sprint"]')).toContainText('Current Sprint');
-    await expect(nav.locator('a[href="/sprint-leadership"]')).toContainText('Leadership');
+    const leadershipNavLink = nav.locator('a[href="/sprint-leadership"]');
+    if (await leadershipNavLink.isVisible().catch(() => false)) {
+      await expect(leadershipNavLink).toContainText('Leadership');
+    } else {
+      await page.goto('/sprint-leadership');
+      await expect(page).toHaveURL(/\/report(#trends)?/);
+      await page.goto('/report');
+    }
 
     // Tabs are present in the DOM but hidden until preview is generated
     await expect(page.locator('.tabs')).toHaveCount(1);

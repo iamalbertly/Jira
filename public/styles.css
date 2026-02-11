@@ -86,6 +86,44 @@ header h1 {
   font-size: 0.95em;
 }
 
+.shared-context-bar {
+  display: block;
+}
+.shared-context-bar-text {
+  margin-right: 8px;
+}
+.context-state-badge {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+}
+.context-state-badge--live {
+  color: var(--accent);
+}
+.context-state-badge--cached {
+  color: var(--primary);
+}
+.context-state-badge--partial {
+  color: var(--warning);
+}
+.context-state-badge--closest {
+  color: var(--muted);
+}
+
+.context-stale-hint {
+  margin-left: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.context-stale-hint:hover {
+  color: var(--primary-strong);
+}
+
 .app-nav {
   margin-top: 8px;
   font-size: 0.82em;
@@ -303,12 +341,6 @@ header h1 {
   margin-bottom: 12px;
 }
 
-.project-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .selection-status {
   font-size: 0.85em;
   color: var(--muted);
@@ -481,11 +513,6 @@ header h1 {
 
 .date-range-summary {
   font-weight: 500;
-}
-
-.date-range-edit-btn {
-  padding: 0 6px;
-  font-size: 0.9rem;
 }
 
 .date-range-custom-wrap {
@@ -2011,7 +2038,9 @@ body.notification-dock-visible .container {
   color: var(--muted);
   font-size: 1.1em;
   cursor: pointer;
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-clear-btn:focus {
@@ -2021,6 +2050,10 @@ body.notification-dock-visible .container {
 
 .search-clear-btn.is-visible {
   display: inline-flex;
+}
+.search-clear-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 #search-box {
@@ -2277,13 +2310,6 @@ body.notification-dock-visible .container {
 
 .sprint-health-needs-attention {
   color: var(--danger);
-}
-.current-sprint-project-hint {
-  margin-left: 8px;
-  font-size: 0.9rem;
-}
-.current-sprint-project-hint .same-as-report-label {
-  color: var(--muted);
 }
 .section-definition {
   margin-top: 0;
@@ -4052,6 +4078,17 @@ body.notification-dock-visible .export-dashboard-container {
   margin-top: 1rem;
   font-size: 0.8rem;
   color: var(--muted, #777);
+}
+.login-page .login-value-props {
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--muted, #555);
+}
+.login-page .login-value-props li {
+  margin-top: 0.125rem;
 }
 .login-page .login-form label {
   display: block;

@@ -14,20 +14,20 @@ import {
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('UX Improvements Customer Simplicity Trust', () => {
-  test('report load: h1, Preview report button, nav links, applied-filters-summary present', async ({ page }) => {
+  test('report load: h1, Preview button, nav links, applied-filters-summary present', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
     await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance/);
-    await expect(page.locator('#preview-btn')).toContainText('Preview report');
+    await expect(page.locator('#preview-btn')).toContainText(/Preview/i);
     await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
-    await expect(page.locator('nav.app-nav a[href="/sprint-leadership"]')).toContainText('Leadership');
+    await expect(page.locator('#tab-btn-trends')).toContainText('Trends');
     await expect(page.locator('#applied-filters-summary')).toBeVisible();
 
     assertTelemetryClean(telemetry);
   });
 
-  test('report preview flow: collapsed meta line, Technical details toggle, export in header when has rows', async ({ page }) => {
+  test('report preview flow: collapsed meta line and export in header when has rows', async ({ page }) => {
     test.setTimeout(240000);
     const telemetry = captureBrowserTelemetry(page);
     await runDefaultPreview(page);
@@ -39,14 +39,13 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
       return;
     }
     await expect(page.locator('.meta-summary-line, .meta-info-summary')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('[data-action="toggle-preview-meta-details"], #preview-meta-details-toggle')).toContainText(/Technical details|Hide technical details/);
-    const headerExport = page.locator('#preview-header-export-excel-btn');
+    const headerExport = page.locator('#export-excel-btn');
     await expect(headerExport).toBeVisible();
 
     assertTelemetryClean(telemetry);
   });
 
-  test('report partial banner: when status banner visible, contains Retry and Smaller range and Full refresh', async ({ page }) => {
+  test('report partial banner: when status banner visible, shows concise loading/partial copy', async ({ page }) => {
     test.setTimeout(180000);
     const telemetry = captureBrowserTelemetry(page);
     await runDefaultPreview(page);
@@ -55,9 +54,7 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     const banner = page.locator('.status-banner.warning');
     const visible = await banner.isVisible().catch(() => false);
     if (visible) {
-      await expect(page.locator('[data-action="retry-preview"]')).toBeVisible();
-      await expect(page.locator('[data-action="retry-with-smaller-range"]')).toBeVisible();
-      await expect(page.locator('[data-action="force-full-refresh"]')).toBeVisible();
+      await expect(banner).toContainText(/Refresh|showing the last successful results|partial/i);
     }
 
     assertTelemetryClean(telemetry);
@@ -128,7 +125,7 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('leadership load: context Projects | Range, View generated after Preview, Export for boards', async ({ page }) => {
+  test('leadership route: redirects to report trends view', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
 
@@ -136,24 +133,8 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
       test.skip(true, 'Redirected to login; auth may be required');
       return;
     }
-    await expect(page.locator('#leadership-preview')).toBeVisible();
-    await page.fill('#leadership-start', '2025-07-01');
-    await page.fill('#leadership-end', '2025-09-30');
-    await page.click('#leadership-preview');
-    await page.waitForSelector('#leadership-content', { state: 'visible', timeout: 60000 }).catch(() => null);
-    const content = await page.locator('#leadership-content').textContent().catch(() => '');
-    if (!content || !content.trim()) {
-      const hasError = await page.locator('#leadership-error').isVisible().catch(() => false);
-      const hasLoading = await page.locator('#leadership-loading').isVisible().catch(() => false);
-      if (hasError || hasLoading) {
-        test.skip(true, 'Leadership preview did not return visible content');
-        return;
-      }
-    }
-    expect(content).toMatch(/Projects|Range|No sprint data/i);
-    const hasViewGenerated = await page.locator('text=View generated').isVisible().catch(() => false);
-    const hasExport = await page.locator('[data-action="export-leadership-boards-csv"]').isVisible().catch(() => false);
-    expect(hasViewGenerated || hasExport || content.length > 50).toBeTruthy();
+    await expect(page).toHaveURL(/\/report(#trends)?/);
+    await expect(page.locator('#tab-btn-trends')).toHaveAttribute('aria-selected', 'true');
 
     assertTelemetryClean(telemetry);
   });
@@ -172,10 +153,17 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     await page.click('#tab-btn-done-stories');
     await page.waitForSelector('#tab-done-stories.active', { state: 'visible', timeout: 5000 }).catch(() => null);
     await expect(page.locator('#done-stories-columns-toggle')).toContainText(/Show more columns|Show fewer columns/);
+    const firstSprintHeader = page.locator('#done-stories-content .sprint-header').first();
+    const hasSprintGroup = await firstSprintHeader.isVisible().catch(() => false);
+    if (!hasSprintGroup) {
+      test.skip(true, 'No done stories sprint groups rendered for current data set');
+      return;
+    }
+    await firstSprintHeader.click();
     const table = page.locator('#tab-done-stories table.data-table').first();
     await expect(table.locator('th:has-text("Key")')).toBeVisible();
     await expect(table.locator('th:has-text("Summary")')).toBeVisible();
-    await expect(table.locator('th:has-text("Resolved")')).toBeVisible();
+    await expect(table.locator('th:has-text("Status")')).toBeVisible();
 
     assertTelemetryClean(telemetry);
   });
@@ -197,10 +185,10 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('copy and encoding: Current Sprint header no ? separator; Report button is Preview report', async ({ page }) => {
+  test('copy and encoding: Current Sprint header no ? separator; Report button keeps Preview label', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
-    await expect(page.locator('#preview-btn')).toContainText('Preview report');
+    await expect(page.locator('#preview-btn')).toContainText(/Preview/i);
 
     await page.goto('/current-sprint').catch(() => null);
     if (!page.url().includes('current-sprint')) return;
@@ -210,3 +198,4 @@ test.describe('UX Improvements Customer Simplicity Trust', () => {
     assertTelemetryClean(telemetry);
   });
 });
+

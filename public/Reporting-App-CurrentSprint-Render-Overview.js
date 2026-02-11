@@ -102,11 +102,22 @@ export function renderSummaryCard(data) {
   const missingEstimate = summary.subtaskMissingEstimate ?? 0;
   const missingLogged = summary.subtaskMissingLogged ?? 0;
   const subtaskStuck = summary.subtaskStuckOver24h ?? 0;
-  html += '<div class="summary-block summary-block-subtask-link">' +
-    '<span>Sub-task</span>' +
-    '<a href="#subtask-tracking-card">' + formatNumber(summary.subtaskLoggedHours || 0, 1, '-') + ' h logged; ' + missingEstimate + ' missing estimate, ' + missingLogged + ' no log yet' +
-    (subtaskStuck > 0 ? '; ' + subtaskStuck + ' stuck >24h' : '') + '</a>' +
-    '</div>';
+  const totalIssues = missingEstimate + missingLogged + subtaskStuck;
+  const subtaskHealth = totalIssues === 0 ? 100 : Math.max(0, 100 - missingEstimate * 15 - missingLogged * 10 - subtaskStuck * 10);
+  html += '<div class="summary-block summary-block-subtask">';
+  html += '<span>Sub-task</span>';
+  if (totalIssues === 0) {
+    html += '<span class="subtask-chip subtask-chip-ok" title="All sub-tasks tracked"><a href="#subtask-tracking-card">All tracked</a></span>';
+  } else {
+    html += '<span class="subtask-health-score" title="Sub-task tracking health">' + subtaskHealth + '%</span>';
+    html += '<div class="subtask-chips">';
+    html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-neutral">' + formatNumber(summary.subtaskLoggedHours || 0, 1, '0') + 'h logged</a>';
+    if (missingEstimate > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-warning" title="Missing estimates">' + missingEstimate + ' missing est.</a>';
+    if (missingLogged > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-info" title="No time logged yet">' + missingLogged + ' no log</a>';
+    if (subtaskStuck > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-warning" title="Stuck >24h">' + subtaskStuck + ' stuck</a>';
+    html += '</div>';
+  }
+  html += '</div>';
   html += '<div class="summary-block">' +
     '<span>Total SP</span>' +
     '<strong>' + formatNumber(summary.totalAllSP != null ? summary.totalAllSP : totalSP, 0, '-') + ' SP</strong>' +

@@ -14,6 +14,7 @@ import {
   renderSprintsTab,
   renderDoneStoriesTab,
   renderUnusableSprintsTab,
+  renderTrendsTab,
   updateExportFilteredState,
 } from './Reporting-App-Report-Page-Render-Registry.js';
 import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
@@ -29,6 +30,7 @@ function buildPreviewMetaAndStatus(params) {
   const fromCache = meta.fromCache === true;
   const partial = meta.partial === true;
   const partialReason = meta.partialReason || '';
+  const reducedScope = meta.reducedScope === true;
   const previewMode = meta.previewMode || 'normal';
   const timedOut = meta.timedOut === true;
   const recentSplitDays = typeof meta.recentSplitDays === 'number' ? meta.recentSplitDays : null;
@@ -126,13 +128,27 @@ function buildPreviewMetaAndStatus(params) {
 
   const outcomeLine = `${rowsCount} done stories · ${sprintsCount} sprints · ${boardsCount} boards · ${escapeHtml(generatedLabel)}${metaSummaryWhy ? ' ' + metaSummaryWhy : ''}`;
   const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)}`;
+  const compactSummaryLine = `Summary: ${rowsCount} done stories | Boards: ${boardsCount}`;
+  let dataStateLabel = 'Live complete';
+  let dataStateKind = 'live';
+  if (reducedScope) {
+    dataStateLabel = 'Closest available';
+    dataStateKind = 'closest';
+  } else if (partial) {
+    dataStateLabel = 'Partial';
+    dataStateKind = 'partial';
+  } else if (fromCache) {
+    dataStateLabel = 'Cached';
+    dataStateKind = 'cached';
+  }
+  const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
   const previewMetaHTML = `
-    <div class="meta-info-summary">
-      <div class="meta-outcome-line">${outcomeLine}</div>
+    <div class="meta-info-summary meta-summary-line">
+      <div class="meta-context-line">${escapeHtml(compactSummaryLine)}</div>
+      <div class="meta-outcome-line">${outcomeLine} ${dataStateBadgeHTML}</div>
       <div class="meta-context-line">${contextLine}</div>
-      <button type="button" id="preview-meta-details-toggle" class="btn btn-secondary btn-compact meta-details-toggle-btn" data-action="toggle-preview-meta-details" aria-expanded="false" aria-controls="preview-meta-details">Technical details</button>
     </div>
-    <div id="preview-meta-details" class="meta-info meta-info-details" hidden>
+    <div class="meta-info meta-info-details">
       <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
       <strong>Example story:</strong> ${sampleLabel}<br>
       <strong>Details:</strong> ${escapeHtml(detailsLines.join(' | '))}
@@ -142,7 +158,6 @@ function buildPreviewMetaAndStatus(params) {
   `;
 
   const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generatedAgoSuffix}`;
-  const reducedScope = meta.reducedScope === true;
   let statusHTML = '';
   let statusDisplay = 'none';
   if (rowsCount > 0 && (partial || previewMode !== 'normal' || reducedScope)) {
@@ -160,10 +175,6 @@ function buildPreviewMetaAndStatus(params) {
     statusHTML = `
       <div class="status-banner warning alert-warning">
         <div class="status-banner-message">${escapeHtml(bannerMessage)}</div>
-        <div class="status-banner-actions">
-          <button type="button" data-action="retry-with-smaller-range" class="btn btn-compact btn-primary">Use smaller range</button>
-          <button type="button" data-action="force-full-refresh" class="btn btn-compact">Full refresh</button>
-        </div>
         <button type="button" class="status-close" aria-label="Dismiss">x</button>
       </div>
     `;
@@ -224,8 +235,6 @@ export function renderPreview() {
   const hasRows = rowsCount > 0;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = !hasRows;
   if (exportExcelBtn) exportExcelBtn.disabled = !hasRows;
-  const headerExportBtn = document.getElementById('preview-header-export-excel-btn');
-  if (headerExportBtn) headerExportBtn.disabled = !hasRows;
 
   const exportHint = document.getElementById('export-hint');
   if (exportHint) {
@@ -247,21 +256,16 @@ export function renderPreview() {
   }
 
   const partialExportTitle = 'Export contains only loaded (partial) data.';
-  if (exportExcelBtn) {
-    exportExcelBtn.title = partial ? partialExportTitle : '';
-    if (partial) exportExcelBtn.setAttribute('aria-label', partialExportTitle);
-    else exportExcelBtn.removeAttribute('aria-label');
-  }
   if (exportDropdownTrigger) {
     exportDropdownTrigger.title = partial ? partialExportTitle : '';
     if (partial) exportDropdownTrigger.setAttribute('aria-label', partialExportTitle);
     else exportDropdownTrigger.removeAttribute('aria-label');
   }
-  if (headerExportBtn) {
-    headerExportBtn.title = partial ? partialExportTitle : '';
-    if (partial) headerExportBtn.setAttribute('aria-label', partialExportTitle);
-    else headerExportBtn.removeAttribute('aria-label');
-    const exportWrap = headerExportBtn.parentElement;
+  if (exportExcelBtn) {
+    exportExcelBtn.title = partial ? partialExportTitle : '';
+    if (partial) exportExcelBtn.setAttribute('aria-label', partialExportTitle);
+    else exportExcelBtn.removeAttribute('aria-label');
+    const exportWrap = exportExcelBtn.parentElement;
     if (exportWrap) {
       const existing = exportWrap.querySelector('.partial-data-inline');
       if (existing) existing.remove();
@@ -270,7 +274,7 @@ export function renderPreview() {
         span.className = 'partial-data-inline';
         span.setAttribute('aria-hidden', 'true');
         span.textContent = ' (partial data)';
-        headerExportBtn.after(span);
+        exportExcelBtn.after(span);
       }
     }
   }
@@ -284,6 +288,7 @@ export function renderPreview() {
     renderSprintsTab(visibleSprintRows, previewData.metrics);
     renderDoneStoriesTab(visibleRows);
     renderUnusableSprintsTab(previewData.sprintsUnusable);
+    renderTrendsTab(previewData);
     applyDoneStoriesOptionalColumnsPreference();
 
     const boardsCountForTab = previewData.boards?.length ?? 0;
@@ -293,13 +298,12 @@ export function renderPreview() {
     const tabSprints = document.getElementById('tab-btn-sprints');
     const tabDoneStories = document.getElementById('tab-btn-done-stories');
     const tabUnusable = document.getElementById('tab-btn-unusable-sprints');
-    if (tabBoards) tabBoards.textContent = 'Project & Epic Level (' + boardsCountForTab + ')';
-    if (tabSprints) tabSprints.textContent = 'Sprints (' + sprintsCountForTab + ')';
-    if (tabDoneStories) tabDoneStories.textContent = 'Done Stories (' + visibleRows.length + ')';
-    if (tabUnusable) tabUnusable.textContent = 'Unusable Sprints (' + unusableCountForTab + ')';
-
-    if (visibleRows.length > 0 && tabDoneStories && !tabDoneStories.classList.contains('active')) {
-      tabDoneStories.click();
+    if (tabBoards) tabBoards.textContent = 'Team performance (' + boardsCountForTab + ')';
+    if (tabSprints) tabSprints.textContent = 'Sprint history (' + sprintsCountForTab + ')';
+    if (tabDoneStories) tabDoneStories.textContent = 'Outcome list (' + visibleRows.length + ')';
+    if (tabUnusable) tabUnusable.textContent = 'Excluded sprints (' + unusableCountForTab + ')';
+    if (tabBoards && !tabBoards.classList.contains('active')) {
+      tabBoards.click();
     }
 
     requestAnimationFrame(() => {

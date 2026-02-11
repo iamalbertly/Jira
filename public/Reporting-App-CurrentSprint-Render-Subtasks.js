@@ -112,43 +112,44 @@ export function renderWorkRisksMerged(data) {
     return html;
   }
 
-  html += '<table class="data-table" id="work-risks-table">';
+  const headers = ['Source', 'Risk', 'Issue', 'Summary', 'Status', 'Reporter', 'Assignee', 'Est Hrs', 'Logged Hrs', 'Hours in status', 'Updated'];
+  html += '<div class="data-table-scroll-wrap"><table class="data-table" id="work-risks-table" style="table-layout: auto;">';
   html += '<thead><tr><th>Source</th><th>Risk</th><th>Issue</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Est Hrs</th><th>Logged Hrs</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
 
   for (const row of toShow) {
     html += '<tr>';
-    html += '<td>' + escapeHtml(row.source || '-') + '</td>';
-    html += '<td>' + escapeHtml(row.riskType || '-') + '</td>';
-    html += '<td>' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
-    html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
-    html += '<td>' + escapeHtml(row.status || '-') + '</td>';
-    html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
-    html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
-    html += '<td>' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
-    html += '<td>' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
-    html += '<td>' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
-    html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[0]) + '">' + escapeHtml(row.source || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[1]) + '">' + escapeHtml(row.riskType || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[2]) + '">' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
+    html += '<td class="cell-wrap" data-label="' + escapeHtml(headers[3]) + '">' + escapeHtml(row.summary || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[4]) + '">' + escapeHtml(row.status || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[5]) + '">' + escapeHtml(row.reporter || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[6]) + '">' + escapeHtml(row.assignee || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[7]) + '">' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[8]) + '">' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[9]) + '">' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[10]) + '">' + escapeHtml(formatDateTime(row.updated)) + '</td>';
     html += '</tr>';
   }
 
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
 
   if (remaining.length > 0) {
     html += '<button class="btn btn-secondary btn-compact work-risks-show-more" data-count="' + remaining.length + '">Show ' + remaining.length + ' more</button>';
     html += '<template id="work-risks-more-template">';
     for (const row of remaining) {
       html += '<tr>';
-      html += '<td>' + escapeHtml(row.source || '-') + '</td>';
-      html += '<td>' + escapeHtml(row.riskType || '-') + '</td>';
-      html += '<td>' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
-      html += '<td class="cell-wrap">' + escapeHtml(row.summary || '-') + '</td>';
-      html += '<td>' + escapeHtml(row.status || '-') + '</td>';
-      html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
-      html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
-      html += '<td>' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
-      html += '<td>' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
-      html += '<td>' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
-      html += '<td>' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+      html += '<td data-label="Source">' + escapeHtml(row.source || '-') + '</td>';
+      html += '<td data-label="Risk">' + escapeHtml(row.riskType || '-') + '</td>';
+      html += '<td data-label="Issue">' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
+      html += '<td class="cell-wrap" data-label="Summary">' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td data-label="Status">' + escapeHtml(row.status || '-') + '</td>';
+      html += '<td data-label="Reporter">' + escapeHtml(row.reporter || '-') + '</td>';
+      html += '<td data-label="Assignee">' + escapeHtml(row.assignee || '-') + '</td>';
+      html += '<td data-label="Est Hrs">' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
+      html += '<td data-label="Logged Hrs">' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
+      html += '<td data-label="Hours in status">' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
+      html += '<td data-label="Updated">' + escapeHtml(formatDateTime(row.updated)) + '</td>';
       html += '</tr>';
     }
     html += '</template>';

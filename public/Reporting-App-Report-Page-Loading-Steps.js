@@ -34,7 +34,24 @@ export function updateLoadingMessage(message, step = null) {
   }
 }
 
-export function setLoadingStage(stageIndex, label) {
+function applyLoadingHintForComplexity(complexityLevel) {
+  const hintEl = document.querySelector('.loading-hint');
+  if (!hintEl) return;
+  if (!complexityLevel) {
+    hintEl.textContent = 'Usually ready in under 30s for one quarter.';
+    return;
+  }
+  if (complexityLevel === 'light') {
+    hintEl.textContent = 'Usually ready in under 30s for one quarter.';
+  } else if (complexityLevel === 'medium') {
+    hintEl.textContent = 'Wider range — expect 30-60s. Recent data loads first.';
+  } else {
+    // heavy or veryHeavy
+    hintEl.textContent = 'Large query — 60-90s. Latest 2 weeks load first, then history.';
+  }
+}
+
+export function setLoadingStage(stageIndex, label, complexityLevel) {
   const msgEl = document.getElementById('loading-message');
   if (msgEl) msgEl.textContent = label != null ? label : (LOADING_STAGES[stageIndex] || 'Loading…');
   const fillEl = document.getElementById('loading-progress-fill');
@@ -47,6 +64,9 @@ export function setLoadingStage(stageIndex, label) {
   }
   const chip = document.getElementById('loading-status-chip');
   if (chip && chip.style.display !== 'none') chip.textContent = msgEl ? msgEl.textContent : '';
+  if (typeof complexityLevel === 'string') {
+    applyLoadingHintForComplexity(complexityLevel);
+  }
 }
 
 export function clearLoadingSteps() {

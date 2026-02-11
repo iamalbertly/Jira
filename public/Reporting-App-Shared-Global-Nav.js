@@ -1,13 +1,12 @@
 /**
- * Injects or updates global nav on all four surfaces (Login, Report, Current Sprint, Leadership).
- * Single source of truth: VodaAgileBoard + Report | Current Sprint | Leadership.
+ * Injects or updates global nav on all core surfaces (Login, High-Level Performance, Current Sprint).
+ * Single source of truth: VodaAgileBoard brand + High-Level Performance | Current Sprint.
  * On login, links use /login?redirect=...; on other pages current page is marked, others link to the page.
  */
 function getCurrentPage() {
   const path = typeof window !== 'undefined' && window.location ? window.location.pathname || '' : '';
   if (path === '/report' || path.endsWith('/report')) return 'report';
   if (path === '/current-sprint' || path.endsWith('/current-sprint')) return 'current-sprint';
-  if (path === '/sprint-leadership' || path.endsWith('/sprint-leadership')) return 'leadership';
   if (path === '/login' || path.endsWith('/login')) return 'login';
   return 'report';
 }
@@ -16,29 +15,21 @@ function buildNavHTML() {
   const current = getCurrentPage();
   const isLogin = current === 'login';
   const base = isLogin ? '/login?redirect=' : '';
-  const brandHref = isLogin ? base + '/report' : '/report';
   const reportHref = isLogin ? base + '/report' : '/report';
   const sprintHref = isLogin ? base + '/current-sprint' : '/current-sprint';
-  const leadershipHref = isLogin ? base + '/sprint-leadership' : '/sprint-leadership';
 
-  let html = '<a href="' + brandHref + '" class="app-nav-brand">VodaAgileBoard</a>';
+  let html = '<span class="app-nav-brand" aria-label="VodaAgileBoard">VodaAgileBoard</span>';
   html += '<span class="app-nav-sep" aria-hidden="true">|</span>';
   if (current === 'report') {
-    html += '<span class="current" aria-current="page">Report</span>';
+    html += '<span class="current" aria-current="page">High-Level Performance</span>';
   } else {
-    html += '<a href="' + reportHref + '">Report</a>';
+    html += '<a href="' + reportHref + '">High-Level Performance</a>';
   }
   html += '<span class="app-nav-sep" aria-hidden="true">|</span>';
   if (current === 'current-sprint') {
     html += '<span class="current" aria-current="page">Current Sprint (Squad)</span>';
   } else {
     html += '<a href="' + sprintHref + '">Current Sprint (Squad)</a>';
-  }
-  html += '<span class="app-nav-sep" aria-hidden="true">|</span>';
-  if (current === 'leadership') {
-    html += '<span class="current" aria-current="page">Leadership</span>';
-  } else {
-    html += '<a href="' + leadershipHref + '">Leadership</a>';
   }
   return html;
 }
