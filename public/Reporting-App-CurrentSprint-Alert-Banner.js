@@ -155,8 +155,11 @@ export function renderVerdictBar(data) {
   return html;
 }
 
+/**
+ * Renders the full alert banner. Scope growth is shown only in the verdict bar (single source); exclude it here to avoid duplication.
+ */
 export function renderAlertBanner(data) {
-  const alerts = buildAlerts(data);
+  const alerts = buildAlerts(data).filter((a) => a.id !== 'scope-growth');
   if (alerts.length === 0) return '';
 
   // Determine overall banner severity (worst of all alerts)

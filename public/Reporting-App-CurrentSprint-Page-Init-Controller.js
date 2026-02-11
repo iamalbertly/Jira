@@ -64,8 +64,6 @@ function wireRedesignHandlers(data) {
   wireExportHandlers(data);
   collapseMobileDetailsSections();
 
-  // Wire legacy template loaders (load heavy legacy content on demand)
-  wireLegacyTemplateLoaders();
 }
 
 function collapseMobileDetailsSections() {
@@ -84,9 +82,6 @@ function showRenderedContent(data) {
   renderNotificationDock({ summary, pageContext: 'current-sprint' });
   wireDynamicHandlers(data);
   wireRedesignHandlers(data);
-  if (window._legacyTemplates) {
-    wireLegacyTemplateLoaders();
-  }
 }
 
 let currentBoardId = null;
@@ -106,7 +101,7 @@ function setBoardSelectCouldntLoad() {
 function refreshBoards(preferredId, preferredSprintId) {
   const requestId = ++lastBoardsRefreshRequestId;
   const { boardSelect } = currentSprintDom;
-  showLoading('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
+  showLoading('Loading boards for project ' + getProjectsParam() + '...');
   return loadBoards()
     .then((res) => {
       if (requestId !== lastBoardsRefreshRequestId) return null;
@@ -283,28 +278,4 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
-}
-// Legacy template loader
-export function wireLegacyTemplateLoaders() {
-  const legacyButtons = document.querySelectorAll('.legacy-placeholder button[data-load-target]');
-  legacyButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const target = btn.getAttribute('data-load-target');
-      if (target === 'legacy-notifications') {
-        const tpl = document.getElementById('legacy-notifications-template');
-        const el = document.getElementById('legacy-notifications-placeholder');
-        if (tpl && el) {
-          el.outerHTML = tpl.innerHTML;
-        }
-      } else if (target === 'legacy-subtasks') {
-        const tpl = document.getElementById('legacy-subtasks-template');
-        const el = document.getElementById('legacy-subtasks-placeholder');
-        if (tpl && el) {
-          el.outerHTML = tpl.innerHTML;
-          // After replacing with full content, wire show-more handlers
-          wireSubtasksShowMoreHandlers();
-        }
-      }
-    });
-  });
 }

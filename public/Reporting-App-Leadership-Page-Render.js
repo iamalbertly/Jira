@@ -1,6 +1,7 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber, formatDateShort, parseISO, addMonths } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
+import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
 
 function computeVelocityWindowStats(sprints, windowEnd, months) {
   const end = parseISO(windowEnd);
@@ -219,24 +220,26 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<h2>Velocity (SP/day) and trend</h2>';
   html += '<p class="metrics-hint">Rolling averages by sprint end date. Difference compares against the previous window of the same length.</p>';
-  html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr><th>Window</th><th>Sprints</th><th>Avg SP/day</th><th>Difference</th><th>On-time %</th><th>Signal</th><th>Data quality</th></tr></thead><tbody>';
-  for (const row of velocityWindows) {
-    const label = row.months === 1 ? '1 month' : row.months + ' months';
-    const diffText = row.diff != null ? formatNumber(row.diff, 1, '-') + '%' : '-';
-    const onTimeText = row.current?.onTimePct != null ? formatNumber(row.current.onTimePct, 1, '-') + '%' : '-';
-    const gradeText = row.grade || '-';
-    const quality = row.current?.sprintCount != null && row.current.sprintCount < 3 ? 'Low sample' : 'OK';
-    html += '<tr>';
-    html += '<td>' + label + '</td>';
-    html += '<td>' + (row.current?.sprintCount ?? 0) + '</td>';
-    html += '<td>' + (row.current?.avg != null ? formatNumber(row.current.avg, 2, '-') : '-') + '</td>';
-    html += '<td>' + diffText + '</td>';
-    html += '<td>' + onTimeText + '</td>';
-    html += '<td title="Grade: Based on on-time % and predictability. Strong ≥90%, Critical &lt;60%. Not for performance review.">' + gradeText + '</td>';
-    html += '<td>' + quality + '</td>';
-    html += '</tr>';
-  }
-  html += '</tbody></table></div></div>';
+  const velocityColumns = [
+    { key: 'window', label: 'Window', title: '' },
+    { key: 'sprintCount', label: 'Sprints', title: '' },
+    { key: 'avg', label: 'Avg SP/day', title: '' },
+    { key: 'diff', label: 'Difference', title: '' },
+    { key: 'onTimePct', label: 'On-time %', title: '' },
+    { key: 'grade', label: 'Signal', title: 'Grade: Based on on-time % and predictability. Strong ≥90%, Critical <60%. Not for performance review.' },
+    { key: 'quality', label: 'Data quality', title: '' },
+  ];
+  const velocityRows = velocityWindows.map((row) => ({
+    window: row.months === 1 ? '1 month' : row.months + ' months',
+    sprintCount: row.current?.sprintCount ?? 0,
+    avg: row.current?.avg != null ? formatNumber(row.current.avg, 2, '-') : '-',
+    diff: row.diff != null ? formatNumber(row.diff, 1, '-') + '%' : '-',
+    onTimePct: row.current?.onTimePct != null ? formatNumber(row.current.onTimePct, 1, '-') + '%' : '-',
+    grade: row.grade || '-',
+    quality: row.current?.sprintCount != null && row.current.sprintCount < 3 ? 'Low sample' : 'OK',
+  }));
+  html += buildDataTableHtml(velocityColumns, velocityRows);
+  html += '</div>';
 
   if (Object.keys(perSprint).length > 0) {
     const sprintIndex = new Map();

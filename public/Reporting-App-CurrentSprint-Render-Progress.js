@@ -1,15 +1,9 @@
 import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDate, formatDayLabel, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
-
-function resolveResponsiveRowLimit(desktopLimit, mobileLimit = 8) {
-  try {
-    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      return window.matchMedia('(max-width: 768px)').matches ? mobileLimit : desktopLimit;
-    }
-  } catch (_) {}
-  return desktopLimit;
-}
+import { resolveResponsiveRowLimit } from './Reporting-App-Shared-Responsive-Helpers.js';
+import { wireShowMoreHandler } from './Reporting-App-Shared-ShowMore-Handlers.js';
+import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
 
 function buildBurndownChart(remaining, ideal) {
   if (!remaining || remaining.length === 0) return '';
@@ -66,17 +60,13 @@ export function renderDailyCompletion(data) {
   if (!daily.stories || daily.stories.length === 0) {
     html += '<p>No work item completions by day in this sprint yet.</p>';
   } else {
-    html += '<table class="data-table">';
-    html += '<thead><tr><th>Date</th><th>Items</th><th>SP completed</th><th>NPS</th></tr></thead><tbody>';
-    for (const row of daily.stories) {
-      html += '<tr>';
-      html += '<td>' + escapeHtml(formatDayLabel(row.date)) + '</td>';
-      html += '<td>' + (row.count ?? 0) + '</td>';
-      html += '<td>' + formatNumber(row.spCompleted ?? 0, 1, '-') + '</td>';
-      html += '<td>' + (row.nps == null ? '-' : formatNumber(row.nps, 1, '-')) + '</td>';
-      html += '</tr>';
-    }
-    html += '</tbody></table>';
+    const dailyColumns = [
+      { key: 'date', label: 'Date', title: '', renderer: (r) => formatDayLabel(r.date) },
+      { key: 'count', label: 'Items', title: '' },
+      { key: 'spCompleted', label: 'SP completed', title: '', renderer: (r) => formatNumber(r.spCompleted ?? 0, 1, '-') },
+      { key: 'nps', label: 'NPS', title: '', renderer: (r) => (r.nps == null ? '-' : formatNumber(r.nps, 1, '-')) },
+    ];
+    html += buildDataTableHtml(dailyColumns, daily.stories);
   }
   html += '</div>';
   return html;
@@ -228,29 +218,8 @@ export function renderStories(data) {
 }
 
 export function wireProgressShowMoreHandlers() {
-  const storiesBtn = document.querySelector('.stories-show-more');
-  if (storiesBtn) {
-    storiesBtn.addEventListener('click', () => {
-      const tpl = document.getElementById('stories-more-template');
-      const tbody = document.querySelector('#stories-table tbody');
-      if (tpl && tbody) {
-        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-        storiesBtn.style.display = 'none';
-      }
-    });
-  }
-
-  const burndownBtn = document.querySelector('.burndown-show-more');
-  if (burndownBtn) {
-    burndownBtn.addEventListener('click', () => {
-      const tpl = document.getElementById('burndown-more-template');
-      const tbody = document.querySelector('#burndown-table tbody');
-      if (tpl && tbody) {
-        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-        burndownBtn.style.display = 'none';
-      }
-    });
-  }
+  wireShowMoreHandler('.stories-show-more', 'stories-more-template', '#stories-table tbody');
+  wireShowMoreHandler('.burndown-show-more', 'burndown-more-template', '#burndown-table tbody');
 }
 
 export function renderScopeChanges(data) {

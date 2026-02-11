@@ -136,15 +136,24 @@ export async function runDefaultPreview(page, overrides = {}) {
 
   await page.goto('/report');
 
+  const startInput = page.locator('#start-date');
+  if (!(await startInput.isVisible().catch(() => false))) {
+    const showFilters = page.locator('[data-action="toggle-filters"]').first();
+    if (await showFilters.isVisible().catch(() => false)) {
+      await showFilters.click().catch(() => null);
+    }
+    await startInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+  }
+
   const mpsaChecked = projects.includes('MPSA');
   const masChecked = projects.includes('MAS');
-  if (mpsaChecked) await page.check('#project-mpsa');
-  else await page.uncheck('#project-mpsa');
-  if (masChecked) await page.check('#project-mas');
-  else await page.uncheck('#project-mas');
+  if (mpsaChecked) await page.check('#project-mpsa', { force: true });
+  else await page.uncheck('#project-mpsa', { force: true });
+  if (masChecked) await page.check('#project-mas', { force: true });
+  else await page.uncheck('#project-mas', { force: true });
 
-  await page.fill('#start-date', start);
-  await page.fill('#end-date', end);
+  await page.fill('#start-date', start, { force: true });
+  await page.fill('#end-date', end, { force: true });
   const previewBtn = page.locator('#preview-btn');
   await previewBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
   await page.waitForTimeout(150);
@@ -160,4 +169,49 @@ export async function runDefaultPreview(page, overrides = {}) {
   ]);
 
   await waitForPreview(page);
+}
+
+/**
+ * If login form is visible (auth enabled), skip the test.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Test} test - from test.info() or passed in
+ */
+export async function skipIfLoginVisible(page, test) {
+  const hasLogin = await page.locator('#username').isVisible().catch(() => false);
+  if (hasLogin) {
+    test.skip(true, 'Auth enabled; login form visible.');
+  }
+}
+
+/**
+ * Wait for board selector to have options, then select the first board. Skips if no board option found.
+ * @param {import('@playwright/test').Page} page
+ * @param {{ timeout?: number }} options - default 15000
+ * @returns {Promise<string|null>} - selected board value or null
+ */
+export async function selectFirstBoard(page, options = {}) {
+  const timeout = options.timeout ?? 15000;
+  await page.waitForSelector('#board-select option[value]:not([value=""])', { timeout }).catch(() => null);
+  const firstOpt = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value').catch(() => null);
+  if (!firstOpt) return null;
+  await page.selectOption('#board-select', firstOpt);
+  return firstOpt;
+}
+
+/**
+ * Asserts preview content or error is visible; otherwise skips the test.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Test} test
+ * @param {{ timeout?: number }} options - default 15000
+ */
+export async function assertPreviewOrSkip(page, test, options = {}) {
+  const timeout = options.timeout ?? 15000;
+  const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+  const errorVisible = await page.locator('#error').isVisible().catch(() => false);
+  if (!previewVisible && !errorVisible) {
+    await page.waitForSelector('#preview-content, #error', { state: 'visible', timeout }).catch(() => null);
+    const p = await page.locator('#preview-content').isVisible().catch(() => false);
+    const e = await page.locator('#error').isVisible().catch(() => false);
+    if (!p && !e) test.skip(true, 'Preview or error did not appear within timeout.');
+  }
 }

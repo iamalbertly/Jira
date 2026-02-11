@@ -7,6 +7,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 ## Features
 
 - **Preview-First Workflow**: Preview data before exporting to ensure accuracy
+- **Sidebar Navigation**: Desktop left sidebar and mobile hamburger drawer for fast cross-page navigation
 - **Multi-Project Support**: Generate reports for MPSA and MAS projects
 - **Sprint Overlap Filtering**: Automatically filters sprints that overlap with the selected date window
 - **Comprehensive Metrics**: Optional metrics including throughput, predictability, rework ratio, and Epic TTM
@@ -16,7 +17,7 @@ This README is the SSOT for usage and validation. Supplemental documents (e.g. `
 - **Feedback Capture**: In-app feedback form for users to submit issues and suggestions
 - **Project/Board SSOT**: Selected projects are shared across Report, Leadership, and Current Sprint via `vodaAgileBoard_selectedProjects` in localStorage. Report persists project checkboxes on change; Leadership reads and writes the same key; Current Sprint reads the same key but **normalizes to one project** for sprint-level accuracy and loads boards for that one project (fallback `MPSA`).
 - **Filter Persistence**: Report search inputs (Boards/Sprints/Stories) persist between visits. Report and Leadership share the same date-range storage.
-- **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (work items, SP, % done) with a **stuck prompt** when any issue is in progress >24h (link to follow up), status chips, a **Projects** selector synchronized from shared SSOT but enforced to one project in this page, single **sub-task summary** line in the summary card (logged h; missing estimate / no log; stuck >24h count) linking to the full Sub-task time tracking card, daily completion (with SP), burndown with ideal line + axis labels, scope changes (now including reporter/assignee) plus heuristic note, **Work items in sprint** table with **Type**, **Reporter**, **Assignee**, and merged subtask estimate/logged-hour columns, sub-task time tracking (estimate/logged/remaining plus status age), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks card (in progress >24h) with status-change hint, snapshot freshness badge (Live vs Snapshot timestamp), previous/next sprint snippet, and sprint tabs (latest to oldest by end date). Board pre-select via `-boardId=` or last-selected board (localStorage); optional `sprintId` for tabbed history.
+- **Current Sprint Transparency**: Squad view at `/current-sprint` - sprint header with name/ID, summary strip (work items, SP, % done) with a **stuck prompt** when any issue is in progress >24h (link to follow up), status chips, a **Project** selector synchronized from shared SSOT but enforced to one project in this page, single **sub-task summary** line in the summary card (logged h; missing estimate / no log; stuck >24h count) linking to the full Sub-task time tracking card, daily completion (with SP), burndown with ideal line + axis labels, scope changes (including reporter/assignee and merged risk rows), **Work items in sprint** table with **Type**, **Reporter**, **Assignee**, and merged subtask estimate/logged-hour columns, sub-task time tracking (estimate/logged/remaining plus status age), assignee or reporter notification message generator for missing sub-task time, dependencies/learnings, stuck tasks card (in progress >24h) with status-change hint, snapshot freshness badge (Live vs Snapshot timestamp), previous/next sprint snippet, and sprint tabs (latest to oldest by end date). Export menu now provides **Copy as Text**, **Markdown**, **Copy link**, and **Email**.
 - **Persistent Notification Dock**: A fixed left-side alert dock appears across pages when time-tracking alerts exist. On Report and Leadership it stays compact and points users to **Open Current Sprint**; on Current Sprint it expands to show board/sprint details and missing estimate/log counts. It can be minimized or hidden after review, with a quick toggle to restore it.
 - **Sprint Leadership View**: Normalized trends at `/sprint-leadership` - indexed delivery, predictability, no rankings. Quarter quick-pick shows year and period (e.g. "Q2 2025"); clicking a quarter loads data immediately. Remembers the last selected date range in the browser.
 
@@ -68,7 +69,7 @@ The server will start on `http://localhost:3000` (or the port specified in the `
 1. Open your browser and go to `http://localhost:3000` (or the port in `PORT`).
 2. Log in with the credentials configured in your environment (see Environment Variables).
 3. After login you can open **Report**, **Current Sprint** (squad view), or **Sprint Leadership** from the app; the default redirect is `http://localhost:3000/report`.
-4. All three main pages (Report, Current Sprint, Leadership) show a consistent nav strip: **Report | Current Sprint (Squad) | Leadership** so you can move between them without using the browser back button.
+4. Navigation is unified through a left sidebar on desktop and a hamburger drawer on mobile for **High-Level Performance**, **Current Sprint (Squad)**, and **Leadership HUD**.
 
 ### Quickstart for Scrum Masters & Leaders
 
@@ -377,7 +378,7 @@ npm run test:current-sprint-ux-ssot
 
 ### Test Orchestration & Playwright
 
-- The test orchestration script (`npm run test:all`) runs `npm install`, then (when the server is up) calls `POST /api/test/clear-cache` so no test reads stale in-memory cache. The clear-cache endpoint is available only when `NODE_ENV=test` or `ALLOW_TEST_CACHE_CLEAR=1`. It then runs a sequence of Playwright specs (API integration, Server Errors and Export Validation, Login Security, E2E user journey, UX Reliability, UX Critical Fixes, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation, Linkification and Empty-state UI Validation) with `--headed`, `--max-failures=1`, and `--workers=1`.
+- The test orchestration script (`npm run test:all`) runs `npm install`, then (when the server is up) calls `POST /api/test/clear-cache` so no test reads stale in-memory cache. The clear-cache endpoint is available only when `NODE_ENV=test` or `ALLOW_TEST_CACHE_CLEAR=1`. The ordered list of steps is in `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js`. It runs a sequence of Playwright specs (API integration, Server Errors and Export Validation, Login Security Deploy, E2E user journey, UX Reliability, UX Critical Fixes, UX Customer Simplicity Trust Full, Feedback, Column Tooltips, Validation Plan, Excel Export, Refactor SSOT, Boards Summary Filters Export, Current Sprint and Leadership View, UX Trust Validation, Current Sprint UX and SSOT Validation, Linkification and Empty-state UI Validation, Server Feedback Endpoint, Growth Velocity, and others) with `--headed`, `--max-failures=1`, and `--workers=1`. Spec files in `tests/` follow the naming convention `Jira-Reporting-App-*-Validation-Tests.spec.js` (or similar); obsolete files may be prefixed with `DeleteThisFile_`.
 - Specs in `tests/` use `captureBrowserTelemetry(page)` (console errors, page errors, failed requests) and UI assertions so a step fails if the UI is wrong or the browser reports errors.
 - **Issue key linkification:** Report Done Stories and Epic TTM use Jira links for issue keys; Current Sprint (Stories, Scope changes, Items stuck, Sub-task tracking) uses shared `renderIssueKeyLink(issueKey, issueUrl)` from `Reporting-App-Shared-Dom-Escape-Helpers.js`. Backend sends `issueKey` and `issueUrl`; optional `meta.jiraHost` in current-sprint response allows client fallback when URL is missing.
 - **Empty-state SSOT:** `Reporting-App-Shared-Empty-State-Helpers.js` exports `renderEmptyStateHtml(title, message, hint)`; Report, Current Sprint, and Leadership use it for consistent "no data" messaging.
@@ -608,5 +609,6 @@ MIT
 ## Support
 
 For issues or questions, please check the troubleshooting section above or review the error messages in the application UI.
+
 
 

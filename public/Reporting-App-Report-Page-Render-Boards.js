@@ -1,6 +1,7 @@
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 import { renderEmptyState, getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
+import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateForDisplay, formatPercent } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { computeBoardRowFromSummary, computeBoardsSummaryRow } from './Reporting-App-Report-Page-Render-Boards-Summary-Helpers.js';
@@ -99,9 +100,9 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     }
     html += '<h3>Boards</h3>';
     if (reportState.previewData?.boards?.length > 0) {
-      html += '<p><em>No boards match the current filters. Adjust search or project filters.</em></p>';
+      html += renderEmptyStateHtml('No boards match filters', 'No boards match the current filters. Adjust search or project filters.', '');
     } else {
-      html += '<p><em>No boards were discovered for the selected projects in the date window.</em></p><p><small>Try a different date range or project selection.</small></p>';
+      html += renderEmptyStateHtml('No boards in this range', 'No boards were discovered for the selected projects in the date window.', 'Try a different date range or project selection.');
     }
   } else {
     html += '<h3>Boards</h3>';
@@ -131,6 +132,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       rowsForRender.unshift({ __rowClass: 'boards-summary-row', ...summaryRow });
     }
     html += buildDataTableHtml(columns, rowsForRender, { id: 'boards-table' });
+    html += '<p class="table-scroll-hint metrics-hint" aria-live="polite"><small>Scroll right for more columns. Export includes all columns.</small></p>';
   }
 
   if (metrics) {
@@ -141,16 +143,17 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       html += '<p class="metrics-hint"><small>Note: Per-board throughput is merged into the Boards table. Per Sprint data is shown in the Sprints tab. Below are aggregated views by issue type.</small></p>';
       if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
         html += '<h4>Per Issue Type</h4>';
-        html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr>' +
-          '<th title="Issue category as reported by Jira.">Issue Type</th>' +
-          '<th title="Total story points delivered for this issue type. Higher means more effort delivered.">Total SP</th>' +
-          '<th title="Total number of done issues for this type in the window.">Issue Count</th>' +
-          '</tr></thead><tbody>';
-        for (const issueType in metrics.throughput.perIssueType) {
-          const data = metrics.throughput.perIssueType[issueType];
-          html += `<tr><td>${escapeHtml(data.issueType || 'Unknown')}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
-        }
-        html += '</tbody></table></div>';
+        const issueTypeColumns = [
+          { key: 'issueType', label: 'Issue Type', title: 'Issue category as reported by Jira.' },
+          { key: 'totalSP', label: 'Total SP', title: 'Total story points delivered for this issue type. Higher means more effort delivered.' },
+          { key: 'issueCount', label: 'Issue Count', title: 'Total number of done issues for this type in the window.' },
+        ];
+        const issueTypeRows = Object.values(metrics.throughput.perIssueType).map((d) => ({
+          issueType: d.issueType || 'Unknown',
+          totalSP: d.totalSP,
+          issueCount: d.issueCount,
+        }));
+        html += buildDataTableHtml(issueTypeColumns, issueTypeRows);
       }
     }
 
@@ -201,7 +204,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       if (epicHygiene && epicHygiene.ok === false) {
         html += '<p class="data-quality-warning"><strong>Epic hygiene insufficient for timing metrics.</strong> ' + escapeHtml(epicHygiene.message || '') + ' Epic TTM is suppressed. Fix Epic Link usage and/or epic span before using TTM.</p>';
       } else if (epicTTMRows.length === 0) {
-        html += '<div class="empty-state alert-info"><p><strong>No Epic Time-To-Market rows in this window.</strong></p><small>Epic TTM is enabled, but no epics with usable timing data were returned for the selected projects/date range.</small></div>';
+        html += renderEmptyStateHtml('No Epic Time-To-Market rows in this window.', 'Epic TTM is enabled, but no epics with usable timing data were returned for the selected projects/date range.', '');
       } else {
         html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
         if (meta?.epicTTMFallbackCount > 0) {

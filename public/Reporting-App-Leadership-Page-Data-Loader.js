@@ -5,6 +5,7 @@ import { initQuarterStrip } from './Reporting-App-Shared-Quarter-Range-Helpers.j
 import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { getValidLastQuery, getFallbackContext } from './Reporting-App-Shared-Context-From-Storage.js';
+import { showLoadingView, showErrorView, clearErrorView, showContentView } from './Reporting-App-Shared-Status-View-Helpers.js';
 
 function setDefaultDates() {
   const { startInput, endInput } = leadershipDom;
@@ -82,39 +83,19 @@ function saveFilters() {
 }
 
 function showLoading(msg) {
-  const { loadingEl, errorEl, contentEl } = leadershipDom;
-  if (loadingEl) {
-    loadingEl.textContent = msg || 'Loading...';
-    loadingEl.style.display = 'block';
-  }
-  if (errorEl) errorEl.style.display = 'none';
-  if (contentEl) contentEl.style.display = 'none';
+  showLoadingView(leadershipDom, msg || 'Loading...');
 }
 
-import { setErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
-
 function showError(msg) {
-  const { loadingEl, errorEl, contentEl } = leadershipDom;
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (errorEl) {
-    setErrorOnEl(errorEl, msg);
-  }
-  if (contentEl) contentEl.style.display = 'none';
+  showErrorView(leadershipDom, msg);
 }
 
 function clearError() {
-  const { errorEl } = leadershipDom;
-  clearEl(errorEl);
+  clearErrorView(leadershipDom);
 }
 
 function showContent(html) {
-  const { loadingEl, errorEl, contentEl } = leadershipDom;
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (errorEl) errorEl.style.display = 'none';
-  if (contentEl) {
-    contentEl.innerHTML = html;
-    contentEl.style.display = 'block';
-  }
+  showContentView(leadershipDom, html);
 }
 
 function buildPreviewUrl() {

@@ -101,12 +101,15 @@ test.describe('UX Outcome-First Nav And Trust', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Login – Global nav present', async ({ page }) => {
+test('Login - Global nav hidden', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/login');
-    const nav = page.locator('.app-nav, #app-global-nav .app-nav');
-    await expect(nav).toBeVisible();
-    await expect(nav).toContainText(/Report|Current Sprint|Leadership/i);
+    if (!/\/login(\?|$)/.test(page.url())) {
+      test.skip(true, 'Not on /login (already authenticated redirect)');
+      return;
+    }
+    await expect(page.locator('.app-sidebar')).toHaveCount(0);
+    await expect(page.locator('.sidebar-toggle')).toHaveCount(0);
     assertTelemetryClean(telemetry);
   });
 
@@ -143,7 +146,7 @@ test.describe('UX Outcome-First Nav And Trust', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Select projects and a board.*sprint health and risks/i);
+      expect(text).toMatch(/Select one project and a board.*sprint health and risks/i);
     }
     assertTelemetryClean(telemetry);
   });
@@ -188,11 +191,11 @@ test.describe('UX Outcome-First Nav And Trust', () => {
   test('Global nav on Report and Current Sprint', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
-    const nav = page.locator('.app-nav');
+    const nav = page.locator('.app-sidebar .app-nav, .app-nav');
     await expect(nav).toBeVisible();
-    await expect(nav.locator('.current')).toContainText(/High-Level Performance|Report/i);
+    await expect(page.locator('.app-sidebar .sidebar-link.active, .app-nav .current')).toContainText(/High-Level Performance|Report/i);
     await page.goto('/current-sprint');
-    await expect(nav.locator('.current')).toContainText(/Current Sprint|Squad/i);
+    await expect(page.locator('.app-sidebar .sidebar-link.active, .app-nav .current')).toContainText(/Current Sprint|Squad/i);
     assertTelemetryClean(telemetry);
   });
 
@@ -237,3 +240,5 @@ test.describe('UX Outcome-First Nav And Trust', () => {
     assertTelemetryClean(telemetry);
   });
 });
+
+

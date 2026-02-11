@@ -32,8 +32,8 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     await expect(page.locator('#export-excel-btn')).toBeHidden();
     await expect(page.locator('#export-dropdown-trigger')).toBeHidden();
     await expect(page.locator('#preview-content')).toBeHidden();
-    await expect(page.locator('nav.app-nav')).toBeVisible();
-    await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
+    await expect(page.locator('.app-sidebar .app-nav, nav.app-nav')).toBeVisible();
+    await expect(page.locator('.app-sidebar a.sidebar-link[href="/current-sprint"], nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
 
     assertTelemetryClean(telemetry);
   });
@@ -86,7 +86,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     }
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
-    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('High-Level Performance');
+    await expect(page.locator('.app-sidebar a.sidebar-link[href="/report"], nav.app-nav a[href="/report"]')).toContainText('High-Level Performance');
     const options = await page.locator('#board-select option').allTextContents();
     expect(options.length).toBeGreaterThanOrEqual(1);
     assertTelemetryClean(telemetry);
@@ -223,4 +223,5 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     assertTelemetryClean(telemetry);
   });
 });
+
 

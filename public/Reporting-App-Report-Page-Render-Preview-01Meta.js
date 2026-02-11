@@ -1,0 +1,168 @@
+/**
+ * Report preview meta and status HTML builder. SSOT for buildPreviewMetaAndStatus.
+ */
+import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { formatDateForDisplay } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
+import { REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+
+/**
+ * @param {{ meta: object, previewRows?: array, boardsCount: number, sprintsCount: number, rowsCount: number, unusableCount: number }} params
+ * @returns {{ reportSubtitleText: string, appliedFiltersText: string, outcomeLineHTML: string, previewMetaHTML: string, stickyText: string, statusHTML: string, statusDisplay: string }}
+ */
+export function buildPreviewMetaAndStatus(params) {
+  const { meta, previewRows = [], boardsCount, sprintsCount, rowsCount, unusableCount } = params;
+  const startDate = new Date(meta.windowStart);
+  const endDate = new Date(meta.windowEnd);
+  const windowStartLocal = formatDateForDisplay(meta.windowStart);
+  const windowEndLocal = formatDateForDisplay(meta.windowEnd);
+  const windowStartUtc = startDate && !Number.isNaN(startDate.getTime()) ? startDate.toUTCString() : '';
+  const windowEndUtc = endDate && !Number.isNaN(endDate.getTime()) ? endDate.toUTCString() : '';
+  const fromCache = meta.fromCache === true;
+  const partial = meta.partial === true;
+  const partialReason = meta.partialReason || '';
+  const reducedScope = meta.reducedScope === true;
+  const previewMode = meta.previewMode || 'normal';
+  const timedOut = meta.timedOut === true;
+  const recentSplitDays = typeof meta.recentSplitDays === 'number' ? meta.recentSplitDays : null;
+  const recentCutoffDate = meta.recentCutoffDate ? new Date(meta.recentCutoffDate) : null;
+  const elapsedMs = typeof meta.elapsedMs === 'number' ? meta.elapsedMs : null;
+  const cachedElapsedMs = typeof meta.cachedElapsedMs === 'number' ? meta.cachedElapsedMs : null;
+
+  const detailsLines = [];
+  if (elapsedMs != null) detailsLines.push(`Elapsed: ~${Math.round(elapsedMs / 1000)}s`);
+  if (fromCache && meta.cacheAgeMinutes !== undefined) detailsLines.push(`Cache age: ${meta.cacheAgeMinutes} min`);
+  if (cachedElapsedMs != null) detailsLines.push(`Original run: ~${Math.round(cachedElapsedMs / 1000)}s`);
+  if (previewMode && previewMode !== 'normal') {
+    const modeLabel = previewMode === 'recent-only'
+      ? 'Recent-only (last 2 weeks)'
+      : (previewMode === 'recent-first' ? 'Recent-first (recent data prioritized)' : previewMode);
+    detailsLines.push(`Preview mode: ${modeLabel}`);
+  }
+  if (timedOut) detailsLines.push('Time budget: hit (preview returned partial data before full completion)');
+  if (recentSplitDays && recentCutoffDate && !Number.isNaN(recentCutoffDate.getTime())) {
+    detailsLines.push(`Recent window: last ${recentSplitDays} days (from ${recentCutoffDate.toUTCString()})`);
+  }
+  if (meta.fieldInventory) {
+    const foundCount = Array.isArray(meta.fieldInventory.ebmFieldsFound) ? meta.fieldInventory.ebmFieldsFound.length : 0;
+    const missingCount = Array.isArray(meta.fieldInventory.ebmFieldsMissing) ? meta.fieldInventory.ebmFieldsMissing.length : 0;
+    detailsLines.push(`EBM fields found: ${foundCount}, missing: ${missingCount}`);
+  }
+  if (!meta.discoveredFields?.storyPointsFieldId) detailsLines.push('Story Points: not configured (SP metrics show N/A)');
+  if (!meta.discoveredFields?.epicLinkFieldId) detailsLines.push('Epic Links: not configured (Epic rollups limited)');
+
+  const partialNotice = partial
+    ? '<br><span class="partial-warning">Partial data: this preview hit a time limit. Export shows exactly what you see; try a smaller range for full history.</span>'
+    : '';
+
+  const selectedProjectsLabel = meta.selectedProjects?.length > 0 ? meta.selectedProjects.join(', ') : 'None';
+  const sampleRow = previewRows && previewRows.length > 0 ? previewRows[0] : null;
+  let sampleLabel = 'None';
+  if (sampleRow) {
+    const host = meta.jiraHost || meta.host || '';
+    const sampleKey = sampleRow.issueKey || '';
+    const sampleSummary = sampleRow.issueSummary || '';
+    const url = buildJiraIssueUrl(host, sampleKey);
+    const keyText = escapeHtml(sampleKey);
+    const summaryText = escapeHtml(sampleSummary);
+    sampleLabel = url
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${keyText}</a> - ${summaryText}`
+      : `${keyText} - ${summaryText}`;
+  }
+
+  const reportSubtitleText = `Projects: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}`;
+  const opts = [];
+  if (meta.requireResolvedBySprintEnd) opts.push('Require resolved by sprint end');
+  if (meta.includePredictability) opts.push('Include Predictability');
+  const appliedFiltersText = `Applied: ${selectedProjectsLabel} | ${windowStartLocal} - ${windowEndLocal}${opts.length ? ' | ' + opts.join(', ') : ''}`;
+
+  const partialSuffix = partial ? ' (partial)' : '';
+  let prevRunHtml = '';
+  try {
+    const lastRun = sessionStorage.getItem(REPORT_LAST_RUN_KEY);
+    if (lastRun) {
+      const obj = JSON.parse(lastRun);
+      const prevStories = typeof obj.doneStories === 'number' ? obj.doneStories : 0;
+      const prevSprints = typeof obj.sprintsCount === 'number' ? obj.sprintsCount : 0;
+      prevRunHtml = '<span class="preview-previous-run" aria-live="polite"> Previous run: ' + prevStories + ' done stories, ' + prevSprints + ' sprints.</span>';
+    }
+  } catch (_) {}
+  const outcomeLineHTML = escapeHtml(rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix) + prevRunHtml;
+
+  const phaseLog = Array.isArray(meta.phaseLog) ? meta.phaseLog : [];
+  const phaseLogHtml = phaseLog.length > 0
+    ? '<br><strong>Phase log:</strong> ' + phaseLog.map((p) => escapeHtml((p.phase || '') + (p.at ? ' @ ' + p.at : ''))).join(' | ')
+    : '';
+  let metaSummaryWhy = '';
+  if (partial) metaSummaryWhy = partialReason ? ` | Partial: ${escapeHtml(partialReason)}` : ' | Partial: time limit';
+  else if (timedOut) metaSummaryWhy = ' | Time limit reached (partial data)';
+  else if (previewMode === 'recent-first') metaSummaryWhy = ' | Recent live; older from cache';
+
+  const generatedAtMs = meta.generatedAt ? new Date(meta.generatedAt).getTime() : Date.now();
+  const ageMs = Date.now() - generatedAtMs;
+  const generatedShort = meta.generatedAt
+    ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
+    : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const generatedLabel = ageMs >= 0 && ageMs < 3600000
+    ? (Math.round(ageMs / 60000) < 1 ? 'Generated: just now' : 'Generated: ' + Math.round(ageMs / 60000) + ' min ago')
+    : 'Generated: ' + generatedShort;
+  const generatedAgoSuffix = meta.generatedAt
+    ? (Math.round(ageMs / 60000) < 1 ? ' · Generated just now' : ' · Generated ' + Math.round(ageMs / 60000) + ' min ago')
+    : '';
+
+  const outcomeLine = `${rowsCount} done stories · ${sprintsCount} sprints · ${boardsCount} boards · ${escapeHtml(generatedLabel)}${metaSummaryWhy ? ' ' + metaSummaryWhy : ''}`;
+  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)}`;
+  const compactSummaryLine = `Summary: ${rowsCount} done stories | Boards: ${boardsCount}`;
+  let dataStateLabel = 'Live complete';
+  let dataStateKind = 'live';
+  if (reducedScope) {
+    dataStateLabel = 'Closest available';
+    dataStateKind = 'closest';
+  } else if (partial) {
+    dataStateLabel = 'Partial';
+    dataStateKind = 'partial';
+  } else if (fromCache) {
+    dataStateLabel = 'Cached';
+    dataStateKind = 'cached';
+  }
+  const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
+  const previewMetaHTML = `
+    <div class="meta-info-summary meta-summary-line">
+      <div class="meta-context-line">${escapeHtml(compactSummaryLine)}</div>
+      <div class="meta-outcome-line">${outcomeLine} ${dataStateBadgeHTML}</div>
+      <div class="meta-context-line">${contextLine}</div>
+    </div>
+    <div class="meta-info meta-info-details">
+      <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
+      <strong>Example story:</strong> ${sampleLabel}<br>
+      <strong>Details:</strong> ${escapeHtml(detailsLines.join(' | '))}
+      ${phaseLogHtml}
+      ${partialNotice}
+    </div>
+  `;
+
+  const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generatedAgoSuffix}`;
+  let statusHTML = '';
+  let statusDisplay = 'none';
+  if (rowsCount > 0 && (partial || previewMode !== 'normal' || reducedScope)) {
+    let bannerMessage;
+    if (reducedScope) {
+      bannerMessage = 'Showing closest available data for your selection. Use Full refresh for exact filters.';
+    } else if (partial) {
+      bannerMessage = 'Partial data: preview hit a time limit. Export shows what you see now; narrow the dates for full history.';
+    } else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {
+      const days = recentSplitDays || 14;
+      bannerMessage = `Faster mode: latest ${days} days live, older sprints from cache. Export matches what you see.`;
+    } else {
+      bannerMessage = 'Faster mode: preview optimized for speed. Export matches the on-screen data; run Full refresh if you need a fully fresh history.';
+    }
+    statusHTML = `
+      <div class="status-banner warning alert-warning">
+        <div class="status-banner-message">${escapeHtml(bannerMessage)}</div>
+        <button type="button" class="status-close" aria-label="Dismiss">x</button>
+      </div>
+    `;
+    statusDisplay = 'block';
+  }
+  return { reportSubtitleText, appliedFiltersText, outcomeLineHTML, previewMetaHTML, stickyText, statusHTML, statusDisplay };
+}

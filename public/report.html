@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- SIZE-EXEMPT: Single report page structure; feedback panel extracted to JS-injected component. -->
 <html lang="en">
 
 <head>
@@ -17,33 +18,13 @@
           <p id="report-subtitle" class="subtitle">Preview updates automatically when filters change; use Preview report for heavy ranges.</p>
         </div>
       </div>
-      <nav class="app-nav" aria-label="Main">
-        <span class="current">High-Level Performance</span>
-        <a href="/current-sprint">Current Sprint (Squad)</a>
-      </nav>
-      <div id="feedback-panel" class="feedback-panel" style="display: none;">
-        <h2>Share Feedback</h2>
-        <p class="feedback-hint"><small>Your feedback helps improve clarity and trust in the reports.</small></p>
-        <label>
-          Email (optional)
-          <input type="email" id="feedback-email" placeholder="Optional (you@vodacom.co.tz)">
-        </label>
-        <label>
-          Feedback
-          <textarea id="feedback-message" rows="4" placeholder="What is unclear, missing, or incorrect?"></textarea>
-        </label>
-        <div class="feedback-actions">
-          <button id="feedback-submit" class="btn btn-primary btn-compact">Send Feedback</button>
-          <button id="feedback-cancel" class="btn btn-secondary btn-compact">Cancel</button>
-          <div id="feedback-status" class="feedback-status"></div>
-        </div>
-      </div>
+      <div id="feedback-panel" class="feedback-panel" style="display: none;"></div>
     </header>
 
     <div class="main-layout">
       <!-- Filters Panel -->
       <aside class="filters-panel" id="filters-panel">
-        <div class="filters-panel-collapsed-bar" id="filters-panel-collapsed-bar" style="display: none;"
+        <div class="filters-panel-collapsed-bar" id="filters-panel-collapsed-bar"
           aria-hidden="true">
           <div id="filters-collapsed-summary" class="filters-collapsed-summary"></div>
           <button type="button" class="btn btn-secondary btn-compact" data-action="toggle-filters">Show filters</button>
@@ -64,7 +45,7 @@
               <div id="projects-no-match" class="selection-status" style="display: none;">No projects match your search.
               </div>
             </div>
-            <p class="project-group-label"><small>Most used</small></p>
+            <p class="project-group-label"></p>
             <label class="checkbox-label">
               <input type="checkbox" id="project-mpsa" class="project-checkbox" data-project="MPSA" checked>
               <span class="project-code">MPSA</span>
@@ -339,6 +320,7 @@
     <button type="button" id="feedback-toggle" class="feedback-corner-btn" aria-label="Feedback and help">?</button>
   </div>
   <div id="tooltip-popover" class="tooltip-popover" role="tooltip" aria-hidden="true"></div>
+  <script type="module" src="Reporting-App-Report-Page-Feedback-Panel-Inject.js"></script>
   <script type="module" src="Reporting-App-Shared-Global-Nav.js"></script>
   <script type="module" src="Reporting-App-Shared-UI-Header-Nav-Renderer.js"></script>
   <script type="module" src="Reporting-App-Report-Page-Init-Controller.js"></script>

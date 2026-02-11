@@ -27,9 +27,6 @@ export function renderRisksAndInsights(data) {
   if (hasDependencies) {
     blockersText.push(...dependencies);
   }
-  if (hasStuck) {
-    blockersText.push(`⚠️ ${stuckCandidates.length} issue(s) stuck > 24h - requires unblocking`);
-  }
 
   let html = '<div class="transparency-card risks-insights-card" id="risks-insights-card">';
   html += '<h2>Risks & Insights</h2>';

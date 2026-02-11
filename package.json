@@ -13,6 +13,8 @@
     "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js",
     "test:current-sprint-leadership": "playwright test tests/Jira-Reporting-App-Current-Sprint-Leadership-View-Tests.spec.js",
     "test:ux-trust": "playwright test tests/Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js",
+    "test:mobile-responsive": "playwright test tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed",
+    "test:nav-outcome-trust": "playwright test tests/Jira-Reporting-App-UX-Outcome-First-Nav-And-Trust-Validation-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed",
     "test:current-sprint-ux-ssot": "playwright test tests/Jira-Reporting-App-Current-Sprint-UX-SSOT-Validation-Tests.spec.js",
     "test:current-sprint-redesign": "playwright test tests/Jira-Reporting-App-CurrentSprint-Redesign-Validation-Tests.spec.js"
   },

@@ -51,4 +51,4 @@ jobs:
           BASE_URL: ${{ secrets.VODAAGILEBOARD_PROD_BASE_URL }}
           TEST_LOGIN_USER: ${{ secrets.APP_LOGIN_USER }}
           TEST_LOGIN_PASSWORD: ${{ secrets.APP_LOGIN_PASSWORD }}
-        run: npx playwright test tests/VodaAgileBoard-Deploy-Smoke-Tests.spec.js --reporter=list
+        run: npx playwright test tests/Jira-Reporting-App-Deploy-Smoke-Validation-Tests.spec.js --reporter=list

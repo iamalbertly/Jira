@@ -1,35 +1,31 @@
 import { currentSprintDom } from './Reporting-App-CurrentSprint-Page-Context.js';
 import { getProjectsParam } from './Reporting-App-CurrentSprint-Page-Storage.js';
+import { showErrorView, clearErrorView, showContentView } from './Reporting-App-Shared-Status-View-Helpers.js';
+
+const LOADING_SPINNER_HTML = '<div class="current-sprint-loading-spinner" aria-hidden="true"></div><p class="current-sprint-loading-msg" aria-live="polite"></p>';
 
 export function showLoading(msg) {
-  const { loadingEl, errorEl } = currentSprintDom;
-  if (!loadingEl) return;
-  loadingEl.textContent = msg || ('Loading boards for projects ' + getProjectsParam().replace(/,/g, ', ') + '...');
-  loadingEl.style.display = 'block';
+  const { loadingEl, errorEl, contentEl } = currentSprintDom;
+  const text = msg || ('Loading sprint data for project ' + getProjectsParam() + '...');
+  if (loadingEl) {
+    loadingEl.innerHTML = LOADING_SPINNER_HTML;
+    const msgEl = loadingEl.querySelector('.current-sprint-loading-msg');
+    if (msgEl) msgEl.textContent = text;
+    loadingEl.classList.add('current-sprint-loading-with-spinner');
+    loadingEl.style.display = 'block';
+  }
   if (errorEl) errorEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
 }
 
-import { setErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
-
 export function showError(msg) {
-  const { loadingEl, errorEl } = currentSprintDom;
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (errorEl) {
-    setErrorOnEl(errorEl, msg);
-  }
+  showErrorView(currentSprintDom, msg);
 }
 
 export function clearError() {
-  const { errorEl } = currentSprintDom;
-  clearEl(errorEl);
+  clearErrorView(currentSprintDom);
 }
 
 export function showContent(html) {
-  const { loadingEl, errorEl, contentEl } = currentSprintDom;
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (errorEl) errorEl.style.display = 'none';
-  if (contentEl) {
-    contentEl.innerHTML = html;
-    contentEl.style.display = 'block';
-  }
+  showContentView(currentSprintDom, html);
 }

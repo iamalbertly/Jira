@@ -1,104 +1,8 @@
 import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateTime, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
-
-function resolveResponsiveRowLimit(desktopLimit, mobileLimit = 8) {
-  try {
-    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      return window.matchMedia('(max-width: 768px)').matches ? mobileLimit : desktopLimit;
-    }
-  } catch (_) {}
-  return desktopLimit;
-}
-
-function buildMergedWorkRiskRows(data) {
-  const rows = [];
-  const storiesByKey = new Map((data.stories || []).map((s) => [s.issueKey || s.key, s]));
-  const pushRow = (row) => rows.push(row);
-
-  for (const row of (data.scopeChanges || [])) {
-    const key = row.issueKey || row.key || '';
-    pushRow({
-      source: 'Scope',
-      riskType: 'Added Mid-Sprint',
-      issueKey: key,
-      issueUrl: row.issueUrl || storiesByKey.get(key)?.issueUrl || '',
-      summary: row.summary || storiesByKey.get(key)?.summary || '-',
-      status: storiesByKey.get(key)?.status || '-',
-      assignee: storiesByKey.get(key)?.assignee || '-',
-      reporter: storiesByKey.get(key)?.reporter || '-',
-      hoursInStatus: null,
-      estimateHours: null,
-      loggedHours: null,
-      updated: row.date || storiesByKey.get(key)?.updated || null,
-    });
-  }
-
-  for (const row of (data.stuckCandidates || [])) {
-    pushRow({
-      source: 'Flow',
-      riskType: 'Stuck >24h',
-      issueKey: row.issueKey || row.key || '',
-      issueUrl: row.issueUrl || '',
-      summary: row.summary || '-',
-      status: row.status || '-',
-      assignee: row.assignee || '-',
-      reporter: row.reporter || '-',
-      hoursInStatus: row.hoursInStatus ?? null,
-      estimateHours: null,
-      loggedHours: null,
-      updated: row.updated || null,
-    });
-  }
-
-  for (const row of ((data.subtaskTracking || {}).rows || [])) {
-    const missingEstimate = !(Number(row.estimateHours) > 0);
-    const missingLog = !(Number(row.loggedHours) > 0);
-    if (!missingEstimate && !missingLog && !(Number(row.hoursInStatus) >= 24)) continue;
-    pushRow({
-      source: 'Subtask',
-      riskType: missingEstimate
-        ? 'Missing Estimate'
-        : (missingLog ? 'No Log Yet' : 'Stuck >24h'),
-      issueKey: row.issueKey || row.key || '',
-      issueUrl: row.issueUrl || '',
-      summary: row.summary || '-',
-      status: row.status || '-',
-      assignee: row.assignee || '-',
-      reporter: row.reporter || '-',
-      hoursInStatus: row.hoursInStatus ?? null,
-      estimateHours: row.estimateHours ?? null,
-      loggedHours: row.loggedHours ?? null,
-      updated: row.updated || row.created || null,
-    });
-  }
-
-  for (const row of (data.stories || [])) {
-    const missingAssignee = !row.assignee || row.assignee === '-';
-    const missingReporter = !row.reporter || row.reporter === '-';
-    if (!missingAssignee && !missingReporter) continue;
-    pushRow({
-      source: 'Sprint',
-      riskType: missingAssignee ? 'Unassigned Issue' : 'Missing Reporter',
-      issueKey: row.issueKey || row.key || '',
-      issueUrl: row.issueUrl || '',
-      summary: row.summary || '-',
-      status: row.status || '-',
-      assignee: row.assignee || '-',
-      reporter: row.reporter || '-',
-      hoursInStatus: null,
-      estimateHours: null,
-      loggedHours: null,
-      updated: row.updated || row.created || null,
-    });
-  }
-
-  rows.sort((a, b) => {
-    const at = a.updated ? new Date(a.updated).getTime() : 0;
-    const bt = b.updated ? new Date(b.updated).getTime() : 0;
-    return bt - at;
-  });
-  return rows;
-}
+import { resolveResponsiveRowLimit } from './Reporting-App-Shared-Responsive-Helpers.js';
+import { wireShowMoreHandler } from './Reporting-App-Shared-ShowMore-Handlers.js';
+import { buildMergedWorkRiskRows } from './Reporting-App-CurrentSprint-Data-WorkRisk-Rows.js';
 
 export function renderWorkRisksMerged(data) {
   const rows = buildMergedWorkRiskRows(data);
@@ -360,43 +264,8 @@ export function renderNotifications(data) {
   return html;
 }
 
-// Handlers for show-more buttons in subtask & stuck tables
 export function wireSubtasksShowMoreHandlers() {
-  const workRisksBtn = document.querySelector('.work-risks-show-more');
-  if (workRisksBtn) {
-    workRisksBtn.addEventListener('click', () => {
-      const tpl = document.getElementById('work-risks-more-template');
-      const tbody = document.querySelector('#work-risks-table tbody');
-      if (tpl && tbody) {
-        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-        workRisksBtn.style.display = 'none';
-      }
-    });
-  }
-
-  // Stuck items
-  const stuckBtn = document.querySelector('.stuck-show-more');
-  if (stuckBtn) {
-    stuckBtn.addEventListener('click', () => {
-      const tpl = document.getElementById('stuck-more-template');
-      const tbody = document.querySelector('#stuck-table tbody');
-      if (tpl && tbody) {
-        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-        stuckBtn.style.display = 'none';
-      }
-    });
-  }
-
-  // Subtasks
-  const subtaskBtn = document.querySelector('.subtask-show-more');
-  if (subtaskBtn) {
-    subtaskBtn.addEventListener('click', () => {
-      const tpl = document.getElementById('subtask-more-template');
-      const tbody = document.querySelector('#subtask-table tbody');
-      if (tpl && tbody) {
-        tbody.insertAdjacentHTML('beforeend', tpl.innerHTML);
-        subtaskBtn.style.display = 'none';
-      }
-    });
-  }
+  wireShowMoreHandler('.work-risks-show-more', 'work-risks-more-template', '#work-risks-table tbody');
+  wireShowMoreHandler('.stuck-show-more', 'stuck-more-template', '#stuck-table tbody');
+  wireShowMoreHandler('.subtask-show-more', 'subtask-more-template', '#subtask-table tbody');
 }

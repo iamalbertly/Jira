@@ -15,7 +15,7 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
     await expect(page.locator('#preview-btn')).toBeVisible();
 
     // Main nav: Report | Current Sprint (leadership route may be consolidated into report trends)
-    const nav = page.locator('nav.app-nav');
+    const nav = page.locator('.app-sidebar .app-nav, nav.app-nav');
     await expect(nav).toBeVisible();
     await expect(nav.locator('a[href="/current-sprint"]')).toContainText('Current Sprint');
     const leadershipNavLink = nav.locator('a[href="/sprint-leadership"]');
@@ -76,3 +76,4 @@ test.describe('Jira Reporting App - Validation Plan (UI + Telemetry)', () => {
     expect(telemetry.pageErrors).toEqual([]);
   });
 });
+

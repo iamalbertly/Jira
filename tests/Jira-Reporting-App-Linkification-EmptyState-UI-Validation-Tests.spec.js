@@ -86,7 +86,7 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
-    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);
+    await expect(page.locator('.app-sidebar a.sidebar-link[href="/report"], nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);
@@ -174,12 +174,12 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
     if (page.url().includes('/report')) {
       await expect(page.locator('h1')).toContainText(/General Performance|Sprint Leadership/i);
       await expect(page.locator('#preview-btn')).toBeVisible();
-      await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText(/Current Sprint/i);
+      await expect(page.locator('.app-sidebar a.sidebar-link[href="/current-sprint"], nav.app-nav a[href="/current-sprint"]')).toContainText(/Current Sprint/i);
     } else {
       await expect(page.locator('h1')).toContainText('Sprint Leadership');
       await expect(page.locator('#leadership-preview')).toBeVisible();
-      await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);
-      await expect(page.locator('nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
+      await expect(page.locator('.app-sidebar a.sidebar-link[href="/report"], nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);
+      await expect(page.locator('.app-sidebar a.sidebar-link[href="/current-sprint"], nav.app-nav a[href="/current-sprint"]')).toContainText('Current Sprint');
     }
 
     expect(telemetry.consoleErrors).toEqual([]);
@@ -187,3 +187,4 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
     expect(telemetry.failedRequests).toEqual([]);
   });
 });
+

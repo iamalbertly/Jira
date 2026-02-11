@@ -1,0 +1,115 @@
+/**
+ * Build merged work-risk rows from current sprint data (scope changes, stuck, subtasks, stories).
+ * Used by Reporting-App-CurrentSprint-Render-Subtasks.js.
+ */
+export function buildMergedWorkRiskRows(data) {
+  const rows = [];
+  const storiesByKey = new Map((data.stories || []).map((s) => [s.issueKey || s.key, s]));
+  const pushRow = (row) => rows.push(row);
+
+  for (const row of (data.scopeChanges || [])) {
+    const key = row.issueKey || row.key || '';
+    const story = storiesByKey.get(key);
+    pushRow({
+      source: 'Scope',
+      riskType: 'Added Mid-Sprint',
+      issueKey: key,
+      issueUrl: row.issueUrl || story?.issueUrl || '',
+      summary: row.summary || story?.summary || key || '-',
+      status: row.status || story?.status || '-',
+      assignee: row.assignee || story?.assignee || '-',
+      reporter: row.reporter || story?.reporter || '-',
+      hoursInStatus: null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.date || story?.updated || null,
+    });
+  }
+
+  for (const row of (data.stuckCandidates || [])) {
+    pushRow({
+      source: 'Flow',
+      riskType: 'Stuck >24h',
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: row.hoursInStatus ?? null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.updated || null,
+    });
+  }
+
+  for (const row of ((data.subtaskTracking || {}).rows || [])) {
+    const missingEstimate = !(Number(row.estimateHours) > 0);
+    const missingLog = !(Number(row.loggedHours) > 0);
+    if (!missingEstimate && !missingLog && !(Number(row.hoursInStatus) >= 24)) continue;
+    pushRow({
+      source: 'Subtask',
+      riskType: missingEstimate
+        ? 'Missing Estimate'
+        : (missingLog ? 'No Log Yet' : 'Stuck >24h'),
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: row.hoursInStatus ?? null,
+      estimateHours: row.estimateHours ?? null,
+      loggedHours: row.loggedHours ?? null,
+      updated: row.updated || row.created || null,
+    });
+  }
+
+  for (const row of (data.stories || [])) {
+    const missingAssignee = !row.assignee || row.assignee === '-';
+    const missingReporter = !row.reporter || row.reporter === '-';
+    if (!missingAssignee && !missingReporter) continue;
+    pushRow({
+      source: 'Sprint',
+      riskType: missingAssignee ? 'Unassigned Issue' : 'Missing Reporter',
+      issueKey: row.issueKey || row.key || '',
+      issueUrl: row.issueUrl || '',
+      summary: row.summary || '-',
+      status: row.status || '-',
+      assignee: row.assignee || '-',
+      reporter: row.reporter || '-',
+      hoursInStatus: null,
+      estimateHours: null,
+      loggedHours: null,
+      updated: row.updated || row.created || null,
+    });
+  }
+
+  const deduped = new Map();
+  for (const row of rows) {
+    const key = (row.issueKey || '').trim().toUpperCase();
+    if (!key || key === '-') { deduped.set(Symbol(), row); continue; }
+    const existing = deduped.get(key);
+    if (!existing) { deduped.set(key, row); continue; }
+    if (!existing.source.includes(row.source)) existing.source += ', ' + row.source;
+    if (!existing.riskType.includes(row.riskType)) existing.riskType += ', ' + row.riskType;
+    if (existing.summary === '-' && row.summary !== '-') existing.summary = row.summary;
+    if (existing.status === '-' && row.status !== '-') existing.status = row.status;
+    if (existing.assignee === '-' && row.assignee !== '-') existing.assignee = row.assignee;
+    if (existing.reporter === '-' && row.reporter !== '-') existing.reporter = row.reporter;
+    if (existing.hoursInStatus == null && row.hoursInStatus != null) existing.hoursInStatus = row.hoursInStatus;
+    if (existing.estimateHours == null && row.estimateHours != null) existing.estimateHours = row.estimateHours;
+    if (existing.loggedHours == null && row.loggedHours != null) existing.loggedHours = row.loggedHours;
+    if ((!existing.issueUrl || existing.issueUrl === '#') && row.issueUrl) existing.issueUrl = row.issueUrl;
+    const existingTs = existing.updated ? new Date(existing.updated).getTime() : 0;
+    const rowTs = row.updated ? new Date(row.updated).getTime() : 0;
+    if (rowTs > existingTs) existing.updated = row.updated;
+  }
+  const dedupedRows = Array.from(deduped.values());
+  dedupedRows.sort((a, b) => {
+    const at = a.updated ? new Date(a.updated).getTime() : 0;
+    const bt = b.updated ? new Date(b.updated).getTime() : 0;
+    return bt - at;
+  });
+  return dedupedRows;
+}

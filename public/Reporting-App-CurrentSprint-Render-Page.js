@@ -1,7 +1,6 @@
-import { updateHeader, renderSprintTabs, renderSummaryCard, renderSprintWindows } from './Reporting-App-CurrentSprint-Render-Overview.js';
+import { updateHeader } from './Reporting-App-CurrentSprint-Render-Overview.js';
 import { renderDailyCompletion, renderBurndown, renderStories } from './Reporting-App-CurrentSprint-Render-Progress.js';
 import { renderWorkRisksMerged } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
-import { renderNotes, renderAssumptions } from './Reporting-App-CurrentSprint-Render-Notes.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 // New redesign components
 import { renderHeaderBar } from './Reporting-App-CurrentSprint-Header-Bar.js';
@@ -101,27 +100,12 @@ export function renderCurrentSprintPage(data) {
   html += renderStories(data);
   html += '</div>';
 
-  // LEGACY (kept for backward compatibility): Notifications, Sprint windows, Sub-task tracking
-
-  // Render lightweight placeholders and keep heavy legacy content inside <template> to avoid DOM bloat
-
-
-
-
 
 
   // Scope modal (hidden by default)
   html += renderScopeModal(data);
 
   html += '</div>';
-
-  // Legacy summary/card is hidden via CSS; section nav is header bar "Issues in sprint" + carousel section links (Burndown | Scope | Work items | Stuck).
-  html += renderSprintTabs(data);
-  html += renderSummaryCard(data);
-  html += renderAssumptions(data);
-
-  // Add handlers for loading legacy templates on demand (to be wired after render)
-
 
   return html;
 }

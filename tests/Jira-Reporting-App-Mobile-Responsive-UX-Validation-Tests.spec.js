@@ -7,12 +7,18 @@ const mobile = { viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 
 test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
   test.use(mobile);
 
-  test('report: quarter strip, pill date spans and table scroll work on mobile', async ({ page }) => {
+  test('report: quarter strip, filters auto-collapse, and table card layout work on mobile', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (page.url().includes('login')) {
       test.skip(true, 'Redirected to login; auth may be required');
       return;
+    }
+
+    // On mobile, filters auto-collapse; expand first.
+    const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]');
+    if (await showFiltersBtn.isVisible().catch(() => false)) {
+      await showFiltersBtn.click();
     }
 
     // Quarter strip visible and pill shows period
@@ -22,7 +28,17 @@ test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
     const firstPeriod = await page.locator('.quarter-pill .quick-range-period').first().textContent().catch(() => '');
     expect(firstPeriod).toBeTruthy();
 
-    // Run a quick preview and ensure table is horizontally scrollable
+    const collapsedVisible = await page.locator('#filters-panel-collapsed-bar').isVisible().catch(() => false);
+    if (collapsedVisible) {
+      await expect(page.locator('#filters-collapsed-summary')).toContainText(/active/i);
+      await page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]').click().catch(() => null);
+    }
+    if (!(await page.locator('#start-date').isVisible().catch(() => false))) {
+      await page.locator('[data-action="toggle-filters"]').click().catch(() => null);
+      await page.locator('#start-date').waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+    }
+
+    // Run a quick preview and verify mobile card layout for table rows
     await runDefaultPreview(page);
     const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
     if (!previewVisible) {
@@ -32,10 +48,22 @@ test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
 
     await page.click('.tab-btn[data-tab="project-epic-level"]').catch(() => null);
     await page.waitForSelector('#project-epic-level-content .data-table', { timeout: 15000 });
-    const overflowX = await page.evaluate(() => getComputedStyle(document.querySelector('#project-epic-level-content .data-table')).overflowX);
-    expect(overflowX === 'auto' || overflowX === 'scroll').toBeTruthy();
-    const headerWhiteSpace = await page.evaluate(() => getComputedStyle(document.querySelector('#project-epic-level-content .data-table th')).whiteSpace);
-    expect(headerWhiteSpace).toBe('nowrap');
+    const mobileCardStyles = await page.evaluate(() => {
+      const row = document.querySelector('#project-epic-level-content .data-table tbody tr');
+      const td = document.querySelector('#project-epic-level-content .data-table tbody td');
+      if (!row || !td) return null;
+      const tdStyle = getComputedStyle(td);
+      const beforeStyle = getComputedStyle(td, '::before');
+      return {
+        rowDisplay: getComputedStyle(row).display,
+        tdDisplay: tdStyle.display,
+        beforeContent: beforeStyle.content,
+      };
+    });
+    expect(mobileCardStyles).toBeTruthy();
+    expect(mobileCardStyles.rowDisplay).toBe('block');
+    expect(mobileCardStyles.tdDisplay).toBe('flex');
+    expect(mobileCardStyles.beforeContent).not.toBe('none');
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);

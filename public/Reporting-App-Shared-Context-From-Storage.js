@@ -143,3 +143,46 @@ export function getContextDisplayString() {
   if (pieces.length) return pieces.join(' · ');
   return 'No report run yet';
 }
+
+const STALE_THRESHOLD_MS = 30 * 60 * 1000;
+
+/**
+ * Returns HTML for the persistent sidebar context card (selected projects, last generated, freshness).
+ * Used on /report, /current-sprint, /leadership. Call renderSidebarContextCard() after DOM ready.
+ */
+export function getContextCardHtml() {
+  const ctx = getValidLastQuery() || getFallbackContext();
+  const freshnessInfo = getLastMetaFreshnessInfo();
+  const projCount = ctx?.projects ? ctx.projects.split(',').filter(Boolean).length : 0;
+  const projectsLabel = projCount ? `Selected: ${projCount} project${projCount !== 1 ? 's' : ''}` : 'No projects selected';
+  const lastLabel = freshnessInfo.label || 'No data yet';
+  const isStale = freshnessInfo.isStale;
+  const freshnessClass = isStale ? 'context-freshness-stale' : 'context-freshness-ok';
+  const freshnessText = isStale ? 'Data may be stale (>30 min)' : (freshnessInfo.label ? 'Data freshness: OK' : 'Generate a report');
+  const rangeStr = ctx && ctx.start && ctx.end
+    ? `${new Date(ctx.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(ctx.end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : '';
+  let html = '<div class="context-card"><h3 class="context-card-title">Context</h3>';
+  html += '<p class="context-card-line">' + escapeHtml(projectsLabel) + '</p>';
+  html += '<p class="context-card-line">' + escapeHtml(lastLabel) + '</p>';
+  if (rangeStr) html += '<p class="context-card-line context-card-range">' + escapeHtml(rangeStr) + '</p>';
+  html += '<p class="context-card-line ' + freshnessClass + '" title="' + escapeHtml(freshnessText) + '">' + escapeHtml(freshnessText) + '</p>';
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  const str = String(s);
+  const div = typeof document !== 'undefined' && document.createElement('div');
+  if (div) {
+    div.textContent = str;
+    return div.innerHTML;
+  }
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+export function renderSidebarContextCard() {
+  const el = document.getElementById('sidebar-context-card');
+  if (el) el.innerHTML = getContextCardHtml();
+}
