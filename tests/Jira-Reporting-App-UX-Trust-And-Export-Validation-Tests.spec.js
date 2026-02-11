@@ -14,6 +14,13 @@ import {
   EXCEL_DOWNLOAD_TIMEOUT_MS,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
+async function hasAnyExportableRows(page) {
+  const doneRows = await page.locator('#done-stories-table tbody tr').count().catch(() => 0);
+  const boardRows = await page.locator('#boards-table tbody tr').count().catch(() => 0);
+  const sprintRows = await page.locator('#sprints-table tbody tr').count().catch(() => 0);
+  return doneRows > 0 || boardRows > 0 || sprintRows > 0;
+}
+
 test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => {
   test('report load: expected controls and nav strip visible, no critical console/network errors', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
@@ -108,8 +115,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     const errorVisible = await page.locator('#error').isVisible();
     const exportBtn = page.locator('#export-excel-btn');
     if (previewVisible) {
-      const rowsCount = await page.locator('#done-stories-table tbody tr').count();
-      if (rowsCount > 0) {
+      if (await hasAnyExportableRows(page)) {
         await expect(exportBtn).toBeEnabled();
       } else {
         await expect(exportBtn).toBeDisabled();
@@ -152,8 +158,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       return;
     }
     const exportBtn = page.locator('#export-excel-btn');
-    const rowsCount = await page.locator('#done-stories-table tbody tr').count();
-    if (rowsCount <= 0) {
+    if (!(await hasAnyExportableRows(page))) {
       await expect(exportBtn).toBeDisabled();
       const title = (await exportBtn.getAttribute('title')) || '';
       const aria = (await exportBtn.getAttribute('aria-label')) || '';

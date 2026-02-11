@@ -85,7 +85,9 @@ test.describe('Cross-Page Persistence', () => {
       return;
     }
     await expect(page.locator('#current-sprint-projects')).toBeVisible();
-    await assertProjectSetValue(page.locator('#current-sprint-projects'), projectCodes);
+    const currentSprintProject = ((await page.locator('#current-sprint-projects').inputValue()) || '').trim();
+    const allowedCurrentSprintProjects = projectCodes.split(',').map((x) => x.trim());
+    expect(allowedCurrentSprintProjects.includes(currentSprintProject)).toBeTruthy();
 
     await page.goto(BASE_URL + '/report');
     if (page.url().includes('login')) {

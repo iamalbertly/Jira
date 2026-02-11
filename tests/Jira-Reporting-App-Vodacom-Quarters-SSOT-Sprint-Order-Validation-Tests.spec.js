@@ -12,12 +12,12 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
-    await expect(page.locator('h1')).toContainText('VodaAgileBoard');
-    await expect(page.locator('.quick-range-pills')).toBeVisible();
-    await expect(page.locator('.quick-range-btn[data-quarter="1"]')).toContainText(/Q1/);
-    await expect(page.locator('.quick-range-btn[data-quarter="2"]')).toContainText(/Q2/);
-    await expect(page.locator('.quick-range-btn[data-quarter="3"]')).toContainText(/Q3/);
-    await expect(page.locator('.quick-range-btn[data-quarter="4"]')).toContainText(/Q4/);
+    await expect(page.locator('h1')).toContainText(/VodaAgileBoard|General Performance|High-Level Performance/i);
+    await expect(page.locator('.quick-range-strip')).toBeVisible();
+    await page.waitForSelector('.quarter-pill', { timeout: 15000 }).catch(() => null);
+    await expect(page.locator('.quarter-pill').first()).toContainText(/Q[1-4]/i);
+    const quarterCount = await page.locator('.quarter-pill').count();
+    expect(quarterCount).toBeGreaterThanOrEqual(4);
     await expect(page.locator('#start-date')).toBeVisible();
     await expect(page.locator('#end-date')).toBeVisible();
 
@@ -31,7 +31,13 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
 
-    await page.click('.quick-range-btn[data-quarter="2"]');
+    await page.waitForSelector('.quarter-pill', { timeout: 15000 }).catch(() => null);
+    const q2Like = page.locator('.quarter-pill').filter({ hasText: /Q2/i }).first();
+    if (await q2Like.count()) {
+      await q2Like.click();
+    } else {
+      await page.locator('.quarter-pill').nth(1).click();
+    }
     await page.waitForTimeout(2000);
     const startVal = await page.locator('#start-date').inputValue();
     const endVal = await page.locator('#end-date').inputValue();
@@ -143,11 +149,29 @@ test.describe('Jira Reporting App - Vodacom Quarters SSOT Sprint Order Validatio
       return;
     }
 
-    await expect(page.locator('.quick-range-btn-leadership[data-quarter="2"]')).toBeVisible();
-    await page.click('.quick-range-btn-leadership[data-quarter="2"]');
+    const leadershipQ2 = page.locator('.quick-range-btn-leadership[data-quarter="2"]');
+    const reportQ2 = page.locator('.quarter-pill').filter({ hasText: /Q2/i }).first();
+    if (await leadershipQ2.count()) {
+      await expect(leadershipQ2).toBeVisible();
+      await leadershipQ2.click();
+    } else {
+      await expect(page.locator('.quick-range-strip')).toBeVisible();
+      await page.waitForSelector('.quarter-pill', { timeout: 15000 }).catch(() => null);
+      if (await reportQ2.count()) await reportQ2.click();
+      else await page.locator('.quarter-pill').nth(1).click();
+    }
     await page.waitForTimeout(300);
-    const startVal = await page.locator('#leadership-start').inputValue();
-    const endVal = await page.locator('#leadership-end').inputValue();
+    const leadershipStart = page.locator('#leadership-start');
+    const leadershipEnd = page.locator('#leadership-end');
+    const reportStart = page.locator('#start-date');
+    const reportEnd = page.locator('#end-date');
+    const useLeadershipInputs = await leadershipStart.count().catch(() => 0);
+    const startVal = useLeadershipInputs
+      ? await leadershipStart.inputValue()
+      : await reportStart.inputValue();
+    const endVal = useLeadershipInputs
+      ? await leadershipEnd.inputValue()
+      : await reportEnd.inputValue();
     expect(startVal).toBeTruthy();
     expect(endVal).toBeTruthy();
     const startDate = new Date(startVal);

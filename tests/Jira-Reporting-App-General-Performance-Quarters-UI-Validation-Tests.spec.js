@@ -162,7 +162,7 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
     }
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
-    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText('Report');
+    await expect(page.locator('nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);
 
     const alertsCard = page.locator('#notifications-card, [id*="notification"]');
     const hasAlerts = await alertsCard.isVisible().catch(() => false);

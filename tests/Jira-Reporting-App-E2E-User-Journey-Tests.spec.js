@@ -2,6 +2,12 @@ import { test, expect } from '@playwright/test';
 import { runDefaultPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const DEFAULT_Q2_QUERY = '?projects=MPSA,MAS&start=2025-07-01T00:00:00.000Z&end=2025-09-30T23:59:59.999Z';
+async function hasAnyExportableRows(page) {
+  const doneRows = await page.locator('#done-stories-table tbody tr').count().catch(() => 0);
+  const boardRows = await page.locator('#boards-table tbody tr').count().catch(() => 0);
+  const sprintRows = await page.locator('#sprints-table tbody tr').count().catch(() => 0);
+  return doneRows > 0 || boardRows > 0 || sprintRows > 0;
+}
 
 test.describe('Jira Reporting App - E2E User Journey Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -104,8 +110,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     const previewVisible = await page.locator('#preview-content').isVisible();
     if (previewVisible) {
       const exportBtn = page.locator('#export-excel-btn');
-      const doneRows = await page.locator('#done-stories-table tbody tr').count();
-      if (doneRows > 0) {
+      if (await hasAnyExportableRows(page)) {
         await expect(exportBtn).toBeEnabled();
       } else {
         await expect(exportBtn).toBeDisabled();
@@ -194,8 +199,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
 
     if (previewVisible) {
       // When preview has rows, export buttons should be enabled; otherwise disabled
-      const doneRows = await page.locator('#done-stories-table tbody tr').count();
-      if (doneRows > 0) {
+      if (await hasAnyExportableRows(page)) {
         await expect(page.locator('#export-excel-btn')).toBeEnabled();
       } else {
         await expect(page.locator('#export-excel-btn')).toBeDisabled();
@@ -229,8 +233,7 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
         expect(statusText.toLowerCase()).toContain('partial');
         expect(exportHintText.toLowerCase()).toContain('partial');
         const exportBtn = page.locator('#export-excel-btn');
-        const doneRows = await page.locator('#done-stories-table tbody tr').count();
-        if (doneRows > 0) {
+        if (await hasAnyExportableRows(page)) {
           await expect(exportBtn).toBeEnabled();
         } else {
           await expect(exportBtn).toBeDisabled();
