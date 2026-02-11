@@ -1,10 +1,10 @@
 /**
  * Customer, Simplicity & Trust Recovery Validation Tests.
- * Validates: first-paint context line, Load latest visibility (empty state vs disabled Preview),
- * Load latest hidden when loading, error recovery message and re-show on dismiss, aria-busy on
- * preview area, context line cleared after preview. Uses captureBrowserTelemetry + assertTelemetryClean
- * (logcat-style) and real-time UI assertions at every step so any failure is detected by UI or telemetry.
- * Run by orchestration (Jira-Reporting-App-Test-Orchestration-Steps.js).
+ * Validates all 13 to-dos: first-paint context line, Load latest visibility, loading/aria-busy,
+ * error recovery and dismiss re-show, context cleared after preview, report load telemetry clean,
+ * Preview button state in sync with filters. Uses captureBrowserTelemetry + assertTelemetryClean
+ * (logcat-style) and real-time UI assertions at every step; fails fast on any UI or logcat issue.
+ * Run by orchestration (Jira-Reporting-App-Test-Orchestration-Steps.js) with --max-failures=1.
  */
 
 import { test, expect } from '@playwright/test';
@@ -16,6 +16,27 @@ import {
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Customer Simplicity Trust Recovery Validation', () => {
+  test.describe.configure({ retries: 0 });
+  test('report load: no critical console or network errors (to-do 12)', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.goto('/report');
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    assertTelemetryClean(telemetry);
+  });
+
+  test('report: Preview enabled when projects and valid range selected (to-do 13)', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.goto('/report');
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    await expect(page.locator('#project-mpsa')).toBeVisible();
+    await page.check('#project-mpsa').catch(() => null);
+    await page.check('#project-mas').catch(() => null);
+    await page.fill('#start-date', '2025-07-01T00:00').catch(() => null);
+    await page.fill('#end-date', '2025-09-30T23:59').catch(() => null);
+    await page.waitForTimeout(200);
+    await expect(page.locator('#preview-btn')).toBeEnabled();
+    assertTelemetryClean(telemetry);
+  });
   test('report first-paint: context line visible and Load latest when No report run yet', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
@@ -153,3 +174,4 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     assertTelemetryClean(telemetry);
   });
 });
+

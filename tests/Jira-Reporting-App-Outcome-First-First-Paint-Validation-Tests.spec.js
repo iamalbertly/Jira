@@ -3,7 +3,7 @@
  * Validates: report first-paint context line (#report-context-line), login outcome line,
  * sidebar context card, context line cleared after preview, and telemetry clean at every step.
  * Uses captureBrowserTelemetry + assertTelemetryClean (logcat equivalent) and real-time UI assertions.
- * Run by orchestration (Jira-Reporting-App-Test-Orchestration-Steps.js).
+ * Run by orchestration (Jira-Reporting-App-Test-Orchestration-Steps.js). Fail fast: retries 0.
  */
 
 import { test, expect } from '@playwright/test';
@@ -16,6 +16,7 @@ import {
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Outcome-First and First-Paint Validation', () => {
+  test.describe.configure({ retries: 0 });
   test('report first-paint: context line visible and shows outcome or placeholder', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
