@@ -337,5 +337,7 @@ body.sidebar-scroll-lock {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 22px;
+  min-width: 0;
+  max-width: 100%;
 }
 

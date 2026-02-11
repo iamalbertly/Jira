@@ -1,3 +1,11 @@
+/* Leadership viewport containment */
+#hud-grid,
+.hud-grid {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .current-sprint-header-bar {
@@ -83,10 +91,13 @@
 
   .sprint-cards-row {
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .card-column {
-    min-width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .export-dashboard-container {

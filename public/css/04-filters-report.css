@@ -8,6 +8,8 @@
   height: fit-content;
   position: sticky;
   top: 20px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 1025px) {
@@ -435,6 +437,9 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   min-height: 600px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .loading {

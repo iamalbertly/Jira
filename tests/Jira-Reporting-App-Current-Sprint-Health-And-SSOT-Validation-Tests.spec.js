@@ -116,5 +116,29 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y).toBeLessThan(160);
   });
+
+  test('work risks table when present has Summary column and displays row data', async ({ page }) => {
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login or home; auth may be required');
+      return;
+    }
+    const table = page.locator('#work-risks-table');
+    const tableVisible = await table.isVisible().catch(() => false);
+    if (!tableVisible) {
+      test.skip(true, 'Work risks table not visible for current data set');
+      return;
+    }
+    await expect(table.locator('th:has-text("Summary")')).toBeVisible();
+    const rows = table.locator('tbody tr');
+    const count = await rows.count();
+    if (count === 0) {
+      test.skip(true, 'Work risks table has no rows');
+      return;
+    }
+    const firstRow = rows.first();
+    const summaryCell = firstRow.locator('td.cell-wrap[data-label="Summary"]').or(firstRow.locator('td:nth-child(4)'));
+    await expect(summaryCell).toBeVisible();
+  });
 });
 

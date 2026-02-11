@@ -73,4 +73,55 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     expect(hasNav || hasFilters).toBe(true);
     assertTelemetryClean(telemetry);
   });
+
+  test('report page has no viewport horizontal overflow at 375px', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/report');
+    if (page.url().includes('login')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+    const noOverflow = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const scrollW = document.documentElement.scrollWidth;
+      return scrollW <= vw + 1;
+    });
+    expect(noOverflow).toBe(true);
+    assertTelemetryClean(telemetry);
+  });
+
+  test('current-sprint page has no viewport horizontal overflow at 375px', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+    const noOverflow = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const scrollW = document.documentElement.scrollWidth;
+      return scrollW <= vw + 1;
+    });
+    expect(noOverflow).toBe(true);
+    assertTelemetryClean(telemetry);
+  });
+
+  test('leadership page has no viewport horizontal overflow at 375px', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/sprint-leadership');
+    if (page.url().includes('login')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+    const noOverflow = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const scrollW = document.documentElement.scrollWidth;
+      return scrollW <= vw + 1;
+    });
+    expect(noOverflow).toBe(true);
+    assertTelemetryClean(telemetry);
+  });
 });

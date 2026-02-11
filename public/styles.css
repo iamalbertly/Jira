@@ -23,16 +23,27 @@
   box-sizing: border-box;
 }
 
+/* Viewport containment: prevent any component from extending past the device viewport */
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
 body {
   font-family: 'Aptos', 'Candara', 'Segoe UI', sans-serif;
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 .container {
-  max-width: 1480px;
+  max-width: min(1480px, 100%);
+  width: 100%;
   margin: 0 auto;
   padding: 28px;
+  overflow-x: hidden;
 }
 
 header {
@@ -494,6 +505,8 @@ body.sidebar-scroll-lock {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 22px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Filters Panel */
@@ -506,6 +519,8 @@ body.sidebar-scroll-lock {
   height: fit-content;
   position: sticky;
   top: 20px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 1025px) {
@@ -933,6 +948,9 @@ body.sidebar-scroll-lock {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   min-height: 600px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .loading {
@@ -2089,6 +2107,8 @@ body.notification-dock-visible .container {
   -webkit-overflow-scrolling: touch;
   position: relative;
   margin-bottom: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 .data-table-scroll-wrap::after {
   content: '';
@@ -2209,6 +2229,10 @@ body.notification-dock-visible .container {
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .export-section-btn {
@@ -2837,12 +2861,15 @@ body.notification-dock-visible .container {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sprint-cards-row.top-row {
   grid-column: 1 / -1;
   flex-wrap: nowrap;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sprint-cards-row.secondary-row {
@@ -4275,6 +4302,14 @@ body.notification-dock-visible .export-dashboard-container {
   }
 }
 
+/* Leadership viewport containment */
+#hud-grid,
+.hud-grid {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .current-sprint-header-bar {
@@ -4360,10 +4395,13 @@ body.notification-dock-visible .export-dashboard-container {
 
   .sprint-cards-row {
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .card-column {
-    min-width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .export-dashboard-container {

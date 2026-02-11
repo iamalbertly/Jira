@@ -22,9 +22,18 @@
   box-sizing: border-box;
 }
 
+/* Viewport containment: prevent any component from extending past the device viewport */
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
 body {
   font-family: 'Aptos', 'Candara', 'Segoe UI', sans-serif;
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }

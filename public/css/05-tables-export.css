@@ -61,6 +61,8 @@
   -webkit-overflow-scrolling: touch;
   position: relative;
   margin-bottom: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 .data-table-scroll-wrap::after {
   content: '';
@@ -181,6 +183,10 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .export-section-btn {

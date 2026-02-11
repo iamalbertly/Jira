@@ -437,12 +437,15 @@
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sprint-cards-row.top-row {
   grid-column: 1 / -1;
   flex-wrap: nowrap;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sprint-cards-row.secondary-row {
