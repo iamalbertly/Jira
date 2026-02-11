@@ -304,6 +304,30 @@ header h1 {
   top: 20px;
 }
 
+@media (min-width: 1025px) {
+  .filters-panel {
+    top: 86px;
+    max-height: calc(100vh - 106px);
+    overflow-y: auto;
+    padding: 16px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 38%);
+  }
+  .filters-panel .filter-group {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+  .filters-panel .filters-actions {
+    position: sticky;
+    bottom: -1px;
+    padding-top: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.9), #ffffff 50%);
+  }
+  .filters-panel-collapsed-bar .btn {
+    margin-bottom: 0;
+  }
+}
+
 .filters-panel.collapsed {
   min-width: 200px;
   max-width: 260px;
@@ -1899,33 +1923,6 @@ body.notification-dock-visible .container {
   .data-table { font-size: 0.82em; }
   .data-table th { padding: 8px; font-size: 0.78em; }
   .data-table td { padding: 6px 8px; }
-  /* Stacked card layout for work-risks and other data-tables with data-label (Flaw 2 edge case) */
-  .data-table-scroll-wrap .data-table thead { display: none; }
-  .data-table-scroll-wrap .data-table tbody tr {
-    display: block;
-    border: 1px solid var(--border);
-    margin-bottom: 10px;
-    border-radius: 8px;
-    padding: 10px;
-    background: var(--card);
-  }
-  .data-table-scroll-wrap .data-table tbody td {
-    display: block;
-    padding: 4px 0;
-    border-bottom: none;
-    white-space: normal;
-  }
-  .data-table-scroll-wrap .data-table tbody td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    display: inline-block;
-    min-width: 110px;
-    color: var(--muted);
-    font-size: 0.9em;
-  }
-  .data-table-scroll-wrap .data-table tbody tr:hover {
-    background: #f8fafc;
-  }
   .data-table-scroll-wrap::after { display: none; }
 }
 
@@ -2245,6 +2242,148 @@ body.notification-dock-visible .container {
   .current-sprint-outcome-line {
     top: 56px;
   }
+
+  .container {
+    padding: 10px;
+  }
+
+  .main-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .filters-panel {
+    position: static;
+    top: auto;
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .filters-actions {
+    position: static;
+    bottom: auto;
+    padding-top: 8px;
+  }
+
+  .preview-area {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: 140px;
+  }
+
+  .preview-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .preview-header-export-wrap {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .done-stories-controls,
+  .boards-controls,
+  .sprints-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .search-input-wrap {
+    width: 100%;
+  }
+
+  .search-input-wrap input[type="text"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .project-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .project-pills .pill {
+    flex: 0 0 auto;
+  }
+
+  .section-export {
+    justify-content: stretch;
+  }
+
+  .section-export .btn {
+    width: 100%;
+  }
+
+  .data-table-scroll-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+  }
+  .preview-area .data-table-scroll-wrap .data-table {
+    min-width: 760px;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  .preview-area .data-table-scroll-wrap .data-table thead {
+    display: table-header-group !important;
+  }
+  .preview-area .data-table-scroll-wrap .data-table tbody tr {
+    display: table-row !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+  .preview-area .data-table-scroll-wrap .data-table tbody td {
+    display: table-cell !important;
+    padding: 8px 10px !important;
+    white-space: nowrap !important;
+    border-bottom: 1px solid #edf2f7 !important;
+  }
+  .preview-area .data-table-scroll-wrap .data-table tbody td::before {
+    content: none !important;
+  }
+  #project-epic-level-content,
+  #sprints-content,
+  #leadership-content {
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 720px) {
+  .filters-panel-collapsed-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .filters-panel-collapsed-bar .filters-collapsed-summary {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.3;
+  }
 }
 
 /* ========== NEW REDESIGN COMPONENTS ========== */
@@ -2559,6 +2698,21 @@ body.notification-dock-visible .container {
 }
 .card-details-toggle-wrap:not(.card-details-collapsed) .card-details-toggle {
   margin-bottom: 0;
+}
+.mobile-secondary-details {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.mobile-secondary-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+  padding: 10px 12px;
+}
+.mobile-secondary-details[open] > summary {
+  border-bottom: 1px solid var(--border);
 }
 
 .alert-banner {
@@ -3999,6 +4153,22 @@ body.notification-dock-visible .export-dashboard-container {
   .insights-tab {
     font-size: 0.8rem;
     padding: 8px 12px;
+  }
+  .mobile-secondary-details .transparency-card {
+    margin-bottom: 0;
+    border: 0;
+    box-shadow: none;
+    padding: 12px;
+  }
+  #stories-table th:nth-child(5),
+  #stories-table td:nth-child(5),
+  #stories-table th:nth-child(6),
+  #stories-table td:nth-child(6),
+  #stories-table th:nth-child(10),
+  #stories-table td:nth-child(10),
+  #stories-table th:nth-child(11),
+  #stories-table td:nth-child(11) {
+    display: none;
   }
 
   .scope-modal-content {

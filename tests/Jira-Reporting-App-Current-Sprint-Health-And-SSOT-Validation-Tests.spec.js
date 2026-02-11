@@ -71,7 +71,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     expect(bodyText).toMatch(/Try the previous sprint tab/i);
   });
 
-  test('projects SSOT sync applies silently when Report projects change via storage event', async ({ page }) => {
+  test('projects SSOT sync applies silently and normalizes to one project for current sprint', async ({ page }) => {
     await page.goto('/current-sprint');
     if (page.url().includes('login') || page.url().endsWith('/')) {
       test.skip(true, 'Redirected to login or home; auth may be required');
@@ -85,7 +85,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
       window.dispatchEvent(new StorageEvent('storage', { key, newValue: 'MPSA,MAS' }));
     });
 
-    await expect(page.locator('#current-sprint-projects')).toHaveValue('MPSA,MAS');
+    await expect(page.locator('#current-sprint-projects')).toHaveValue('MPSA');
     await expect(page.locator('#board-select')).toBeVisible();
   });
 

@@ -2,6 +2,15 @@ import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escap
 import { formatDate, formatDayLabel, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 
+function resolveResponsiveRowLimit(desktopLimit, mobileLimit = 8) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(max-width: 768px)').matches ? mobileLimit : desktopLimit;
+    }
+  } catch (_) {}
+  return desktopLimit;
+}
+
 function buildBurndownChart(remaining, ideal) {
   if (!remaining || remaining.length === 0) return '';
   const width = 640;
@@ -171,11 +180,11 @@ export function renderStories(data) {
     html += renderEmptyStateHtml('No work items', 'No work items in this sprint.', '');
   } else {
     // Prevent rendering all rows to avoid large initial DOM
-    const initialLimit = 10;
+    const initialLimit = resolveResponsiveRowLimit(10, 6);
     const toShow = stories.slice(0, initialLimit);
     const remaining = stories.slice(initialLimit);
 
-    html += '<table class="data-table" id="stories-table"><thead><tr><th>Issue</th><th>Type</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Story Points</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
+    html += '<table class="data-table" id="stories-table"><thead><tr><th>Issue</th><th>Type</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Story Points</th><th>Subtask Est Hrs</th><th>Subtask Logged Hrs</th><th>Created</th><th>Resolved</th></tr></thead><tbody>';
     for (const row of toShow) {
       html += '<tr>';
       html += '<td>' + renderIssueKeyLink(row.issueKey || row.key, row.issueUrl) + '</td>';
@@ -185,6 +194,8 @@ export function renderStories(data) {
       html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
       html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
       html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
+      html += '<td>' + formatNumber(row.subtaskEstimateHours ?? 0, 1, '-') + '</td>';
+      html += '<td>' + formatNumber(row.subtaskLoggedHours ?? 0, 1, '-') + '</td>';
       html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
       html += '<td>' + escapeHtml(formatDate(row.resolved)) + '</td>';
       html += '</tr>';
@@ -203,6 +214,8 @@ export function renderStories(data) {
         html += '<td>' + escapeHtml(row.reporter || '-') + '</td>';
         html += '<td>' + escapeHtml(row.assignee || '-') + '</td>';
         html += '<td>' + formatNumber(row.storyPoints ?? 0, 1, '-') + '</td>';
+        html += '<td>' + formatNumber(row.subtaskEstimateHours ?? 0, 1, '-') + '</td>';
+        html += '<td>' + formatNumber(row.subtaskLoggedHours ?? 0, 1, '-') + '</td>';
         html += '<td>' + escapeHtml(formatDate(row.created)) + '</td>';
         html += '<td>' + escapeHtml(formatDate(row.resolved)) + '</td>';
         html += '</tr>';

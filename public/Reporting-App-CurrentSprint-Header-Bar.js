@@ -18,6 +18,7 @@ export function renderHeaderBar(data) {
 
   const totalSP = summary.totalSP ?? 0;
   const donePercentage = summary.percentDone ?? 0;
+  const subtaskLoggedHours = Number(summary.subtaskLoggedHours || 0);
   const remainingDays = days.daysRemainingWorking != null ? days.daysRemainingWorking : days.daysRemainingCalendar;
   const sprintEndDate = planned.end || sprint.endDate;
   
@@ -54,7 +55,8 @@ export function renderHeaderBar(data) {
   const outcomeParts = [
     escapeHtml(sprint.name || 'Sprint ' + sprint.id) + ': ' + donePercentage + '% done',
     remainingText,
-    issuesCount + ' issues'
+    issuesCount + ' issues',
+    subtaskLoggedHours.toFixed(1) + 'h logged'
   ];
   const outcomeLine = outcomeParts.join(' · ');
 
@@ -85,6 +87,10 @@ export function renderHeaderBar(data) {
   html += '<div class="header-metric">';
   html += '<span class="metric-label">Progress</span>';
   html += '<span class="metric-value">' + donePercentage + '%</span>';
+  html += '</div>';
+  html += '<div class="header-metric">';
+  html += '<span class="metric-label">Spent Hrs</span>';
+  html += '<span class="metric-value">' + subtaskLoggedHours.toFixed(1) + '</span>';
   html += '</div>';
   html += '<a href="#stories-card" class="header-metric header-metric-link" title="Jump to issues in this sprint">';
   html += '<span class="metric-label">Issues in sprint</span>';

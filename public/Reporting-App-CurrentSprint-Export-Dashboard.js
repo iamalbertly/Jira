@@ -33,16 +33,22 @@ export function wireExportHandlers(data) {
 
   const btn = container.querySelector('.export-dashboard-btn');
   const menu = container.querySelector('#export-menu');
+  if (!btn || !menu) return;
 
   // Toggle menu
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     menu.classList.toggle('hidden');
+    const expanded = !menu.classList.contains('hidden');
+    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
   });
 
   // Close menu on click outside
   document.addEventListener('click', (e) => {
     if (!container.contains(e.target) && !menu.classList.contains('hidden')) {
       menu.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -52,6 +58,7 @@ export function wireExportHandlers(data) {
     option.addEventListener('click', () => {
       const action = option.dataset.action;
       menu.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
 
       if (action.startsWith('export-png')) {
         const resolution = action === 'export-png-1920' ? { width: 1920, height: 1080 } : { width: 1200, height: 800 };

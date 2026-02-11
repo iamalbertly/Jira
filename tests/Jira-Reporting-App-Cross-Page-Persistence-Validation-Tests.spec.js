@@ -7,6 +7,18 @@ import { test, expect } from '@playwright/test';
 import { waitForPreview } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const assertContainsProjectCodes = async (locator) => {
+  const text = (await locator.textContent()) || '';
+  expect(text).toMatch(/SD/);
+  expect(text).toMatch(/MAS/);
+  expect(text).toMatch(/BIO/);
+  expect(text).toMatch(/RPA/);
+};
+const assertProjectSetValue = async (locator, expectedCodes) => {
+  const actual = ((await locator.inputValue()) || '').split(',').map((x) => x.trim()).filter(Boolean).sort();
+  const expected = expectedCodes.split(',').map((x) => x.trim()).filter(Boolean).sort();
+  expect(actual).toEqual(expected);
+};
 
 test.describe('Cross-Page Persistence', () => {
   test('persisted projects and date range survive Report → Leadership → Current Sprint → Report', async ({ page }) => {
@@ -49,16 +61,23 @@ test.describe('Cross-Page Persistence', () => {
 
     const contextBar = page.locator('[data-context-bar]');
     await expect(contextBar).toBeVisible();
-    await expect(contextBar).toContainText(/SD.*MAS.*BIO.*RPA/);
+    await assertContainsProjectCodes(contextBar);
 
     await page.goto(BASE_URL + '/sprint-leadership');
     if (page.url().includes('login')) {
       test.skip(true, 'Redirected to login');
       return;
     }
-    await expect(page.locator('#leadership-projects')).toBeVisible();
-    await expect(page.locator('#leadership-projects')).toHaveValue(projectCodes);
-    await expect(page.locator('[data-context-bar]')).toContainText(/SD.*MAS.*BIO.*RPA/);
+    if (page.url().includes('/report')) {
+      for (const id of projectIds) {
+        await expect(page.locator('#' + id)).toBeChecked();
+      }
+      await assertContainsProjectCodes(page.locator('[data-context-bar]'));
+    } else {
+      await expect(page.locator('#leadership-projects')).toBeVisible();
+      await assertProjectSetValue(page.locator('#leadership-projects'), projectCodes);
+      await assertContainsProjectCodes(page.locator('[data-context-bar]'));
+    }
 
     await page.goto(BASE_URL + '/current-sprint');
     if (page.url().includes('login')) {
@@ -66,7 +85,7 @@ test.describe('Cross-Page Persistence', () => {
       return;
     }
     await expect(page.locator('#current-sprint-projects')).toBeVisible();
-    await expect(page.locator('#current-sprint-projects')).toHaveValue(projectCodes);
+    await assertProjectSetValue(page.locator('#current-sprint-projects'), projectCodes);
 
     await page.goto(BASE_URL + '/report');
     if (page.url().includes('login')) {

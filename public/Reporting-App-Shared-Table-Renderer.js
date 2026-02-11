@@ -3,7 +3,8 @@ import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 export function buildDataTableHtml(columns, rows, options = {}) {
   const { id, rowClassKey = '__rowClass', footerRow = null, footerTooltips = null } = options;
   let html = '';
-  html += (id ? `<table class="data-table" id="${id}">` : '<table class="data-table">');
+  html += '<div class="data-table-scroll-wrap">';
+  html += (id ? `<table class="data-table data-table--mobile-scroll" id="${id}">` : '<table class="data-table data-table--mobile-scroll">');
   html += '<thead><tr>';
   for (const col of columns) {
     const title = col.title || col;
@@ -22,7 +23,8 @@ export function buildDataTableHtml(columns, rows, options = {}) {
       } else {
         value = (r[key] == null) ? '' : String(r[key]);
       }
-      html += '<td>' + escapeHtml(value) + '</td>';
+      const label = escapeHtml(col.label || col.key || col);
+      html += '<td data-label="' + label + '">' + escapeHtml(value) + '</td>';
     }
     html += '</tr>';
   }
@@ -33,10 +35,12 @@ export function buildDataTableHtml(columns, rows, options = {}) {
       const key = (col.key || col).toString();
       const tip = footerTooltips && footerTooltips[key] ? footerTooltips[key] : '';
       const value = footerRow[key] == null ? '' : String(footerRow[key]);
-      html += `<td title="${escapeHtml(tip)}" data-tooltip="${escapeHtml(tip)}">${escapeHtml(value)}</td>`;
+      const label = escapeHtml(col.label || col.key || col);
+      html += `<td data-label="${label}" title="${escapeHtml(tip)}" data-tooltip="${escapeHtml(tip)}">${escapeHtml(value)}</td>`;
     }
     html += '</tr></tfoot>';
   }
   html += '</table>';
+  html += '</div>';
   return html;
 }

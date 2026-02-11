@@ -124,14 +124,22 @@ export function initPreviewFlow() {
       return true;
     };
     if (tryClick()) return;
-    // Retry click after the short anti-double-click lock clears.
-    setTimeout(() => {
-      if (!tryClick()) {
+    // Retry within the anti-double-click lock and force once if still blocked.
+    let attempts = 0;
+    const maxAttempts = 5;
+    const retryTimer = setInterval(() => {
+      attempts += 1;
+      if (tryClick()) {
+        clearInterval(retryTimer);
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(retryTimer);
         // Last resort for explicit user retry actions.
         previewBtn.disabled = false;
         tryClick();
       }
-    }, 600);
+    }, 80);
   };
 
   document.addEventListener('click', (event) => {

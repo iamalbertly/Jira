@@ -82,7 +82,7 @@ export function renderSprintsTab(sprints, metrics) {
     total.subtaskEstimateHours || total.subtaskSpentHours || total.subtaskRemainingHours || total.subtaskVarianceHours
   );
 
-  let html = '<table class="data-table"><thead><tr>' +
+  let html = '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr>' +
     '<th title="Projects included for this sprint.">Project</th>' +
     '<th title="Board that owns the sprint.">Board</th>' +
     '<th title="Sprint name.">Sprint</th>' +
@@ -250,7 +250,7 @@ export function renderSprintsTab(sprints, metrics) {
   }
   html += '</tr>';
 
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   content.innerHTML = html;
   try { import('./Reporting-App-Shared-Dom-Escape-Helpers.js').then(({ addTitleForTruncatedCells }) => addTitleForTruncatedCells('#tab-sprints table.data-table th, #tab-sprints table.data-table td')).catch(() => {}); } catch (e) {}
 } 

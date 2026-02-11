@@ -1,6 +1,15 @@
 import { escapeHtml, renderIssueKeyLink } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateTime, formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 
+function resolveResponsiveRowLimit(desktopLimit, mobileLimit = 8) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(max-width: 768px)').matches ? mobileLimit : desktopLimit;
+    }
+  } catch (_) {}
+  return desktopLimit;
+}
+
 function buildMergedWorkRiskRows(data) {
   const rows = [];
   const storiesByKey = new Map((data.stories || []).map((s) => [s.issueKey || s.key, s]));
@@ -93,7 +102,7 @@ function buildMergedWorkRiskRows(data) {
 
 export function renderWorkRisksMerged(data) {
   const rows = buildMergedWorkRiskRows(data);
-  const initialLimit = 20;
+  const initialLimit = resolveResponsiveRowLimit(20, 8);
   const toShow = rows.slice(0, initialLimit);
   const remaining = rows.slice(initialLimit);
 

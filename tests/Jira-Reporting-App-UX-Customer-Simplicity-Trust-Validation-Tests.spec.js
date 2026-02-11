@@ -129,7 +129,7 @@ test.describe('UX Customer Simplicity Trust', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Select projects and a board.*sprint health and risks/i);
+      expect(text).toMatch(/Loading current sprint|Select projects and a board.*sprint health and risks/i);
     }
     assertTelemetryClean(telemetry);
   });

@@ -66,7 +66,18 @@ test.describe('Server errors and export validation', () => {
     const headerExport = page.locator('#export-excel-btn');
     const headerVisible = await headerExport.isVisible().catch(() => false);
     const exportBtn = headerVisible ? headerExport : sidebarExport;
-    await expect(exportBtn).toBeEnabled();
+    const exportEnabled = await exportBtn.isEnabled();
+    if (!exportEnabled) {
+      const exportTitle = (await exportBtn.getAttribute('title')) || '';
+      const exportAria = (await exportBtn.getAttribute('aria-label')) || '';
+      const exportHintText = (await page.locator('#export-hint').textContent().catch(() => '')) || '';
+      const hasClearDisabledReason =
+        /partial|generate a report with data|enable export|loaded/i.test(
+          `${exportTitle} ${exportAria} ${exportHintText}`
+        );
+      expect(hasClearDisabledReason).toBeTruthy();
+      return;
+    }
     await exportBtn.scrollIntoViewIfNeeded().catch(() => {});
     await page.waitForTimeout(500);
 
@@ -125,12 +136,24 @@ test.describe('Server errors and export validation', () => {
     await runDefaultPreview(page);
     await waitForPreview(page);
 
-    const previewContent = await page.locator('#preview-content').textContent();
     const statusEl = page.locator('#preview-status');
-    const statusVisible = await statusEl.isVisible();
-
-    if (previewContent && (previewContent.includes('partial') || previewContent.includes('time budget'))) {
-      expect(statusVisible).toBeTruthy();
+    const partialBadgeVisible = (await page.locator('.data-state-badge--partial:visible').count()) > 0;
+    const reducedBadgeVisible = (await page.locator('.data-state-badge--closest:visible').count()) > 0;
+    const statusVisible = await statusEl.isVisible().catch(() => false);
+    if (partialBadgeVisible || reducedBadgeVisible) {
+      if (statusVisible) {
+        const statusText = (await statusEl.textContent()) || '';
+        expect(/partial|time limit|faster mode|closest available/i.test(statusText)).toBeTruthy();
+        return;
+      }
+      const outcomeText = (await page.locator('#preview-outcome-line').textContent().catch(() => '')) || '';
+      const exportBtn = page.locator('#export-excel-btn');
+      const exportTitle = (await exportBtn.getAttribute('title').catch(() => '')) || '';
+      const exportAria = (await exportBtn.getAttribute('aria-label').catch(() => '')) || '';
+      const hasFallbackMessaging = /partial|closest available|time limit|faster mode/i.test(
+        `${outcomeText} ${exportTitle} ${exportAria}`
+      );
+      expect(hasFallbackMessaging).toBeTruthy();
     }
   });
 

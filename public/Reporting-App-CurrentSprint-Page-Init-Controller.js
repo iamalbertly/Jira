@@ -62,9 +62,20 @@ function wireRedesignHandlers(data) {
   
   // Wire export handlers
   wireExportHandlers(data);
+  collapseMobileDetailsSections();
 
   // Wire legacy template loaders (load heavy legacy content on demand)
   wireLegacyTemplateLoaders();
+}
+
+function collapseMobileDetailsSections() {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    if (!window.matchMedia('(max-width: 768px)').matches) return;
+    document.querySelectorAll('details[data-mobile-collapse="true"]').forEach((el) => {
+      el.open = false;
+    });
+  } catch (_) {}
 }
 
 function showRenderedContent(data) {

@@ -2,13 +2,20 @@ import { currentSprintDom, currentSprintKeys } from './Reporting-App-CurrentSpri
 
 export function getProjectsParam() {
   const { projectsSelect } = currentSprintDom;
-  const selection = projectsSelect?.value || '';
+  const normalizeForCurrentSprint = (value) => {
+    const raw = (value || '').trim();
+    if (!raw) return '';
+    const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= 1) return raw;
+    return parts[0];
+  };
+  const selection = normalizeForCurrentSprint(projectsSelect?.value || '');
   if (selection) return selection;
   try {
-    const s = localStorage.getItem(currentSprintKeys.projectsKey);
+    const s = normalizeForCurrentSprint(localStorage.getItem(currentSprintKeys.projectsKey));
     if (s) return s;
   } catch (_) {}
-  return 'MPSA,MAS';
+  return 'MPSA';
 }
 
 export function getStoredProjects() {
@@ -22,7 +29,13 @@ export function getStoredProjects() {
 export function syncProjectsSelect(value) {
   const { projectsSelect } = currentSprintDom;
   if (!projectsSelect) return false;
-  const target = (value || '').trim();
+  const normalizeForCurrentSprint = (input) => {
+    const raw = (input || '').trim();
+    if (!raw) return '';
+    const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+    return parts[0] || '';
+  };
+  const target = normalizeForCurrentSprint(value);
   if (!target) return false;
   const options = Array.from(projectsSelect.options || []);
   const match = options.find(opt => opt.value === target);

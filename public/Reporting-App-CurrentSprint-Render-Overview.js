@@ -107,14 +107,17 @@ export function renderSummaryCard(data) {
   html += '<div class="summary-block summary-block-subtask">';
   html += '<span>Sub-task</span>';
   if (totalIssues === 0) {
-    html += '<span class="subtask-chip subtask-chip-ok" title="All sub-tasks tracked"><a href="#subtask-tracking-card">All tracked</a></span>';
+    html += '<span class="subtask-chip subtask-chip-ok" title="All sub-tasks tracked"><a href="#stories-card">All tracked</a></span>';
+    html += '<div class="subtask-chips">';
+    html += '<a href="#stories-card" class="subtask-chip subtask-chip-neutral">' + formatNumber(summary.subtaskLoggedHours || 0, 1, '0') + 'h logged</a>';
+    html += '</div>';
   } else {
     html += '<span class="subtask-health-score" title="Sub-task tracking health">' + subtaskHealth + '%</span>';
     html += '<div class="subtask-chips">';
-    html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-neutral">' + formatNumber(summary.subtaskLoggedHours || 0, 1, '0') + 'h logged</a>';
-    if (missingEstimate > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-warning" title="Missing estimates">' + missingEstimate + ' missing est.</a>';
-    if (missingLogged > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-info" title="No time logged yet">' + missingLogged + ' no log</a>';
-    if (subtaskStuck > 0) html += '<a href="#subtask-tracking-card" class="subtask-chip subtask-chip-warning" title="Stuck >24h">' + subtaskStuck + ' stuck</a>';
+    html += '<a href="#stories-card" class="subtask-chip subtask-chip-neutral">' + formatNumber(summary.subtaskLoggedHours || 0, 1, '0') + 'h logged</a>';
+    if (missingEstimate > 0) html += '<a href="#work-risks-table" class="subtask-chip subtask-chip-warning" title="Missing estimates">' + missingEstimate + ' missing est.</a>';
+    if (missingLogged > 0) html += '<a href="#work-risks-table" class="subtask-chip subtask-chip-info" title="No time logged yet">' + missingLogged + ' no log</a>';
+    if (subtaskStuck > 0) html += '<a href="#work-risks-table" class="subtask-chip subtask-chip-warning" title="Stuck >24h">' + subtaskStuck + ' stuck</a>';
     html += '</div>';
   }
   html += '</div>';

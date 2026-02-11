@@ -155,7 +155,7 @@ export function renderLeadershipPage(data) {
     html += '</div>';
     html += '<div id="leadership-boards-table-wrap" class="leadership-boards-table-wrap" hidden>';
     html += '<div id="leadership-sort-label" class="leadership-sort-label" aria-live="polite"></div>';
-    html += '<table class="data-table leadership-boards-table"><thead><tr>';
+    html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll leadership-boards-table"><thead><tr>';
     html += '<th class="sortable" data-sort="board" scope="col">Board</th>';
     html += '<th class="sortable" data-sort="projects" scope="col">Projects</th>';
     html += '<th class="sortable" data-sort="sprints" scope="col">Sprints</th>';
@@ -199,7 +199,7 @@ export function renderLeadershipPage(data) {
       html += '<td>' + onTime + '</td>';
       html += '</tr>';
     }
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     html += '</div>';
   }
   html += '</div>';
@@ -219,7 +219,7 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<h2>Velocity (SP/day) and trend</h2>';
   html += '<p class="metrics-hint">Rolling averages by sprint end date. Difference compares against the previous window of the same length.</p>';
-  html += '<table class="data-table"><thead><tr><th>Window</th><th>Sprints</th><th>Avg SP/day</th><th>Difference</th><th>On-time %</th><th>Signal</th><th>Data quality</th></tr></thead><tbody>';
+  html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr><th>Window</th><th>Sprints</th><th>Avg SP/day</th><th>Difference</th><th>On-time %</th><th>Signal</th><th>Data quality</th></tr></thead><tbody>';
   for (const row of velocityWindows) {
     const label = row.months === 1 ? '1 month' : row.months + ' months';
     const diffText = row.diff != null ? formatNumber(row.diff, 1, '-') + '%' : '-';
@@ -236,7 +236,7 @@ export function renderLeadershipPage(data) {
     html += '<td>' + quality + '</td>';
     html += '</tr>';
   }
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
 
   if (Object.keys(perSprint).length > 0) {
     const sprintIndex = new Map();
@@ -262,7 +262,7 @@ export function renderLeadershipPage(data) {
     html += '<div class="leadership-card">';
     html += '<h2>Predictability by sprint (committed vs delivered)</h2>';
     html += '<p class="metrics-hint">Planned = created before sprint start; unplanned = added after. Detection assumptions apply.</p>';
-    html += '<table class="data-table"><thead><tr><th>Sprint</th><th>Start</th><th>End</th><th>Committed Stories</th><th>Delivered Stories</th><th>Committed SP</th><th>Delivered SP</th><th>Stories %</th><th>SP %</th></tr></thead><tbody>';
+    html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr><th>Sprint</th><th>Start</th><th>End</th><th>Committed Stories</th><th>Delivered Stories</th><th>Committed SP</th><th>Delivered SP</th><th>Stories %</th><th>SP %</th></tr></thead><tbody>';
     for (const row of perSprintRows) {
       html += '<tr>';
       html += '<td>' + escapeHtml(row.sprintName) + '</td>';
@@ -276,7 +276,7 @@ export function renderLeadershipPage(data) {
       html += '<td>' + (row.predictabilitySP != null ? formatNumber(row.predictabilitySP, 1, '-') + '%' : '-') + '</td>';
       html += '</tr>';
     }
-    html += '</tbody></table></div>';
+    html += '</tbody></table></div></div>';
   }
 
   return html;

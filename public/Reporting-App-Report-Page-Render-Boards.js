@@ -141,7 +141,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       html += '<p class="metrics-hint"><small>Note: Per-board throughput is merged into the Boards table. Per Sprint data is shown in the Sprints tab. Below are aggregated views by issue type.</small></p>';
       if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
         html += '<h4>Per Issue Type</h4>';
-        html += '<table class="data-table"><thead><tr>' +
+        html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr>' +
           '<th title="Issue category as reported by Jira.">Issue Type</th>' +
           '<th title="Total story points delivered for this issue type. Higher means more effort delivered.">Total SP</th>' +
           '<th title="Total number of done issues for this type in the window.">Issue Count</th>' +
@@ -150,7 +150,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
           const data = metrics.throughput.perIssueType[issueType];
           html += `<tr><td>${escapeHtml(data.issueType || 'Unknown')}</td><td>${data.totalSP}</td><td>${data.issueCount}</td></tr>`;
         }
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
       }
     }
 
@@ -168,6 +168,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       html += '<h3>Predictability</h3>';
       html += `<p>Mode: ${escapeHtml(metrics.predictability.mode)}</p>`;
       html += '<p class="metrics-hint"><small>Detection: Planned carryover = created before sprint start and delivered. Unplanned spillover = added mid-sprint and delivered. Do not use unplanned spillover as a failure metric.</small></p>';
+      html += '<div class="data-table-scroll-wrap">';
       html += buildPredictabilityTableHeaderHtml();
       const predictPerSprint = metrics.predictability.perSprint || {};
       for (const data of Object.values(predictPerSprint)) {
@@ -190,14 +191,17 @@ export function renderProjectEpicLevelTab(boards, metrics) {
           <td>${formatPercent(data.predictabilitySP)}</td>
         </tr>`;
       }
-      html += '</tbody></table>';
+      html += '</tbody></table></div>';
     }
 
-    if (metrics.epicTTM) {
-      html += '<h3>Epic Time-To-Market</h3>';
+    html += '<h3>Epic Time-To-Market</h3>';
+    const epicTTMRows = Array.isArray(metrics.epicTTM) ? metrics.epicTTM : [];
+    if (metrics.epicTTM || epicTTMRows.length === 0) {
       const epicHygiene = meta?.epicHygiene;
       if (epicHygiene && epicHygiene.ok === false) {
         html += '<p class="data-quality-warning"><strong>Epic hygiene insufficient for timing metrics.</strong> ' + escapeHtml(epicHygiene.message || '') + ' Epic TTM is suppressed. Fix Epic Link usage and/or epic span before using TTM.</p>';
+      } else if (epicTTMRows.length === 0) {
+        html += '<div class="empty-state alert-info"><p><strong>No Epic Time-To-Market rows in this window.</strong></p><small>Epic TTM is enabled, but no epics with usable timing data were returned for the selected projects/date range.</small></div>';
       } else {
         html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
         if (meta?.epicTTMFallbackCount > 0) {
@@ -210,7 +214,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
         if (!meta?.jiraHost) {
           html += '<p class="metrics-hint data-quality-warning"><small>Jira issue links are unavailable. Set JIRA_HOST in the server environment to enable links.</small></p>';
         }
-        html += '<table class="data-table"><thead><tr>' +
+        html += '<div class="data-table-scroll-wrap"><table class="data-table data-table--mobile-scroll"><thead><tr>' +
           '<th title="Epic identifier in Jira." data-tooltip="Epic identifier in Jira.">Epic Key</th>' +
           '<th class="cell-wrap" title="Epic summary/title." data-tooltip="Epic summary/title.">Epic Name</th>' +
           '<th class="cell-wrap" title="User stories linked to this epic in the window. Hover to see summaries." data-tooltip="User stories linked to this epic in the window. Hover to see summaries.">Story IDs</th>' +
@@ -221,7 +225,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
           '<th title="Working days from start to end (excludes weekends). Use this to compare team flow." data-tooltip="Working days from start to end (excludes weekends). Use this to compare team flow.">Working TTM (days)</th>' +
           '<th title="Sum of subtask time spent (hours) across stories in this epic." data-tooltip="Sum of subtask time spent (hours) across stories in this epic.">Subtask Spent (Hrs)</th>' +
           '</tr></thead><tbody>';
-        const epicRows = [...metrics.epicTTM, ...buildEpicAdhocRows(reportState.previewRows)];
+        const epicRows = [...epicTTMRows, ...buildEpicAdhocRows(reportState.previewRows)];
         for (const epic of epicRows) {
           html += `<tr>
           <td>${renderEpicKeyCell(epic, meta)}</td>
@@ -235,7 +239,7 @@ export function renderProjectEpicLevelTab(boards, metrics) {
           <td>${renderEpicSubtaskHours(epic)}</td>
         </tr>`;
         }
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
       }
     }
   } else {

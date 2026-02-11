@@ -94,7 +94,10 @@ export function renderCurrentSprintPage(data) {
   html += '</div>';
 
   html += '<div class="sprint-cards-column full-width">';
+  html += '<details class="mobile-secondary-details" data-mobile-collapse="true" open>';
+  html += '<summary>Daily completion trend</summary>';
   html += renderDailyCompletion(data);
+  html += '</details>';
   html += renderStories(data);
   html += '</div>';
 

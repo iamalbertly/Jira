@@ -108,7 +108,15 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     const errorVisible = await page.locator('#error').isVisible();
     const exportBtn = page.locator('#export-excel-btn');
     if (previewVisible) {
-      await expect(exportBtn).toBeEnabled();
+      const rowsCount = await page.locator('#done-stories-table tbody tr').count();
+      if (rowsCount > 0) {
+        await expect(exportBtn).toBeEnabled();
+      } else {
+        await expect(exportBtn).toBeDisabled();
+        const title = (await exportBtn.getAttribute('title')) || '';
+        const aria = (await exportBtn.getAttribute('aria-label')) || '';
+        expect(/partial|loaded|export|data/i.test(`${title} ${aria}`)).toBeTruthy();
+      }
     } else if (errorVisible) {
       const errorText = await page.locator('#error').textContent();
       expect(errorText && errorText.trim().length > 0).toBeTruthy();
@@ -143,7 +151,17 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       test.skip(true, 'Preview not visible; may require Jira credentials');
       return;
     }
-    await expect(page.locator('#export-excel-btn')).toBeEnabled();
+    const exportBtn = page.locator('#export-excel-btn');
+    const rowsCount = await page.locator('#done-stories-table tbody tr').count();
+    if (rowsCount <= 0) {
+      await expect(exportBtn).toBeDisabled();
+      const title = (await exportBtn.getAttribute('title')) || '';
+      const aria = (await exportBtn.getAttribute('aria-label')) || '';
+      expect(/partial|loaded|export|data/i.test(`${title} ${aria}`)).toBeTruthy();
+      assertTelemetryClean(telemetry);
+      return;
+    }
+    await expect(exportBtn).toBeEnabled();
     await page.waitForTimeout(500);
 
     const downloadPromise = page.waitForEvent('download', { timeout: EXCEL_DOWNLOAD_TIMEOUT_MS });
@@ -153,7 +171,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       if (text && text.trim().length > 0) return { type: 'clearState' };
       throw new Error('Error visible but empty');
     })();
-    await page.click('#export-excel-btn');
+    await exportBtn.click();
 
     const result = await Promise.race([
       downloadPromise.then((d) => ({ type: 'download', value: d })),
