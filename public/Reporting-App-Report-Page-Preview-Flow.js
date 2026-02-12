@@ -41,6 +41,19 @@ function formatDateTimeLocalValue(date) {
   return `${y}-${m}-${day}T${h}:${min}`;
 }
 
+function narrowDateWindow(endDateInputValue, currentStartInputValue) {
+  const endDate = endDateInputValue ? new Date(endDateInputValue) : new Date();
+  const effectiveEnd = Number.isNaN(endDate.getTime()) ? new Date() : endDate;
+  const currentStart = currentStartInputValue ? new Date(currentStartInputValue) : null;
+  const hasValidCurrentStart = currentStart && !Number.isNaN(currentStart.getTime());
+  const currentRangeDays = hasValidCurrentStart
+    ? Math.round((effectiveEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const targetDays = currentRangeDays != null && currentRangeDays <= 31 ? 14 : 30;
+  const adjustedStart = new Date(effectiveEnd.getTime() - (targetDays * 24 * 60 * 60 * 1000));
+  return { adjustedStart, effectiveEnd };
+}
+
 function buildRetryActionsHtml() {
   return `
     <div class="status-banner-actions" style="margin-top:8px;">
@@ -185,17 +198,23 @@ export function initPreviewFlow() {
     if (target.getAttribute && target.getAttribute('data-action') === 'retry-with-smaller-range') {
       const endInput = document.getElementById('end-date');
       const startInput = document.getElementById('start-date');
-      const endDate = endInput && endInput.value ? new Date(endInput.value) : new Date();
-      const effectiveEnd = Number.isNaN(endDate.getTime()) ? new Date() : endDate;
-      const adjustedStart = new Date(effectiveEnd.getTime() - (30 * 24 * 60 * 60 * 1000));
+      const narrowed = narrowDateWindow(endInput ? endInput.value : '', startInput ? startInput.value : '');
+      const adjustedStart = narrowed.adjustedStart;
+      const effectiveEnd = narrowed.effectiveEnd;
       if (startInput) {
         startInput.value = formatDateTimeLocalValue(adjustedStart);
         startInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      if (endInput && !endInput.value) {
+      if (endInput) {
         endInput.value = formatDateTimeLocalValue(effectiveEnd);
         endInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
+      try {
+        emitTelemetry('preview.retryNarrowedRange', {
+          start: formatDateTimeLocalValue(adjustedStart),
+          end: formatDateTimeLocalValue(effectiveEnd),
+        });
+      } catch (_) {}
       queueRetryPreview();
     }
 

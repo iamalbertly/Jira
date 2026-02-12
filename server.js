@@ -67,16 +67,19 @@ app.use((err, req, res, next) => {
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`VodaAgileBoard running on http://localhost:${PORT}`);
-  console.log(`Access: ${authEnabled ? 'login at / then /report' : `report at http://localhost:${PORT}/report`}`);
+  const accessMode = superTokensEnabled
+    ? `auth at http://localhost:${PORT}/auth${legacyAuthEnabled ? ' (hybrid legacy + SuperTokens enabled)' : ''}`
+    : (authEnabled ? 'login at / then /report' : `report at http://localhost:${PORT}/report`);
+  console.log(`Access: ${accessMode}`);
 
   const hasHost = !!process.env.JIRA_HOST;
   const hasEmail = !!process.env.JIRA_EMAIL;
   const hasToken = !!process.env.JIRA_API_TOKEN;
 
   if (hasHost && hasEmail && hasToken) {
-    console.log(`✓ Jira credentials loaded: ${process.env.JIRA_HOST} (${process.env.JIRA_EMAIL.substring(0, 3)}***)`);
+    console.log(`Jira credentials loaded: ${process.env.JIRA_HOST} (${process.env.JIRA_EMAIL.substring(0, 3)}***)`);
   } else {
-    console.warn(`⚠ Missing Jira credentials`);
+    console.warn('Missing Jira credentials');
   }
 
   logger.info('Server started', { port: PORT, credentialsLoaded: hasHost && hasEmail && hasToken });
@@ -95,3 +98,4 @@ server.on('error', (err) => {
   }
   throw err;
 });
+

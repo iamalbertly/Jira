@@ -10,21 +10,21 @@ const loginFailuresByIp = new Map(); // ip -> { count, resetAt }
 
 // Login: first screen for unauthenticated users
 router.get('/', (req, res) => {
-    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/auth');
     if (!authEnabled) return res.redirect('/report');
     if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
     res.sendFile('login.html', { root: './public' });
 });
 
 router.get('/login', (req, res) => {
-    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/auth');
     if (!authEnabled) return res.redirect('/report');
     if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
     res.sendFile('login.html', { root: './public' });
 });
 
 router.post('/login', (req, res) => {
-    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/auth');
     if (!authEnabled) return res.redirect('/report');
     const redirect = (req.body.redirect && req.body.redirect.startsWith('/')) ? req.body.redirect : '/report';
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -54,6 +54,16 @@ router.post('/login', (req, res) => {
     req.session.user = username;
     req.session.lastActivity = Date.now();
     return res.redirect(redirect);
+});
+
+router.post('/logout', (req, res) => {
+    if (req.session && typeof req.session.destroy === 'function') {
+        req.session.destroy(() => {
+            res.redirect('/login');
+        });
+        return;
+    }
+    res.redirect(superTokensEnabled && !legacyAuthEnabled ? '/auth' : '/login');
 });
 
 /**
