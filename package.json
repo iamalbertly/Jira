@@ -21,7 +21,8 @@
     "test:current-sprint-redesign": "playwright test tests/Jira-Reporting-App-CurrentSprint-Redesign-Validation-Tests.spec.js",
     "test:throughput-merge": "playwright test tests/Jira-Reporting-App-Throughput-Merge.spec.js --max-failures=1 --workers=1 --reporter=list --headed",
     "test:leadership-trends": "playwright test tests/Jira-Reporting-App-Leadership-Trends-Usage-Validation-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed",
-    "test:ux-reliability": "playwright test tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed"
+    "test:ux-reliability": "playwright test tests/Jira-Reporting-App-UX-Reliability-Fixes-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed",
+    "test:customer-speed-trust-realtime": "playwright test tests/Jira-Reporting-App-Customer-Speed-Simplicity-Trust-Realtime-Validation-Tests.spec.js --max-failures=1 --workers=1 --reporter=list --headed"
   },
   "keywords": ["voda-agile-board", "agile", "reporting", "sprint", "jira"],
   "author": "",
