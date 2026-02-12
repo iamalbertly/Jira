@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  supertokens-postgresql:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: supertokens_user
+      POSTGRES_PASSWORD: supertokens_password
+      POSTGRES_DB: supertokens
+    ports:
+      - "5432:5432"
+    volumes:
+      - supertokens_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supertokens_user -d supertokens"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  supertokens-core:
+    image: supertokens/supertokens-postgresql
+    restart: unless-stopped
+    depends_on:
+      supertokens-postgresql:
+        condition: service_healthy
+    environment:
+      POSTGRESQL_CONNECTION_URI: postgresql://supertokens_user:supertokens_password@supertokens-postgresql:5432/supertokens
+      API_KEYS: supertokens-dev-api-key
+    ports:
+      - "3567:3567"
+
+volumes:
+  supertokens_postgres_data:

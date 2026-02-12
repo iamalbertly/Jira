@@ -596,15 +596,21 @@ VodaAgileBoard behaves slightly differently depending on which environment varia
 - **Local development (no auth, default)**:
   - Set Jira variables and (optionally) `PORT`, but **do not** set `SESSION_SECRET` or any `APP_LOGIN_*` values.
   - Visit `http://localhost:3000/report` directly; `/` redirects to `/report` for a fast feedback loop.
-- **Local development (auth enabled)**:
+- **Local development (legacy auth enabled)**:
   - In addition to Jira variables, set `SESSION_SECRET`, `APP_LOGIN_USER`, and `APP_LOGIN_PASSWORD`.
   - Visit `http://localhost:3000`; you will see the login screen, and `/report` plus the APIs require a valid session.
+- **Local development (SuperTokens enabled)**:
+  - Start SuperTokens core stack: `npm run auth:supertokens:up`
+  - Set `SUPERTOKENS_ENABLED=true` and `SUPERTOKENS_CONNECTION_URI=http://localhost:3567`.
+  - Keep `SUPERTOKENS_HYBRID_MODE=true` during migration so existing login + sessions remain valid while SuperTokens sessions are accepted.
+  - For pure SuperTokens mode, set `SUPERTOKENS_HYBRID_MODE=false` and move clients to `/auth`.
 - **CI (GitHub Actions)**:
   - CI runs `npm run test:all` with a controlled set of environment variables.
   - Recommended: keep auth disabled in CI by omitting `SESSION_SECRET`, so most tests remain simple and deterministic.
 - **Production (Render)**:
-  - Always set `SESSION_SECRET`, `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`, Jira variables, and `NODE_ENV=production` from the Render dashboard.
-  - End users always experience the login page plus honeypot, rate limiting, and session timeout before they reach `/report`.
+  - Preferred: set `SUPERTOKENS_ENABLED=true` with `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_DOMAIN`, `SUPERTOKENS_WEBSITE_DOMAIN`, Jira variables, and `NODE_ENV=production`.
+  - Migration-safe: keep `SUPERTOKENS_HYBRID_MODE=true` while users transition.
+  - Legacy fallback: `SESSION_SECRET`, `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`.
 
 ## Environment Variables
 
@@ -614,6 +620,15 @@ VodaAgileBoard behaves slightly differently depending on which environment varia
 - `APP_LOGIN_USER`: Username for app login (required when auth is enabled)
 - `APP_LOGIN_PASSWORD`: Password for app login (required when auth is enabled)
 - `SESSION_SECRET`: Secret for signing session cookies (required when auth is enabled)
+- `SUPERTOKENS_ENABLED`: Enable SuperTokens backend auth/session middleware (`true` / `false`)
+- `SUPERTOKENS_HYBRID_MODE`: Accept both legacy sessions and SuperTokens sessions during migration
+- `SUPERTOKENS_CONNECTION_URI`: SuperTokens core URI (default `http://localhost:3567`)
+- `SUPERTOKENS_API_KEY`: Optional API key used by SuperTokens core
+- `SUPERTOKENS_APP_NAME`: App display name for auth flows
+- `SUPERTOKENS_API_DOMAIN`: Backend domain for SuperTokens (`http://localhost:3000` in local dev)
+- `SUPERTOKENS_WEBSITE_DOMAIN`: Frontend domain for SuperTokens (`http://localhost:3000` in local dev)
+- `SUPERTOKENS_API_BASE_PATH`: SuperTokens API base path (default `/auth`)
+- `SUPERTOKENS_WEBSITE_BASE_PATH`: SuperTokens website base path (default `/auth`)
 - `PORT`: Server port (default: 3000)
 - `LOG_LEVEL`: Logging level - `DEBUG`, `INFO`, `WARN`, `ERROR` (default: `INFO`)
 - `NODE_ENV`: Environment - `development` or `production`
@@ -627,7 +642,10 @@ VodaAgileBoard can be deployed to [Render](https://render.com) or any Node host.
 
 1. Connect your Git repo (e.g. GitHub) to Render and create a Web Service.
 2. Set **Build command** to `npm install` (or `npm ci`) and **Start command** to `npm start`.
-3. Add all environment variables in the Render dashboard: `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`, `SESSION_SECRET`, `NODE_ENV=production`.
+3. Add environment variables in Render:
+   - Required: `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `NODE_ENV=production`
+   - Preferred auth: `SUPERTOKENS_ENABLED=true`, `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_DOMAIN`, `SUPERTOKENS_WEBSITE_DOMAIN`
+   - Legacy fallback auth: `APP_LOGIN_USER`, `APP_LOGIN_PASSWORD`, `SESSION_SECRET`
 4. Optional: use a [Blueprint](https://render.com/docs/infrastructure-as-code) by adding `render.yaml` at the repo root; validate with `render blueprints validate`. Deploy via Render CLI: `render deploys create <SERVICE_ID> --confirm`.
 
 ### Live instance

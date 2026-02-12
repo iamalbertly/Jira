@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { requireAuth, authEnabled, APP_LOGIN_USER, APP_LOGIN_PASSWORD } from '../lib/middleware.js';
+import { requireAuth, authEnabled, legacyAuthEnabled, superTokensEnabled, APP_LOGIN_USER, APP_LOGIN_PASSWORD } from '../lib/middleware.js';
 import { logger } from '../lib/Jira-Reporting-App-Server-Logging-Utility.js';
 
 const router = express.Router();
@@ -10,18 +10,21 @@ const loginFailuresByIp = new Map(); // ip -> { count, resetAt }
 
 // Login: first screen for unauthenticated users
 router.get('/', (req, res) => {
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
     if (!authEnabled) return res.redirect('/report');
     if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
     res.sendFile('login.html', { root: './public' });
 });
 
 router.get('/login', (req, res) => {
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
     if (!authEnabled) return res.redirect('/report');
     if (req.session && req.session.user) return res.redirect(req.query.redirect || '/report');
     res.sendFile('login.html', { root: './public' });
 });
 
 router.post('/login', (req, res) => {
+    if (superTokensEnabled && !legacyAuthEnabled) return res.redirect('/report');
     if (!authEnabled) return res.redirect('/report');
     const redirect = (req.body.redirect && req.body.redirect.startsWith('/')) ? req.body.redirect : '/report';
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
