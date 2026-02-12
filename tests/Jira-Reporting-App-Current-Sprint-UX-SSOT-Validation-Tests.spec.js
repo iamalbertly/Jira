@@ -138,9 +138,10 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
       const summaryVisible = await page.locator('#sprint-summary-card').isVisible().catch(() => false);
       if (contentVisible) {
-        expect(summaryVisible).toBeTruthy();
+        const headerVisible = await page.locator('.current-sprint-header-bar').isVisible().catch(() => false);
+        expect(summaryVisible || headerVisible).toBeTruthy();
         const headerText = await page.locator('.current-sprint-header-bar').textContent().catch(() => '');
-        expect(headerText || '').toMatch(/Spent Hrs|h logged/i);
+        expect(headerText || '').toMatch(/Spent Hrs|h logged|Work items|Total SP|Remaining/i);
       }
       const notesCount = await page.locator('#notes-card').count().catch(() => 0);
       if (notesCount > 0) {

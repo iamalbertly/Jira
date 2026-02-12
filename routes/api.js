@@ -2,7 +2,7 @@
 import express from 'express';
 import { requireAuth } from '../lib/middleware.js';
 import { logger } from '../lib/Jira-Reporting-App-Server-Logging-Utility.js';
-import { cache, CACHE_TTL } from '../lib/cache.js';
+import { cache, CACHE_TTL, CACHE_KEYS, buildCurrentSprintSnapshotCacheKey } from '../lib/cache.js';
 import { createAgileClient, createVersion3Client } from '../lib/jiraClients.js';
 import { fetchSprintsForBoard } from '../lib/sprints.js';
 import { buildCurrentSprintPayload } from '../lib/currentSprint.js';
@@ -113,12 +113,18 @@ router.get('/api/current-sprint.json', requireAuth, async (req, res) => {
 
         const projectKeys = board.location?.projectKey ? [board.location.projectKey] : selectedProjects;
         const forceLive = req.query.live === 'true' || req.query.refresh === 'true';
-        const snapshotKey = sprintId != null && !Number.isNaN(sprintId)
-            ? `currentSprintSnapshot:${boardId}:sprint:${sprintId}`
-            : `currentSprintSnapshot:${boardId}`;
+        const completionAnchor = (req.query.completionAnchor || 'resolution').toLowerCase();
+        const supportedAnchors = ['resolution', 'lastsubtask', 'statusdone'];
+        const anchor = supportedAnchors.includes(completionAnchor) ? completionAnchor : 'resolution';
+        const snapshotKey = buildCurrentSprintSnapshotCacheKey({
+            boardId,
+            sprintId: sprintId != null && !Number.isNaN(sprintId) ? sprintId : null,
+            projectKeys,
+            completionAnchor: anchor,
+        });
 
         if (!forceLive) {
-            const cached = cache.get(snapshotKey);
+            const cached = await cache.get(snapshotKey, { namespace: 'currentSprintSnapshot' });
             const cachedPayload = cached?.value ?? cached;
             if (cachedPayload && typeof cachedPayload === 'object') {
                 const out = { ...cachedPayload };
@@ -131,9 +137,6 @@ router.get('/api/current-sprint.json', requireAuth, async (req, res) => {
         }
 
         const fields = await discoverFieldsWithCache(version3Client);
-        const completionAnchor = (req.query.completionAnchor || 'resolution').toLowerCase();
-        const supportedAnchors = ['resolution', 'lastsubtask', 'statusdone'];
-        const anchor = supportedAnchors.includes(completionAnchor) ? completionAnchor : 'resolution';
 
         const payload = await buildCurrentSprintPayload({
             board: { id: board.id, name: board.name, location: board.location },
@@ -154,7 +157,7 @@ router.get('/api/current-sprint.json', requireAuth, async (req, res) => {
         payload.meta.jiraHost = process.env.JIRA_HOST || '';
 
         try {
-            cache.set(snapshotKey, payload, CACHE_TTL.CURRENT_SPRINT_SNAPSHOT);
+            await cache.set(snapshotKey, payload, CACHE_TTL.CURRENT_SPRINT_SNAPSHOT, { namespace: 'currentSprintSnapshot' });
         } catch (e) {
             logger.warn('Failed to cache current-sprint snapshot', { boardId, error: e.message });
         }
@@ -174,6 +177,7 @@ router.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
         }
         const payload = normalizeNotesPayload(req.body || {});
         const saved = await upsertCurrentSprintNotes(boardId, sprintId, payload);
+        await cache.invalidateCurrentSprintSnapshot({ boardId });
         res.json({ boardId, sprintId, notes: saved });
     } catch (error) {
         logger.error('Error saving current-sprint notes', error);
@@ -183,11 +187,12 @@ router.post('/api/current-sprint-notes', requireAuth, async (req, res) => {
 
 router.get('/api/leadership-summary.json', requireAuth, async (req, res) => {
     try {
-        const CACHE_KEY = 'leadership:hud:summary';
-        const cached = cache.get(CACHE_KEY);
-        if (cached) return res.json(cached);
-
         const projects = ['MPSA', 'MAS'];
+        const cacheKey = CACHE_KEYS.leadershipHudSummary(projects);
+        const cached = await cache.get(cacheKey, { namespace: 'leadership' });
+        const cachedSummary = cached?.value || cached;
+        if (cachedSummary) return res.json(cachedSummary);
+
         const agileClient = createAgileClient();
 
         const boards = await discoverBoardsWithCache(projects, agileClient);
@@ -208,7 +213,7 @@ router.get('/api/leadership-summary.json', requireAuth, async (req, res) => {
             projectContext: projects.join(', '),
             generatedAt: new Date().toISOString()
         };
-        cache.set(CACHE_KEY, summary, 60 * 60 * 1000);
+        await cache.set(cacheKey, summary, CACHE_TTL.LEADERSHIP_HUD_SUMMARY, { namespace: 'leadership' });
         res.json(summary);
     } catch (err) {
         logger.error('Leadership HUD Error', err);
@@ -291,10 +296,19 @@ router.post('/feedback', async (req, res) => {
 });
 
 const allowTestCacheClear = process.env.NODE_ENV === 'test' || process.env.ALLOW_TEST_CACHE_CLEAR === '1';
-router.post('/api/test/clear-cache', (req, res) => {
+router.post('/api/test/clear-cache', async (req, res) => {
     if (!allowTestCacheClear) return res.status(404).json({ error: 'Not found' });
-    cache.clear();
+    await cache.clear();
     res.json({ ok: true });
+});
+
+router.get('/api/cache-metrics', requireAuth, (req, res) => {
+    const metrics = cache.getMetricsSnapshot();
+    res.json({
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        ...metrics,
+    });
 });
 
 router.get('/preview.json', requireAuth, previewHandler);

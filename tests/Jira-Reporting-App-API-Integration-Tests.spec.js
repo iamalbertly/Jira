@@ -29,6 +29,24 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
     expect(body.columns).toEqual(SERVER_CSV_COLUMNS);
   });
 
+  test('GET /api/cache-metrics returns cache namespace stats when authenticated', async ({ request }) => {
+    const response = await request.get('/api/cache-metrics');
+    if (response.status() === 401) {
+      test.skip('Auth required; cannot assert cache metrics contract');
+      return;
+    }
+    if (response.status() === 404) {
+      test.skip('Route /api/cache-metrics not found (restart server with latest code)');
+      return;
+    }
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.ok).toBeTruthy();
+    expect(typeof body.generatedAt).toBe('string');
+    expect(typeof body.backend).toBe('string');
+    expect(Array.isArray(body.namespaces)).toBeTruthy();
+  });
+
   test('GET /report should return HTML page', async ({ request }) => {
     const response = await request.get('/report');
     expect(response.status()).toBe(200);
@@ -207,6 +225,29 @@ test.describe('Jira Reporting App - API Integration Tests', () => {
       expect(a).toHaveProperty('code');
       expect(b).toHaveProperty('error');
       expect(b).toHaveProperty('code');
+    }
+  });
+
+  test('GET /preview.json should preserve date-range metadata and expose cache diagnostics', async ({ request }) => {
+    test.setTimeout(180000);
+
+    let response;
+    try {
+      response = await request.get(`${DEFAULT_PREVIEW_URL}&previewMode=normal`, { timeout: 30000 });
+    } catch (error) {
+      test.skip(`Preview request timed out before metadata check: ${error.message}`);
+      return;
+    }
+
+    expect([200, 401, 403, 500]).toContain(response.status());
+    if (response.status() !== 200) return;
+
+    const json = await response.json();
+    expect(json).toHaveProperty('meta');
+    expect(json.meta.windowStart).toBeDefined();
+    expect(json.meta.windowEnd).toBeDefined();
+    if (json.meta.cachedKeyUsed != null) {
+      expect(String(json.meta.cachedKeyUsed)).toContain('preview:v2:');
     }
   });
 

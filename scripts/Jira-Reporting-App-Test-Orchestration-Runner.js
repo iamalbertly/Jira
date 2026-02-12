@@ -151,6 +151,8 @@ async function runAllTests() {
         BASE_URL: baseUrl,
         PORT: process.env.PORT || String(resolvedPort),
         SKIP_WEBSERVER: skipWebServer ? 'true' : (process.env.SKIP_WEBSERVER || ''),
+        PLAYWRIGHT_LIST_PRINT_STEPS: '1',
+        CI: process.env.CI || '',
       });
     }
 

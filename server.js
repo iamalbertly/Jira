@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { logger } from './lib/Jira-Reporting-App-Server-Logging-Utility.js';
 import { authEnabled, APP_LOGIN_USER, APP_LOGIN_PASSWORD } from './lib/middleware.js';
 import { startSnapshotScheduler } from './lib/snapshot-worker.js';
+import { cache } from './lib/cache.js';
 import viewRoutes from './routes/views.js';
 import apiRoutes from './routes/api.js';
 
@@ -64,6 +65,9 @@ const server = app.listen(PORT, () => {
   }
 
   logger.info('Server started', { port: PORT, credentialsLoaded: hasHost && hasEmail && hasToken });
+  cache.ensureBackend().catch((error) => {
+    logger.warn('Cache backend initialization failed, continuing with memory fallback', { error: error.message });
+  });
 
   // Start Background Workers
   startSnapshotScheduler();

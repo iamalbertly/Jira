@@ -7,8 +7,13 @@
  * @returns {Array<{ name: string, command: string, args: string[], cwd: string }>}
  */
 export function getSteps(projectRoot) {
+  const installStep = process.env.SKIP_NPM_INSTALL === 'true'
+    ? []
+    : [{ name: 'Install Dependencies', command: 'npm', args: ['install'], cwd: projectRoot }];
+
   return [
-    { name: 'Install Dependencies', command: 'npm', args: ['install'], cwd: projectRoot },
+    ...installStep,
+    { name: 'Run Focused Cache Reliability API Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-API-Integration-Tests.spec.js', '--grep', 'cache', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Focused Mobile Responsive UX Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Realtime Logcat-Equivalent Responsive Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Project-Jira-Reporting-UX-Responsiveness-Customer-Simplicity-Trust-Logcat-Realtime-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Customer Speed Simplicity Trust Realtime Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Customer-Speed-Simplicity-Trust-Realtime-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },

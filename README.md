@@ -163,6 +163,11 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
 - **Current Sprint layout simplification (2026-02-12):** Rebalanced card rows so Work risks and Burndown are side-by-side, with Risks & Insights + Countdown in the secondary row; this removes duplicate visual blocks and reduces wide empty-space dead zones.
 - **Burndown trust fix (2026-02-12):** Actual burndown line now clamps to real dates and does not project into future days; future trajectory renders as a lighter projection line with a "today" marker.
 - **Runtime error guard (2026-02-12):** Fixed current-sprint `stuckCount is not defined` runtime path and extended realtime validation tests to fail fast on surfaced runtime error signatures.
+- **Unified cache module and shared-store support (2026-02-12):** `lib/cache.js` is now the single instrumented cache owner with namespace metrics, canonical key builders, optional Redis backend (`CACHE_BACKEND=redis` + `REDIS_URL`), and memory fallback.
+- **Canonical cache keys + invalidation hooks (2026-02-12):** Current-sprint snapshot keys are now standardized across worker + API; posting notes invalidates related snapshot entries via targeted cache invalidation.
+- **Preview cache key normalization (2026-02-12):** Preview cache keys now normalize project sets, date windows (day precision), and mode flags to increase hit rates for semantically equivalent requests.
+- **TTL tuning refresh (2026-02-12):** Heavy user-facing caches (preview, sprint issues, current sprint snapshots) now use longer calibrated TTLs with short-lived partial entries.
+- **Cache observability endpoint (2026-02-12):** Added `GET /api/cache-metrics` for backend/namespace hit/miss/set/error visibility.
 
 ### Preview Behaviour & Feedback
 
@@ -221,6 +226,9 @@ Returns the current-sprint transparency payload for a board (snapshot-first; use
 
 ### POST /api/current-sprint-notes
 Saves dependencies/learnings notes for a sprint. Body: `{ boardId, sprintId, dependencies, learnings }`.
+
+### GET /api/cache-metrics
+Returns cache backend + namespace counters (`hits`, `misses`, `sets`, `deletes`, `errors`) for observability and tuning.
 
 **Query Parameters:**
 - `boardId` (required): Jira board ID
@@ -358,6 +366,9 @@ npm run test:ux-trust
 
 # Current Sprint UX and SSOT Validation (board pre-select, burndown, empty states, leadership empty preview)
 npm run test:current-sprint-ux-ssot
+
+# Focused cache reliability and preview metadata checks
+npm run test:cache-reliability
 ```
 
 ### Test Coverage and Caching Behavior
@@ -396,18 +407,14 @@ npm run test:current-sprint-ux-ssot
   - Use `http://localhost:3000` as the default `baseURL` (configurable via `BASE_URL` for remote runs).
   - Optionally manage the application lifecycle with `webServer` (set `SKIP_WEBSERVER=true` to run against an already running server, e.g. when `BASE_URL` points to a deployed instance).
 
-The backend maintains an in-memory TTL cache for several concerns:
+The backend cache is now unified in `lib/cache.js` with:
 
-- **Boards and Sprints**: Cached per project/board for 20 minutes to avoid redundant Jira calls.
-- **Fields**: Story Points and Epic Link field IDs cached for 30 minutes.
-- **Preview Responses**: Full `/preview.json` payloads cached for 20 minutes per unique combination of:
-  - Sorted project list
-  - Start/end window
-  - All boolean toggles
-  - `predictabilityMode`
-- **Preview Partial (on error/timeout)**: When a request fails or times out, any accumulated rows are cached only if they improve on existing data (more rows); these entries use a 10-minute TTL so a later full run can replace them.
-
-Cached preview responses are immutable snapshots. If Jira data changes within the TTL, those changes will not be reflected until the cache entry expires or the server restarts. This keeps repeated previews (with identical filters) fast and predictable.
+- **Single owner API**: One module handles get/set/delete/clear/entries and key templates.
+- **Shared store support**: Memory cache by default; optional Redis-backed shared cache when `CACHE_BACKEND=redis` and `REDIS_URL` are set.
+- **Canonical key templates**: Standardized key builders for preview, sprint issues, discovery, leadership summary, and current-sprint snapshots.
+- **Namespace observability**: Per-namespace hit/miss/set/delete/error counters exposed via `/api/cache-metrics`.
+- **Targeted invalidation**: Current-sprint notes writes invalidate the board snapshot namespace to avoid stale snapshots.
+- **TTL profile**: Preview (45m), preview partial (15m), sprint issues (20m), current-sprint snapshots (2h), with short partial lifetimes so full runs can supersede quickly.
 
 ## Project Structure
 
@@ -610,6 +617,9 @@ VodaAgileBoard behaves slightly differently depending on which environment varia
 - `PORT`: Server port (default: 3000)
 - `LOG_LEVEL`: Logging level - `DEBUG`, `INFO`, `WARN`, `ERROR` (default: `INFO`)
 - `NODE_ENV`: Environment - `development` or `production`
+- `CACHE_BACKEND`: `memory` (default) or `redis`
+- `REDIS_URL`: Redis connection URL (required when `CACHE_BACKEND=redis`)
+- `CACHE_ENABLE_REMOTE_SCAN`: `1` (default) enables remote cache key scan for best-available preview lookups; set `0` to disable scan
 
 ## Deployment
 

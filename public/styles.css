@@ -2718,6 +2718,10 @@ body.notification-dock-visible .container {
   z-index: 50;
   box-shadow: 0 4px 12px rgba(15, 76, 129, 0.06);
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .current-sprint-outcome-line {
@@ -4408,6 +4412,10 @@ body.notification-dock-visible .export-dashboard-container {
   .current-sprint-header-bar {
     padding: 12px;
     gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-right: 0;
   }
 
   .header-bar-left,
