@@ -158,6 +158,11 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
 - **Visual refresh without flow changes:** Existing pages now use a more modern, higher-contrast theme (lighter gradients, clearer hierarchy for sidebar/nav, stronger active states, and improved table/header readability) to reduce "plain" appearance while preserving the same workflows and controls.
 - **Text encoding cleanup:** Fixed mojibake in core report/leadership rendering strings (for example timeline separators and grade fallback labels) to keep customer-facing copy trustworthy and readable.
 - **Realtime fail-fast validation suite:** Added `tests/Jira-Reporting-App-Customer-Speed-Simplicity-Trust-Realtime-Validation-Tests.spec.js` and orchestration wiring so `npm run test:all` now includes 16 fail-fast checks covering report/current-sprint/leadership UI geometry, deduped throughput rendering, hydration behavior, and realtime telemetry ("logcat-equivalent") guardrails.
+- **Current Sprint scope dedup (2026-02-12):** Removed the separate Scope indicator card/modal and merged scope-change insight directly into existing SSOT views: Work risks table + Risks & Insights blockers narrative.
+- **Work risks table enrichment (2026-02-12):** Added `Type` and `SP` columns to merged Work risks so scope/stuck/sub-task/sprint issues keep decision-grade detail in one place.
+- **Current Sprint layout simplification (2026-02-12):** Rebalanced card rows so Work risks and Burndown are side-by-side, with Risks & Insights + Countdown in the secondary row; this removes duplicate visual blocks and reduces wide empty-space dead zones.
+- **Burndown trust fix (2026-02-12):** Actual burndown line now clamps to real dates and does not project into future days; future trajectory renders as a lighter projection line with a "today" marker.
+- **Runtime error guard (2026-02-12):** Fixed current-sprint `stuckCount is not defined` runtime path and extended realtime validation tests to fail fast on surfaced runtime error signatures.
 
 ### Preview Behaviour & Feedback
 
