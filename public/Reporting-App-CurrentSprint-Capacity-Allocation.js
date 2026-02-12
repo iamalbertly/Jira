@@ -65,7 +65,7 @@ export function renderCapacityAllocation(data) {
   if (unassignedPercent > 20) {
     capacityHealth = 'uncertain';
     capacityColor = 'yellow';
-    capacityMessage = '⚠️ ' + unassignedPercent + '% of issues unassigned';
+    capacityMessage = '⚠️ ' + unassignedPercent + '% of issues unassigned (capacity estimate may be low confidence)';
   }
 
   let html = '<div class="transparency-card capacity-allocation-card" id="capacity-card">';
@@ -73,14 +73,6 @@ export function renderCapacityAllocation(data) {
 
   // Overall health
   html += '<div class="capacity-health ' + capacityColor + '">' + capacityMessage + '</div>';
-
-  // Unassigned warning
-  if (unassignedPercent > 20) {
-    html += '<div class="capacity-warning">';
-    html += '⚠️ ' + unassignedCount + ' of ' + issues.length + ' issues unassigned (' + unassignedPercent + '%). ';
-    html += 'Capacity calculation may be inaccurate.';
-    html += '</div>';
-  }
 
   // Per-person allocation
   html += '<div class="capacity-allocations">';

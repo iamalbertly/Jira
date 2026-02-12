@@ -1,10 +1,27 @@
-/**
+﻿/**
  * Report preview meta and status HTML builder. SSOT for buildPreviewMetaAndStatus.
  */
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateForDisplay } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { buildJiraIssueUrl } from './Reporting-App-Report-Utils-Jira-Helpers.js';
 import { REPORT_LAST_RUN_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+
+function buildGeneratedLabels(generatedAt) {
+  const generatedMs = generatedAt ? new Date(generatedAt).getTime() : Date.now();
+  const ageMs = Date.now() - generatedMs;
+  const generatedShort = generatedAt
+    ? new Date(generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
+    : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const recent = ageMs >= 0 && ageMs < 3600000;
+  const ageMin = Math.round(ageMs / 60000);
+  const label = recent
+    ? (ageMin < 1 ? 'Generated: just now' : `Generated: ${ageMin} min ago`)
+    : `Generated: ${generatedShort}`;
+  const stickySuffix = generatedAt
+    ? (ageMin < 1 ? ' | Generated just now' : ` | Generated ${ageMin} min ago`)
+    : '';
+  return { label, stickySuffix };
+}
 
 /**
  * @param {{ meta: object, previewRows?: array, boardsCount: number, sprintsCount: number, rowsCount: number, unusableCount: number }} params
@@ -98,21 +115,8 @@ export function buildPreviewMetaAndStatus(params) {
   else if (timedOut) metaSummaryWhy = ' | Time limit reached (partial data)';
   else if (previewMode === 'recent-first') metaSummaryWhy = ' | Recent live; older from cache';
 
-  const generatedAtMs = meta.generatedAt ? new Date(meta.generatedAt).getTime() : Date.now();
-  const ageMs = Date.now() - generatedAtMs;
-  const generatedShort = meta.generatedAt
-    ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
-    : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  const generatedLabel = ageMs >= 0 && ageMs < 3600000
-    ? (Math.round(ageMs / 60000) < 1 ? 'Generated: just now' : 'Generated: ' + Math.round(ageMs / 60000) + ' min ago')
-    : 'Generated: ' + generatedShort;
-  const generatedAgoSuffix = meta.generatedAt
-    ? (Math.round(ageMs / 60000) < 1 ? ' · Generated just now' : ' · Generated ' + Math.round(ageMs / 60000) + ' min ago')
-    : '';
+  const generated = buildGeneratedLabels(meta.generatedAt);
 
-  const outcomeLine = `${rowsCount} done stories · ${sprintsCount} sprints · ${boardsCount} boards · ${escapeHtml(generatedLabel)}${metaSummaryWhy ? ' ' + metaSummaryWhy : ''}`;
-  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} – ${escapeHtml(windowEndLocal)}`;
-  const compactSummaryLine = `Summary: ${rowsCount} done stories | Boards: ${boardsCount}`;
   let dataStateLabel = 'Live complete';
   let dataStateKind = 'live';
   if (reducedScope) {
@@ -125,12 +129,13 @@ export function buildPreviewMetaAndStatus(params) {
     dataStateLabel = 'Cached';
     dataStateKind = 'cached';
   }
+  const outcomeLine = rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix;
+  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} â€“ ${escapeHtml(windowEndLocal)} | ${escapeHtml(generated.label)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
   const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
   const previewMetaHTML = `
     <div class="meta-info-summary meta-summary-line">
-      <div class="meta-context-line">${escapeHtml(compactSummaryLine)}</div>
-      <div class="meta-outcome-line">${outcomeLine} ${dataStateBadgeHTML}</div>
-      <div class="meta-context-line">${contextLine}</div>
+      <div class="meta-outcome-line">${escapeHtml(outcomeLine)}${prevRunHtml ? ' ' + prevRunHtml : ''}</div>
+      <div class="meta-context-line">${contextLine} ${dataStateBadgeHTML}</div>
     </div>
     <div class="meta-info meta-info-details">
       <strong>Date Window (UTC):</strong> ${escapeHtml(windowStartUtc)} to ${escapeHtml(windowEndUtc)}<br>
@@ -141,7 +146,7 @@ export function buildPreviewMetaAndStatus(params) {
     </div>
   `;
 
-  const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generatedAgoSuffix}`;
+  const stickyText = `Preview: ${selectedProjectsLabel} | ${windowStartLocal} to ${windowEndLocal}${generated.stickySuffix}`;
   let statusHTML = '';
   let statusDisplay = 'none';
   if (rowsCount > 0 && (partial || previewMode !== 'normal' || reducedScope)) {
@@ -166,3 +171,6 @@ export function buildPreviewMetaAndStatus(params) {
   }
   return { reportSubtitleText, appliedFiltersText, outcomeLineHTML, previewMetaHTML, stickyText, statusHTML, statusDisplay };
 }
+
+
+

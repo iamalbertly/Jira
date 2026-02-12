@@ -357,6 +357,12 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
+/* Keep compact actions compact even though base .btn is full-width */
+.btn.btn-compact {
+  width: auto;
+  margin-bottom: 0;
+}
+
 .btn-primary {
   background-color: var(--primary);
   color: white;
@@ -688,9 +694,30 @@
   gap: 12px;
 }
 
+.preview-header #preview-meta {
+  flex: 1 1 460px;
+  min-width: 0;
+}
+
 .preview-header-export-wrap {
   flex-shrink: 0;
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  max-width: 100%;
+}
+
+.preview-header-export-wrap .btn {
+  width: auto;
+  max-width: 100%;
+}
+
+/* Avoid duplicate summary block on wide screens; keep sticky summary for compact/mobile contexts */
+@media (min-width: 1025px) {
+  .preview-summary-sticky {
+    display: none !important;
+  }
 }
 
 .meta-info {
@@ -716,6 +743,13 @@
 }
 .meta-info-summary .meta-context-line {
   margin-top: 2px;
+}
+
+.meta-info-summary .meta-outcome-line,
+.meta-info-summary .meta-context-line,
+.meta-info-details {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .meta-info-details {

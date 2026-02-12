@@ -61,6 +61,17 @@ test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
     expect(mobileCardStyles.rowDisplay).toBe('block');
     expect(mobileCardStyles.tdDisplay).toBe('flex');
     expect(mobileCardStyles.beforeContent).not.toBe('none');
+    const exportVisible = await page.locator('#export-excel-btn').isVisible().catch(() => false);
+    if (exportVisible) {
+      const exportFitsViewport = await page.evaluate(() => {
+        const btn = document.getElementById('export-excel-btn');
+        if (!btn) return true;
+        const rect = btn.getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        return rect.left >= -1 && rect.right <= vw + 1;
+      });
+      expect(exportFitsViewport).toBe(true);
+    }
 
     expect(telemetry.consoleErrors).toEqual([]);
     expect(telemetry.pageErrors).toEqual([]);

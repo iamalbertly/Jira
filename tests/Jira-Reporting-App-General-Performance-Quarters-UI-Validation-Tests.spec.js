@@ -4,17 +4,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { runDefaultPreview, waitForPreview, captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { runDefaultPreview, waitForPreview, captureBrowserTelemetry, skipIfRedirectedToLogin } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Jira Reporting App - General Performance Quarters UI Validation', () => {
   test('report page title or heading includes General Performance', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
-
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     const h1 = page.locator('h1');
     const title = await page.title();
@@ -59,11 +55,7 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
   test('report has quarter strip with at least one quarter pill and shows a date span', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
-
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     const strip = page.locator('.quick-range-strip, [aria-label="Vodacom quarters"]').first();
     await expect(strip).toBeVisible({ timeout: 15000 });
@@ -110,11 +102,7 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
   test('leadership has quarter strip with at least one quarter pill', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
-
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     const strip = page.locator('.quick-range-strip, [aria-label="Vodacom quarters"]').first();
     await expect(strip).toBeVisible({ timeout: 15000 });
@@ -155,11 +143,7 @@ test.describe('Jira Reporting App - General Performance Quarters UI Validation',
     test.setTimeout(60000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('.app-sidebar a.sidebar-link[href="/report"], nav.app-nav a[href="/report"]')).toContainText(/Report|High-Level Performance/i);

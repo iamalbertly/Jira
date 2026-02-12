@@ -120,9 +120,13 @@ export function setLoadingVisible(visible = true) {
   const { loadingEl } = reportDom;
   if (!loadingEl) return;
   const chip = document.getElementById('loading-status-chip');
+  const previewArea = document.querySelector('.preview-area');
+  const loadLatestWrap = document.getElementById('report-load-latest-wrap');
   if (visible) {
     loadingEl.style.display = 'block';
     loadingEl.setAttribute('aria-hidden', 'false');
+    if (previewArea) previewArea.setAttribute('aria-busy', 'true');
+    if (loadLatestWrap) loadLatestWrap.style.display = 'none';
     clearLoadingChipShowTimer();
     loadingChipShowTimerId = setTimeout(() => {
       loadingChipShowTimerId = null;
@@ -136,6 +140,7 @@ export function setLoadingVisible(visible = true) {
     clearLoadingChipShowTimer();
     loadingEl.style.display = 'none';
     loadingEl.setAttribute('aria-hidden', 'true');
+    if (previewArea) previewArea.setAttribute('aria-busy', 'false');
     if (chip) {
       chip.style.display = 'none';
       chip.textContent = '';
@@ -150,6 +155,8 @@ export function hideLoadingIfVisible() {
     loadingEl.style.display = 'none';
     loadingEl.setAttribute('aria-hidden', 'true');
   }
+  const previewArea = document.querySelector('.preview-area');
+  if (previewArea) previewArea.setAttribute('aria-busy', 'false');
   const chip = document.getElementById('loading-status-chip');
   if (chip) {
     chip.style.display = 'none';
@@ -173,6 +180,8 @@ export function forceHideLoading() {
     // best-effort, ignore
   }
   try {
+    const previewArea = document.querySelector('.preview-area');
+    if (previewArea) previewArea.setAttribute('aria-busy', 'false');
     const chip = document.getElementById('loading-status-chip');
     if (chip) {
       chip.style.display = 'none';

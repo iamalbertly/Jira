@@ -25,11 +25,13 @@ test.describe('Throughput / Boards merge UX', () => {
     const content = await page.locator('#project-epic-level-content').textContent();
 
     // Expect to find the explanatory note that throughput is merged into Boards
-    expect(content).toContain('Per-board throughput is merged into the Boards table');
+    expect(content).toContain('Throughput signals are merged into Boards columns');
 
     // Verify Boards table has core throughput columns
     const header = page.locator('#project-epic-level-content #boards-table thead');
     await expect(header).toContainText('Done SP');
+    await expect(header).toContainText('Throughput Stories');
+    await expect(header).toContainText('Throughput SP');
     await expect(header).toContainText('SP / Day');
   });
 });

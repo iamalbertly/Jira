@@ -162,6 +162,13 @@ export function initPreviewFlow() {
         errorEl.style.display = 'none';
         errorEl.innerHTML = '';
       }
+      const previewContentVisible = previewContent && previewContent.style.display !== 'none';
+      if (!previewContentVisible) {
+        const reportContextLine = document.getElementById('report-context-line');
+        const loadLatestWrap = document.getElementById('report-load-latest-wrap');
+        if (reportContextLine) reportContextLine.textContent = 'Preview failed. Use Load latest to retry.';
+        if (loadLatestWrap) loadLatestWrap.style.display = 'inline';
+      }
       if (!previewBtn.disabled && typeof previewBtn.focus === 'function') {
         previewBtn.focus();
       }
@@ -633,6 +640,12 @@ export function initPreviewFlow() {
           statusEl.innerHTML = '';
           statusEl.style.display = 'none';
         }
+      }
+      if (!hasExistingPreview) {
+        const reportContextLine = document.getElementById('report-context-line');
+        const loadLatestWrap = document.getElementById('report-load-latest-wrap');
+        if (reportContextLine) reportContextLine.textContent = 'Preview failed. Use Load latest to retry.';
+        if (loadLatestWrap) loadLatestWrap.style.display = 'inline';
       }
       // Ensure error panel is never blank (trust).
       if (errorEl && errorEl.style.display === 'block' && (!errorEl.textContent || errorEl.textContent.trim() === '')) {

@@ -452,6 +452,21 @@ Cached preview responses are immutable snapshots. If Jira data changes within th
     `-- Jira-Reporting-App-Test-Orchestration-Steps.js   # Step definitions (getSteps(projectRoot))
 ```
 
+## Reality-check and UX backlog (Customer, Simplicity, Trust)
+
+**Outcome lens:** People don’t buy products, they buy outcomes. First load today: user lands on /report and often sees an empty main area until they run Preview. That’s a weak first impression.
+
+**Prioritized improvements (zero budget, incremental):**
+
+1. **Report first-paint context (done)** – On load, the main area now shows a single outcome line (`#report-context-line`): last run summary and freshness when available, or “No report run yet.” So returning users see “Last: X stories, Y sprints · Generated N min ago” before doing anything.
+2. **Dashboard from cache** – Use existing preview cache: on /report load, if server has cached preview for default projects/quarter, return a lightweight summary (e.g. from `lib/cache.js`) so the client can show “Last quarter: X boards, Y stories” without a full preview run. Option: GET /api/report-summary-from-cache that returns `{ boards, storyCount, generatedAt }` from last cached payload for current project/date key.
+3. **One-click “Load latest”** – Replace or supplement the generic empty state with a single CTA: “See last quarter’s delivery — Load latest” that runs preview with default window so the user gets data in one click.
+4. **Auto-preview on load when last-run exists** – When report loads with default projects and sessionStorage has last-run, trigger one auto-preview after a short delay (e.g. 1s) so returning users see data quickly without clicking.
+5. **Background prefetch (later)** – Scheduled job or low-priority worker that warms cache for squads not yet searched, so next visit the landing can show something useful for every squad. No change to current flows; add only when resource allows.
+6. **Login outcome line** – Keep and emphasize the existing “Sprint risks and delivery in under 30 seconds” (and trust line) on the login page so the outcome is clear before sign-in.
+
+**Codebase health (Simplicity, SSOT):** Duplicate “skip if redirected to login” logic across many specs is consolidated into `skipIfRedirectedToLogin(page, test, options)` in `JiraReporting-Tests-Shared-PreviewExport-Helpers.js`. Further: merge duplicate logic in large files (e.g. `Reporting-App-Report-Page-Preview-Flow.js` is SIZE-EXEMPT; `lib/currentSprint.js` >300 lines — split by logical blocks when touching). Enforce ≤300 lines per file and single source of truth for routes, components, and tests; no parallel implementations.
+
 ## Metric guide and governance
 
 Use metrics with explicit assumptions. Every view should make clear what is measured, what is assumed, and what could be wrong. Do not use metrics for performance review, ranking teams, or weaponizing numbers.

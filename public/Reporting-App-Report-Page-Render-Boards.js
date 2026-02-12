@@ -9,7 +9,7 @@ import { buildPredictabilityTableHeaderHtml, buildEpicAdhocRows, renderEpicKeyCe
 import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
 
 const BOARD_TABLE_COLUMN_ORDER = [
-  'Board', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days', 'Done Stories', 'Registered Work Hours', 'Estimated Work Hours', 'Done SP',
+  'Board', 'Projects', 'Sprints', 'Sprint Days', 'Avg Sprint Days', 'Done Stories', 'Throughput Stories', 'Registered Work Hours', 'Estimated Work Hours', 'Done SP', 'Throughput SP',
   'Committed SP', 'Delivered SP', 'SP Estimation %', 'Stories / Sprint', 'SP / Story', 'Stories / Day',
   'SP / Day', 'SP / Sprint', 'SP Variance', 'Indexed Delivery', 'On-Time %', 'Planned', 'Ad-hoc',
   'Active Assignees', 'Stories / Assignee', 'SP / Assignee', 'Assumed Capacity (PD)', 'Assumed Waste %',
@@ -23,9 +23,11 @@ const BOARD_TABLE_HEADER_TOOLTIPS = {
   'Sprint Days': 'Total working days across sprints.',
   'Avg Sprint Days': 'Average sprint length (working days).',
   'Done Stories': 'Stories completed in window.',
+  'Throughput Stories': 'Stories from throughput snapshots across included sprints.',
   'Registered Work Hours': 'Sum of work logged from subtasks (and story) in window.',
   'Estimated Work Hours': 'Sum of estimated hours from subtasks (and story) in window.',
   'Done SP': 'Story points completed (if configured).',
+  'Throughput SP': 'Story points from throughput snapshots across included sprints.',
   'Committed SP': 'Story points committed at sprint start.',
   'Delivered SP': 'Story points delivered by sprint end.',
   'SP Estimation %': 'Delivered SP / Committed SP.',
@@ -55,9 +57,11 @@ const BOARD_SUMMARY_TOOLTIPS = {
   'Sprint Days': 'Total sprint days.',
   'Avg Sprint Days': 'Average sprint length.',
   'Done Stories': 'Total done stories.',
+  'Throughput Stories': 'Total throughput stories.',
   'Registered Work Hours': 'Total registered work hours.',
   'Estimated Work Hours': 'Total estimated work hours.',
   'Done SP': 'Total done SP.',
+  'Throughput SP': 'Total throughput SP.',
   'Committed SP': 'Total committed SP.',
   'Delivered SP': 'Total delivered SP.',
   'SP Estimation %': 'Average estimation accuracy.',
@@ -86,7 +90,22 @@ export function renderProjectEpicLevelTab(boards, metrics) {
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
   let html = '';
   const predictabilityPerSprint = metrics?.predictability?.perSprint || null;
+  const throughputPerSprint = metrics?.throughput?.perSprint || null;
   const boardSummaries = buildBoardSummaries(boards, reportState.previewData?.sprintsIncluded || [], reportState.previewRows, meta, predictabilityPerSprint);
+  const throughputByBoard = new Map();
+  const sprintsById = new Map((reportState.previewData?.sprintsIncluded || []).map((s) => [String(s.id), s]));
+  if (throughputPerSprint && typeof throughputPerSprint === 'object') {
+    for (const item of Object.values(throughputPerSprint)) {
+      const sprintId = item?.sprintId != null ? String(item.sprintId) : '';
+      const sprint = sprintId ? sprintsById.get(sprintId) : null;
+      const boardId = sprint?.boardId != null ? String(sprint.boardId) : '';
+      if (!boardId) continue;
+      const existing = throughputByBoard.get(boardId) || { totalSP: 0, storyCount: 0 };
+      existing.totalSP += Number(item.totalSP) || 0;
+      existing.storyCount += Number(item.storyCount) || 0;
+      throughputByBoard.set(boardId, existing);
+    }
+  }
 
   if (!boards || boards.length === 0) {
     if (!metrics) {
@@ -121,6 +140,9 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     const rowsForRender = boards.map((board) => {
       const summary = boardSummaries.get(board.id) || { sprintCount: 0, doneStories: 0, doneSP: 0, registeredWorkHours: 0, estimatedWorkHours: 0, committedSP: 0, deliveredSP: 0, earliestStart: null, latestEnd: null, totalSprintDays: 0, validSprintDaysCount: 0, doneBySprintEnd: 0, sprintSpValues: [], epicStories: 0, nonEpicStories: 0, epicSP: 0, nonEpicSP: 0, assignees: new Set(), nonEpicAssignees: new Set() };
       const row = computeBoardRowFromSummary(board, summary, meta, spEnabled, hasPredictability);
+      const throughput = throughputByBoard.get(String(board.id));
+      row['Throughput Stories'] = throughput ? throughput.storyCount : 'N/A';
+      row['Throughput SP'] = throughput ? (spEnabled ? throughput.totalSP : 'N/A') : 'N/A';
       // convert object to expected keys
       const out = {};
       for (const k of BOARD_TABLE_COLUMN_ORDER) out[k] = row[k] ?? '';
@@ -128,34 +150,22 @@ export function renderProjectEpicLevelTab(boards, metrics) {
     });
     const summaryRow = computeBoardsSummaryRow(boards, boardSummaries, meta, spEnabled, hasPredictability);
     if (summaryRow) {
+      const throughputTotals = Array.from(throughputByBoard.values()).reduce(
+        (acc, cur) => ({ storyCount: acc.storyCount + (cur.storyCount || 0), totalSP: acc.totalSP + (cur.totalSP || 0) }),
+        { storyCount: 0, totalSP: 0 },
+      );
+      summaryRow['Throughput Stories'] = throughputTotals.storyCount;
+      summaryRow['Throughput SP'] = spEnabled ? throughputTotals.totalSP : 'N/A';
       summaryRow['Board'] = 'All Boards (Comparison)';
       rowsForRender.unshift({ __rowClass: 'boards-summary-row', ...summaryRow });
     }
     html += buildDataTableHtml(columns, rowsForRender, { id: 'boards-table' });
+    html += '<p class="metrics-hint"><small>Throughput signals are merged into Boards columns (Throughput Stories, Throughput SP). Sprint-level throughput remains in Sprint history.</small></p>';
     html += '<p class="table-scroll-hint metrics-hint" aria-live="polite"><small>Scroll right for more columns. Export includes all columns.</small></p>';
   }
 
   if (metrics) {
     html += '<hr style="margin: 30px 0;">';
-
-    if (metrics.throughput) {
-      html += '<h3>Throughput</h3>';
-      html += '<p class="metrics-hint"><small>Note: Per-board throughput is merged into the Boards table. Per Sprint data is shown in the Sprints tab. Below are aggregated views by issue type.</small></p>';
-      if (metrics.throughput.perIssueType && Object.keys(metrics.throughput.perIssueType).length > 0) {
-        html += '<h4>Per Issue Type</h4>';
-        const issueTypeColumns = [
-          { key: 'issueType', label: 'Issue Type', title: 'Issue category as reported by Jira.' },
-          { key: 'totalSP', label: 'Total SP', title: 'Total story points delivered for this issue type. Higher means more effort delivered.' },
-          { key: 'issueCount', label: 'Issue Count', title: 'Total number of done issues for this type in the window.' },
-        ];
-        const issueTypeRows = Object.values(metrics.throughput.perIssueType).map((d) => ({
-          issueType: d.issueType || 'Unknown',
-          totalSP: d.totalSP,
-          issueCount: d.issueCount,
-        }));
-        html += buildDataTableHtml(issueTypeColumns, issueTypeRows);
-      }
-    }
 
     if (metrics.rework) {
       html += '<h3>Rework Ratio</h3>';

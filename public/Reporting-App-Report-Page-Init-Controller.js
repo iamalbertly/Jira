@@ -7,7 +7,7 @@ import { initPreviewFlow, clearPreviewOnFilterChange } from './Reporting-App-Rep
 import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
 import { getValidLastQuery, getContextDisplayString } from './Reporting-App-Shared-Context-From-Storage.js';
-import { REPORT_FILTERS_COLLAPSED_KEY, SHARED_DATE_RANGE_KEY, LAST_QUERY_KEY } from './Reporting-App-Shared-Storage-Keys.js';
+import { REPORT_FILTERS_COLLAPSED_KEY, SHARED_DATE_RANGE_KEY, LAST_QUERY_KEY, PROJECTS_SSOT_KEY, REPORT_LAST_META_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { DEFAULT_WINDOW_START_LOCAL, DEFAULT_WINDOW_END_LOCAL } from './Reporting-App-Report-Config-Constants.js';
 import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Report-Page-DoneStories-Column-Preference.js';
@@ -75,16 +75,32 @@ function updateAppliedFiltersSummary() {
   if (el) el.textContent = summaryText;
   if (chipsEl) chipsEl.textContent = summaryText;
   refreshPreviewButtonLabel();
+  const loadLatestWrapSync = document.getElementById('report-load-latest-wrap');
+  const previewBtnSync = document.getElementById('preview-btn');
+  if (loadLatestWrapSync && previewBtnSync && previewBtnSync.disabled) loadLatestWrapSync.style.display = 'none';
 }
 
 function hydrateFromLastQuery() {
   // Try to load context (Smart Context Engine)
   let ctx = getValidLastQuery();
+  let fallbackProjects = [];
+  try {
+    const rawMeta = sessionStorage.getItem(REPORT_LAST_META_KEY);
+    const parsedMeta = rawMeta ? JSON.parse(rawMeta) : null;
+    if (parsedMeta && Array.isArray(parsedMeta.projects)) {
+      fallbackProjects = parsedMeta.projects.map((p) => String(p || '').trim()).filter(Boolean);
+    }
+  } catch (_) {}
+  if (!fallbackProjects.length) {
+    try {
+      const ssot = localStorage.getItem(PROJECTS_SSOT_KEY);
+      if (ssot) fallbackProjects = ssot.split(',').map((p) => p.trim()).filter(Boolean);
+    } catch (_) {}
+  }
 
-  // If no history, assume "My Squad" default context (MPSA, MAS)
+  // If no history, use widest available cached project scope before falling back to defaults.
   if (!ctx || !ctx.projects) {
-    ctx = { projects: 'MPSA,MAS' };
-    // We don't overwrite dates in default as UI has its own
+    ctx = { projects: fallbackProjects.length ? fallbackProjects.join(',') : 'MPSA,MAS' };
   }
 
   const startInput = document.getElementById('start-date');
@@ -147,7 +163,10 @@ function initReportPage() {
     if (loadLatestBtn) {
       loadLatestBtn.addEventListener('click', () => {
         const pb = document.getElementById('preview-btn');
-        if (pb && !pb.disabled) pb.click();
+        if (pb && !pb.disabled) {
+          pb.click();
+          if (typeof pb.focus === 'function') pb.focus();
+        }
       });
     }
   }
@@ -163,6 +182,10 @@ function initReportPage() {
   applyDoneStoriesOptionalColumnsPreference();
 
   function onFilterChange() {
+    if (autoPreviewTimer) {
+      clearTimeout(autoPreviewTimer);
+      autoPreviewTimer = null;
+    }
     updateAppliedFiltersSummary();
     if (panel?.classList.contains('collapsed')) setFiltersPanelCollapsed(true);
     clearPreviewOnFilterChange();
@@ -315,4 +338,3 @@ if (document.readyState === 'loading') {
 } else {
   initReportPage();
 }
-

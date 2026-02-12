@@ -144,16 +144,14 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     console.log('[TEST] ✓ Project & Epic Level tab is clickable and active');
   });
 
-  test('should show perIssueType empty state message when breakdown unavailable', async ({ page, request }) => {
-    console.log('[TEST] Starting perIssueType empty state validation');
+  test('should keep throughput merged in boards table and remove duplicate throughput section', async ({ page, request }) => {
+    console.log('[TEST] Starting merged throughput validation');
     test.setTimeout(300000);
 
-    // Generate preview with throughput but without bugs (perIssueType will be empty)
-    await runDefaultPreview(page, { 
-      // Story Points and Bugs/Rework are now mandatory (always enabled) 
+    await runDefaultPreview(page, {
+      // Story Points and Bugs/Rework are now mandatory (always enabled)
     });
 
-    // Navigate to Project & Epic Level tab (metrics are embedded)
     const tabOpened = await openProjectEpicTabIfVisible(page);
     if (!tabOpened) {
       test.skip(true, 'Project & Epic Level tab not visible');
@@ -161,13 +159,10 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     }
     await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 10000 });
 
-    // Check for empty state message
     const metricsContent = await page.locator('#project-epic-level-content').textContent();
-    const hasEmptyStateMessage = metricsContent.includes('No issue type breakdown available') || 
-                                  metricsContent.includes('Enable "Include Bugs for Rework"');
-    
-    console.log(`[TEST] ${hasEmptyStateMessage ? '✓' : '⚠'} PerIssueType empty state message ${hasEmptyStateMessage ? 'found' : 'not found'}`);
-    // Note: Message may not appear if perIssueType has data or throughput doesn't exist
+    expect(metricsContent.includes('Throughput (Per Project)')).toBeFalsy();
+    expect(metricsContent.includes('Throughput Stories') || metricsContent.includes('Throughput SP')).toBeTruthy();
+    console.log('[TEST] ? Throughput is merged into boards columns and duplicate section is absent');
   });
 
   test('should display Epic TTM fallback warning when fallback used', async ({ page, request }) => {
@@ -390,3 +385,4 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
     // Note: Epic TTM section may be empty if no epics found, but preview should still succeed
   });
 });
+

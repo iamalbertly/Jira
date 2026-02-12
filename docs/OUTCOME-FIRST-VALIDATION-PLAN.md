@@ -60,3 +60,29 @@ This document records the **13 validation to-dos**, **3 bonus edge cases**, rati
 - `scripts/Jira-Reporting-App-Test-Orchestration-Steps.js` – New step: "Run Outcome-First First-Paint Validation Tests".
 
 Build: run `npm run build:css` so `public/styles.css` includes the new CSS (prestart does this before `npm start`).
+
+---
+
+## 5+ Bonus UX & Reliability Improvements (Current Behaviour)
+
+1. **Hide "Load latest" when loading starts** – When preview fetch starts, `setLoadingVisible(true)` hides `#report-load-latest-wrap` so the user cannot double-trigger; reduces confusion and duplicate requests (Speed, Simplicity).
+2. **Error recovery: re-show context line and "Load latest" on preview failure** – When preview errors and there is no existing preview, the context line is set to "Preview failed. Use Load latest to retry." and the "Load latest" button is shown so the user has a clear path to retry (Trust, Customer).
+3. **Re-show context line and "Load latest" when error is dismissed** – When the user clicks the error panel "Dismiss" (error-close) and no preview is visible, the context line and "Load latest" are shown again so they can retry without reloading (Simplicity, Trust).
+4. **aria-busy on preview area** – When loading is visible, `.preview-area` gets `aria-busy="true"`; when loading is hidden it is set back to `false`. Improves screen-reader and assistive-tech behaviour (Trust).
+5. **Sync "Load latest" with Preview button state** – When the Preview button is disabled (e.g. no projects selected), `#report-load-latest-wrap` is hidden so we never show a CTA that does nothing (Simplicity, Customer).
+6. **Focus Preview button after "Load latest" click** – After programmatically clicking Preview from "Load latest", the Preview button receives focus so keyboard and a11y users stay in the correct control (Speed, Trust).
+
+---
+
+## 2+ Edge Case Solutions
+
+1. **Cancel init auto-preview when user changes filters** – The 1s delayed auto-preview scheduled on load is cancelled as soon as the user changes any filter (start/end date, project, options). Prevents overwriting the user’s intent and avoids a redundant request (Trust, Speed).
+2. **"Load latest" only when Preview is enabled** – "Load latest" is hidden when the Preview button is disabled (no projects or invalid range), so the empty state never offers a dead CTA (Simplicity, edge case for no-projects / invalid-range).
+
+---
+
+## 3 Technical-Debt Cleanups (Existing Test Modules)
+
+1. **Jira-Reporting-App-UX-Trust-And-Export-Validation-Tests.spec.js** – Replaced inline `page.url().includes('login') || page.url().endsWith('/')` with `skipIfRedirectedToLogin(page, test, { currentSprint: true })` for current-sprint and leadership tests; single SSOT for redirect handling.
+2. **Jira-Reporting-App-Linkification-EmptyState-UI-Validation-Tests.spec.js** – Replaced all four inline login/root checks with `skipIfRedirectedToLogin` (current-sprint tests use `{ currentSprint: true }`).
+3. **Jira-Reporting-App-General-Performance-Quarters-UI-Validation-Tests.spec.js** – Replaced all four inline login checks with `skipIfRedirectedToLogin` (report and leadership use default; current-sprint uses `{ currentSprint: true }`).

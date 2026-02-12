@@ -12,6 +12,7 @@ import {
   waitForPreview,
   assertTelemetryClean,
   EXCEL_DOWNLOAD_TIMEOUT_MS,
+  skipIfRedirectedToLogin,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 async function hasAnyExportableRows(page) {
@@ -22,6 +23,27 @@ async function hasAnyExportableRows(page) {
 }
 
 test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => {
+  test('report first-open hydrates project selection from cached meta scope when last query is missing', async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.removeItem('vodaAgileBoard_lastQuery_v1');
+        localStorage.removeItem('vodaAgileBoard_selectedProjects');
+        sessionStorage.setItem('report-last-meta', JSON.stringify({
+          projects: ['MPSA', 'MAS', 'SD', 'RPA'],
+          start: '2026-01-01T06:00',
+          end: '2026-04-02T02:59',
+          generatedAt: new Date().toISOString(),
+          fromCache: true,
+        }));
+      } catch (_) {}
+    });
+    await page.goto('/report');
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    for (const key of ['MPSA', 'MAS', 'SD', 'RPA']) {
+      await expect(page.locator(`.project-checkbox[data-project="${key}"]`)).toBeChecked();
+    }
+  });
+
   test('report load: expected controls and nav strip visible, no critical console/network errors', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
@@ -73,17 +95,22 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     await expect(page.locator('#tab-project-epic-level')).toBeVisible();
     await expect(page.locator('#export-excel-btn')).toBeVisible();
     await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
+    const noDuplicateSummary = await page.evaluate(() => {
+      const meta = document.getElementById('preview-meta');
+      if (!meta) return true;
+      const text = (meta.textContent || '').replace(/\s+/g, ' ').trim();
+      const hasLegacySummary = /Summary:\s*\d+\s+done stories\s*\|\s*Boards:/i.test(text);
+      const doneStoriesMatches = text.match(/\d+\s+done stories/i) || [];
+      return !hasLegacySummary && doneStoriesMatches.length <= 1;
+    });
+    expect(noDuplicateSummary).toBe(true);
     assertTelemetryClean(telemetry);
   });
 
   test('current-sprint page loads and shows board selector with no console errors', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
     await expect(page.locator('.app-sidebar a.sidebar-link[href="/report"], nav.app-nav a[href="/report"]')).toContainText('High-Level Performance');
@@ -95,11 +122,7 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
   test('sprint-leadership URL redirects to report#trends with Trends tab active', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
     await expect(page).toHaveURL(/\/report#trends$/);
     await expect(page.locator('#tab-btn-trends')).toHaveClass(/active/);
     assertTelemetryClean(telemetry);

@@ -5,7 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { runDefaultPreview, waitForPreview, captureBrowserTelemetry } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { runDefaultPreview, waitForPreview, captureBrowserTelemetry, skipIfRedirectedToLogin } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('Jira Reporting App - Linkification and Empty-state UI Validation', () => {
   test('report Done Stories: issue keys are links when rows exist', async ({ page }) => {
@@ -78,11 +78,7 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
   test('current-sprint page loads with no console errors', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     await expect(page.locator('h1')).toContainText('Current Sprint');
     await expect(page.locator('#board-select')).toBeVisible();
@@ -97,11 +93,7 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
     test.setTimeout(60000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     await page.waitForSelector('#board-select option[value]:not([value=""])', { timeout: 15000 }).catch(() => null);
     const firstOpt = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value');
@@ -137,11 +129,7 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
   test('current-sprint no sprint: shows empty-state message', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
     const hasBoardOpts = await page.locator('#board-select option[value]:not([value=""])').count() > 0;
     if (!hasBoardOpts) {
@@ -165,11 +153,7 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
   test('leadership page loads with nav and Preview; no console errors', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
-
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     if (page.url().includes('/report')) {
       await expect(page.locator('h1')).toContainText(/General Performance|Sprint Leadership/i);

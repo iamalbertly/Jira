@@ -1,4 +1,4 @@
-import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+﻿import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber, formatDateShort, parseISO, addMonths } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
@@ -77,7 +77,6 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
   html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAgo) + escapeHtml(freshnessLine);
-  html += ' · Use this for within-board trends, not ranking teams.';
   html += '</p>';
 
   let outcomeLine = '';
@@ -100,7 +99,7 @@ export function renderLeadershipPage(data) {
     }
     outcomeLine = boards.length + ' boards | ' + onTime80Plus + ' on-time >=80% | ' + needAttention + ' need attention.';
     if (minSprintCount != null && minSprintCount < 3) {
-      html += '<p class="metrics-hint leadership-low-sample-hint"><small>Trends stabilise after at least 3 closed sprints per board. Use these early signals as directional only.</small></p>';
+      outcomeLine += ' | Limited history on at least one board (<3 sprints).';
     }
   }
   if (outcomeLine) {
@@ -111,7 +110,7 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-card">';
   html += '<div class="leadership-card-header">';
   html += '<h2>Boards - normalized delivery</h2>';
-  html += '<p class="leadership-delivery-hint"><small>Delivery % adjusted for scope changes.</small></p>';
+  html += '<p class="leadership-delivery-hint"><small>Delivery % adjusted for scope changes. Use this for within-board trends, not ranking teams.</small></p>';
   html += '<div class="leadership-view-actions">';
   html += '<button type="button" class="btn btn-secondary btn-compact active" data-leadership-view="cards" aria-pressed="true">Cards</button>';
   html += '<button type="button" class="btn btn-secondary btn-compact" data-leadership-view="table" aria-pressed="false">Table</button>';
@@ -144,10 +143,10 @@ export function renderLeadershipPage(data) {
     }
     html += '<div id="leadership-boards-cards" class="leadership-boards-cards" role="region" aria-label="Boards overview">';
     for (const card of boardCards) {
-      const onTimeStr = card.onTimePct != null ? card.onTimePct.toFixed(0) + '%' : '—';
+      const onTimeStr = card.onTimePct != null ? card.onTimePct.toFixed(0) + '%' : 'â€”';
       const gradeClass = (card.grade || '').toLowerCase().replace(/\s+/g, '-');
       html += '<div class="leadership-board-card' + (card.hasLimitedHistory ? ' leadership-board-card--limited' : '') + '">';
-      html += '<div class="leadership-board-card-grade ' + gradeClass + '">' + escapeHtml(card.grade || '—') + '</div>';
+      html += '<div class="leadership-board-card-grade ' + gradeClass + '">' + escapeHtml(card.grade || 'â€”') + '</div>';
       html += '<div class="leadership-board-card-name">' + escapeHtml(card.board.name) + '</div>';
       html += '<div class="leadership-board-card-metric">On-time ' + onTimeStr + '</div>';
       if (card.hasLimitedHistory) html += '<div class="leadership-board-card-note">Insufficient data</div>';
@@ -226,7 +225,7 @@ export function renderLeadershipPage(data) {
     { key: 'avg', label: 'Avg SP/day', title: '' },
     { key: 'diff', label: 'Difference', title: '' },
     { key: 'onTimePct', label: 'On-time %', title: '' },
-    { key: 'grade', label: 'Signal', title: 'Grade: Based on on-time % and predictability. Strong ≥90%, Critical <60%. Not for performance review.' },
+    { key: 'grade', label: 'Signal', title: 'Grade: Based on on-time % and predictability. Strong â‰¥90%, Critical <60%. Not for performance review.' },
     { key: 'quality', label: 'Data quality', title: '' },
   ];
   const velocityRows = velocityWindows.map((row) => ({
@@ -295,3 +294,4 @@ export function renderLeadershipContent(data, container) {
   if (!container) return;
   container.innerHTML = renderLeadershipPage(data || {});
 }
+

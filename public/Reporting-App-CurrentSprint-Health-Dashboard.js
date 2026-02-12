@@ -12,7 +12,6 @@ export function renderHealthDashboard(data) {
   const summary = data.summary || {};
   const tracking = data.subtaskTracking || {};
   const trackingSummary = tracking.summary || {};
-  const stuckCount = (data.stuckCandidates || []).length;
 
   // Core metrics
   const totalStories = summary.totalStories ?? 0;
@@ -90,8 +89,6 @@ export function renderHealthDashboard(data) {
   html += '</div>';
   html += '<div class="progress-summary">';
   html += '<span>' + doneStories + ' of ' + totalStories + ' stories complete</span>';
-  html += '<span>|</span>';
-  html += '<span>' + doneSP + ' of ' + totalSP + ' story points done</span>';
   html += '</div>';
   html += '</div>';
 
@@ -152,15 +149,7 @@ export function renderHealthDashboard(data) {
     html += '<div class="tracking-status">' + statusHtml.join(' | ') + '</div>';
   }
   html += '</div>';
-
-  // Stuck items indicator
-  if (stuckCount > 0) {
-    html += '<div class="health-stuck-section stuck-alert">';
-    html += '<span class="stuck-icon">⚠️</span>';
-    html += '<span class="stuck-text">' + stuckCount + ' issue' + (stuckCount > 1 ? 's' : '') + ' stuck > 24h</span>';
-    html += '<a href="#stuck-card" class="stuck-link">View details</a>';
-    html += '</div>';
-  }
+  // Stuck risk details are shown in the dedicated risks card to avoid repeating warnings.
 
   // Action buttons (snapshot already visible above; Details = optional expand, Copy = clipboard)
   html += '<div class="health-actions">';
@@ -243,3 +232,4 @@ export function wireHealthDashboardHandlers() {
     });
   }
 }
+

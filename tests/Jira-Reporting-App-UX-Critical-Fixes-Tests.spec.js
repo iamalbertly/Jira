@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SIZE-EXEMPT: Cohesive E2E spec for UX critical fixes (Epic/Summary, throughput/columns, export/TTM, loading states);
  * splitting would duplicate runDefaultPreview setup and reduce clarity.
  */
@@ -61,7 +61,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       if (hasEpicKey) {
         expect(hasEpicTitle).toBeTruthy();
         expect(hasEpicSummary).toBeTruthy();
-        console.log('[TEST] ✓ Epic Title and Summary columns found');
+        console.log('[TEST] âœ“ Epic Title and Summary columns found');
       }
     } else {
       console.log('[TEST] No Epic data found (epicLinkFieldId may not exist in this Jira instance)');
@@ -73,13 +73,13 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       expect(headerTexts.some(text => text.includes('Spent (Hrs)'))).toBeTruthy();
       expect(headerTexts.some(text => text.includes('Remaining (Hrs)'))).toBeTruthy();
       expect(headerTexts.some(text => text.includes('Variance (Hrs)'))).toBeTruthy();
-      console.log('[TEST] ✓ Time tracking columns found in Done Stories tab');
+      console.log('[TEST] âœ“ Time tracking columns found in Done Stories tab');
     }
     if (headerTexts.some(text => text.includes('Subtask Est (Hrs)'))) {
       expect(headerTexts.some(text => text.includes('Subtask Spent (Hrs)'))).toBeTruthy();
       expect(headerTexts.some(text => text.includes('Subtask Remaining (Hrs)'))).toBeTruthy();
       expect(headerTexts.some(text => text.includes('Subtask Variance (Hrs)'))).toBeTruthy();
-      console.log('[TEST] ✓ Subtask time tracking columns found in Done Stories tab');
+      console.log('[TEST] âœ“ Subtask time tracking columns found in Done Stories tab');
     }
   });
 
@@ -104,13 +104,13 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
 
     if (contentText && contentText.includes('Total SP')) {
       expect(contentText).toContain('Story Count');
-      console.log('[TEST] ✓ Total SP and Story Count columns found in Sprints tab');
+      console.log('[TEST] âœ“ Total SP and Story Count columns found in Sprints tab');
     }
 
     if (contentText && contentText.includes('Committed SP')) {
       expect(contentText).toContain('Delivered SP');
       expect(contentText).toContain('SP Estimation %');
-      console.log('[TEST] ✓ Estimation accuracy columns found in Sprints tab');
+      console.log('[TEST] âœ“ Estimation accuracy columns found in Sprints tab');
     }
 
     // Boards table should include time-normalized delivery columns
@@ -137,7 +137,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
           }
         }
         expect(found.length).toBeGreaterThanOrEqual(3);
-        console.log('[TEST] ✓ Boards table includes key delivery columns (tolerant check)');
+        console.log('[TEST] âœ“ Boards table includes key delivery columns (tolerant check)');
       }
     }
 
@@ -150,14 +150,14 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       expect(contentText).toContain('Spent Hrs');
       expect(contentText).toContain('Remaining Hrs');
       expect(contentText).toContain('Variance Hrs');
-      console.log('[TEST] ✓ Time tracking columns found in Sprints tab');
+      console.log('[TEST] âœ“ Time tracking columns found in Sprints tab');
     }
 
     if (contentText && contentText.includes('Subtask Est Hrs')) {
       expect(contentText).toContain('Subtask Spent Hrs');
       expect(contentText).toContain('Subtask Remaining Hrs');
       expect(contentText).toContain('Subtask Variance Hrs');
-      console.log('[TEST] ✓ Subtask time tracking columns found in Sprints tab');
+      console.log('[TEST] âœ“ Subtask time tracking columns found in Sprints tab');
     }
     
     // Project & Epic Level content should not include a separate Per Sprint table
@@ -168,11 +168,14 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     if (metricsText) {
       const perSprintSection = metricsText.match(/Per Sprint[\s\S]*?<\/table>/);
       expect(perSprintSection).toBeNull();
-      console.log('[TEST] ✓ Per Sprint section removed from Project & Epic Level view');
+      console.log('[TEST] âœ“ Per Sprint section removed from Project & Epic Level view');
       
-      // Should contain note about Per Sprint data being in Sprints tab
-      expect(metricsText).toContain('Per Sprint data is shown in the Sprints tab');
-      console.log('[TEST] ✓ Note about Per Sprint data location found');
+      // Should contain dedup note describing where throughput now lives
+      const hasDedupNote =
+        metricsText.includes('Throughput signals are merged into Boards columns')
+        || metricsText.includes('Sprint-level throughput remains in Sprint history');
+      expect(hasDedupNote).toBeTruthy();
+      console.log('[TEST] Throughput dedup note found');
     }
   });
 
@@ -266,25 +269,25 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     
     // Should contain new labels
     expect(contentText).toContain('Done Stories');
-    console.log('[TEST] ✓ "Done Stories" label found');
+    console.log('[TEST] âœ“ "Done Stories" label found');
     
     // Check for tooltip on column header
     const storiesCompletedHeader = page.locator('#sprints-content th').filter({ hasText: 'Done Stories' });
     if (await storiesCompletedHeader.count() > 0) {
       const titleAttr = await storiesCompletedHeader.getAttribute('title');
       expect(titleAttr).toContain('Stories marked Done in this sprint');
-      console.log('[TEST] ✓ Tooltip found on "Done Stories" header');
+      console.log('[TEST] âœ“ Tooltip found on "Done Stories" header');
     }
     
     // If doneComparison exists, check for renamed "On-Time Stories"
     if (contentText && contentText.includes('On-Time Stories')) {
-      console.log('[TEST] ✓ "On-Time Stories" label found');
+      console.log('[TEST] âœ“ "On-Time Stories" label found');
       
       const completedWithinHeader = page.locator('#sprints-content th').filter({ hasText: 'On-Time Stories' });
       if (await completedWithinHeader.count() > 0) {
         const titleAttr = await completedWithinHeader.getAttribute('title');
         expect(titleAttr).toContain('Stories marked Done in this sprint');
-        console.log('[TEST] ✓ Tooltip found on "On-Time Stories" header');
+        console.log('[TEST] âœ“ Tooltip found on "On-Time Stories" header');
       }
     }
   });
@@ -307,7 +310,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const boardsBtnVisible = await boardsExportBtn.isVisible();
     
     if (boardsBtnVisible) {
-      console.log('[TEST] ✓ Boards export button visible');
+      console.log('[TEST] âœ“ Boards export button visible');
       
       // Test download (set up download listener)
       const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
@@ -317,7 +320,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       if (download) {
         const filename = download.suggestedFilename();
         expect(filename).toMatch(/^[A-Z0-9-]+_.*_project-epic-level(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
-        console.log('[TEST] ✓ Boards CSV download triggered with correct filename format:', filename);
+        console.log('[TEST] âœ“ Boards CSV download triggered with correct filename format:', filename);
       }
     }
     
@@ -327,7 +330,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const sprintsBtnVisible = await sprintsExportBtn.isVisible();
     
     if (sprintsBtnVisible) {
-      console.log('[TEST] ✓ Sprints export button visible');
+      console.log('[TEST] âœ“ Sprints export button visible');
       
       const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
       await sprintsExportBtn.click();
@@ -336,7 +339,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       if (download) {
         const filename = download.suggestedFilename();
         expect(filename).toMatch(/^[A-Z0-9-]+_.*_sprints(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
-        console.log('[TEST] ✓ Sprints CSV download triggered with correct filename format:', filename);
+        console.log('[TEST] âœ“ Sprints CSV download triggered with correct filename format:', filename);
       }
     }
     
@@ -346,7 +349,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const doneStoriesBtnVisible = await doneStoriesExportBtn.isVisible();
     
     if (doneStoriesBtnVisible) {
-      console.log('[TEST] ✓ Done Stories export button visible');
+      console.log('[TEST] âœ“ Done Stories export button visible');
       
       const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
       await doneStoriesExportBtn.click();
@@ -355,7 +358,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       if (download) {
         const filename = download.suggestedFilename();
         expect(filename).toMatch(/^[A-Z0-9-]+_.*_done-stories(_PARTIAL)?_\d{4}-\d{2}-\d{2}\.csv$/);
-        console.log('[TEST] ✓ Done Stories CSV download triggered with correct filename format:', filename);
+        console.log('[TEST] âœ“ Done Stories CSV download triggered with correct filename format:', filename);
       }
     }
     
@@ -411,7 +414,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     if (contentText && contentText.includes('Epic Time-To-Market')) {
       expect(contentText).toContain('Definition');
       expect(contentText).toContain('Epic creation to Epic resolution');
-      console.log('[TEST] ✓ TTM definition header found');
+      console.log('[TEST] âœ“ TTM definition header found');
     } else {
       console.log('[TEST] Epic TTM section not found (may not have Epic TTM data)');
     }
@@ -440,7 +443,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     await expect(doneStoriesContent).toBeVisible();
     
     // If Epic columns exist but data is empty, that's acceptable (graceful degradation)
-    console.log('[TEST] ✓ Page renders correctly even with missing Epic data (graceful degradation)');
+    console.log('[TEST] âœ“ Page renders correctly even with missing Epic data (graceful degradation)');
   });
 
   test('should handle throughput data mismatch gracefully (edge case)', async ({ page }) => {
@@ -464,10 +467,10 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     // If N/A appears for missing throughput data, that's correct behavior
     const contentText = await sprintsContent.textContent();
     if (contentText && contentText.includes('N/A')) {
-      console.log('[TEST] ✓ N/A displayed for missing throughput data (correct fallback)');
+      console.log('[TEST] âœ“ N/A displayed for missing throughput data (correct fallback)');
     }
     
-    console.log('[TEST] ✓ Sprints tab renders correctly with throughput data mismatch handling');
+    console.log('[TEST] âœ“ Sprints tab renders correctly with throughput data mismatch handling');
   });
 
   test('should truncate long Epic Summary with tooltip (edge case)', async ({ page }) => {
@@ -494,7 +497,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       const titleAttr = await firstTruncated.getAttribute('title');
       
       if (titleAttr && titleAttr.length > 100) {
-        console.log('[TEST] ✓ Long Epic Summary truncated with tooltip');
+        console.log('[TEST] âœ“ Long Epic Summary truncated with tooltip');
       }
     } else {
       console.log('[TEST] No truncated Epic Summaries found (may not have long summaries in test data)');
@@ -531,7 +534,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
           const hasEpicSummary = headers.some(h => h.includes('epicSummary'));
           
           if (hasEpicTitle && hasEpicSummary) {
-            console.log('[TEST] ✓ CSV includes epicTitle and epicSummary columns');
+            console.log('[TEST] âœ“ CSV includes epicTitle and epicSummary columns');
           } else {
             console.log('[TEST] CSV columns may not include Epic fields (epicLinkFieldId may not exist)');
           }
@@ -571,7 +574,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         return;
       }
       await expect(firstRow).toBeVisible();
-      console.log('[TEST] ✓ Epic Summary null/undefined/empty handled safely - table renders correctly');
+      console.log('[TEST] âœ“ Epic Summary null/undefined/empty handled safely - table renders correctly');
     }
   });
 
@@ -601,7 +604,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       const buttonText = await sprintsExportBtn.textContent();
       
       if (isDisabled && buttonText && buttonText.includes('Exporting')) {
-        console.log('[TEST] ✓ Export button shows loading state (disabled and text changed)');
+        console.log('[TEST] âœ“ Export button shows loading state (disabled and text changed)');
       }
       
       // Wait for download to complete
@@ -614,7 +617,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       const buttonTextAfter = await sprintsExportBtn.textContent();
       
       if (isEnabledAfter && buttonTextAfter && buttonTextAfter.includes('Export CSV')) {
-        console.log('[TEST] ✓ Export button re-enabled after export completes');
+        console.log('[TEST] âœ“ Export button re-enabled after export completes');
       }
     }
   });
@@ -645,7 +648,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
     const doneStoriesVisible = await doneStoriesBtn.isVisible().catch(() => false);
     
     if (boardsVisible || sprintsVisible || doneStoriesVisible) {
-      console.log('[TEST] ✓ Export buttons visible after async renders');
+      console.log('[TEST] âœ“ Export buttons visible after async renders');
     } else {
       console.log('[TEST] No export buttons visible (may be no data in preview)');
     }
@@ -674,7 +677,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       const errorText = await errorEl.textContent();
       // Check for improved error messages mentioning Epic data conditions
       if (errorText && (errorText.includes('Epic Link field') || errorText.includes('epicLinkFieldId'))) {
-        console.log('[TEST] ✓ Improved error messages for Epic data found');
+        console.log('[TEST] âœ“ Improved error messages for Epic data found');
       }
     } else {
       console.log('[TEST] No errors displayed (normal - Epic data may be available)');
@@ -708,7 +711,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         expect(content1).toContain('id,name,type');
         expect(content1).toContain('totalSprintDays');
         expect(content1).toContain('doneBySprintEndPercent');
-        console.log('[TEST] ✓ Boards CSV export works');
+        console.log('[TEST] âœ“ Boards CSV export works');
       }
     }
     
@@ -724,7 +727,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         const { readFileSync } = await import('fs');
         const content2 = readFileSync(path2, 'utf-8');
         expect(content2).toContain('id,name');
-        console.log('[TEST] ✓ Sprints CSV export works');
+        console.log('[TEST] âœ“ Sprints CSV export works');
       }
     }
     
@@ -740,7 +743,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         const { readFileSync } = await import('fs');
         const content3 = readFileSync(path3, 'utf-8');
         expect(content3).toContain('issueKey');
-        console.log('[TEST] ✓ Done Stories CSV export works');
+        console.log('[TEST] âœ“ Done Stories CSV export works');
       }
     }
     
@@ -777,7 +780,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
         const { readFileSync } = await import('fs');
         const content5 = readFileSync(path5, 'utf-8');
         expect(content5).toContain('issueKey');
-        console.log('[TEST] ✓ Filtered view CSV export works');
+        console.log('[TEST] âœ“ Filtered view CSV export works');
       }
     }
     
@@ -801,7 +804,7 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
       }
     }
 
-    console.log('[TEST] ✓ All CSV export buttons validated');
+    console.log('[TEST] âœ“ All CSV export buttons validated');
   });
 
   test('should handle special characters in CSV exports correctly', async ({ page }) => {
@@ -835,9 +838,10 @@ test.describe('Jira Reporting App - UX Critical Fixes Tests', () => {
           // Verify CSV structure is valid
           expect(header.split(',').length).toBeGreaterThan(0);
           expect(firstDataLine.split(',').length).toBeGreaterThan(0);
-          console.log('[TEST] ✓ CSV export handles special characters correctly');
+          console.log('[TEST] âœ“ CSV export handles special characters correctly');
         }
       }
     }
   });
 });
+

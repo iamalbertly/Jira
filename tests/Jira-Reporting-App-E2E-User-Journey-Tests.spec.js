@@ -45,11 +45,13 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     }
     expect(previewVisible || errorVisible).toBeTruthy();
 
-    // If preview is visible, check that meta summary is rendered
+    // If preview is visible, check outcome-first preview meta semantics
     if (previewVisible) {
       const metaText = await page.locator('#preview-meta').innerText();
-      expect(metaText.toLowerCase()).toContain('summary:');
-      expect(metaText.toLowerCase()).toContain('boards:');
+      expect(metaText.toLowerCase()).toContain('done stories');
+      expect(metaText.toLowerCase()).toContain('boards');
+      expect(metaText.toLowerCase()).toContain('projects:');
+      expect(metaText.toLowerCase()).toContain('window:');
     }
   });
 
