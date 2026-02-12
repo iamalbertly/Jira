@@ -155,6 +155,9 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
 - Playwright telemetry now ignores abort-class request failures caused by intentional cancellation.
 - **Preview button state:** Single source of truth: project/date change and "Select none" call `refreshPreviewButtonLabel` (via `window.__reportPreviewButtonSync`) so disabled state and title stay in sync.
 - **Tests:** Four Projects Q4 and Preview timeout specs force filters panel expanded (or use `force: true` for date fill) so date inputs are actionable; E2E "no projects" tests are skipped until flaky run is resolved.
+- **Visual refresh without flow changes:** Existing pages now use a more modern, higher-contrast theme (lighter gradients, clearer hierarchy for sidebar/nav, stronger active states, and improved table/header readability) to reduce "plain" appearance while preserving the same workflows and controls.
+- **Text encoding cleanup:** Fixed mojibake in core report/leadership rendering strings (for example timeline separators and grade fallback labels) to keep customer-facing copy trustworthy and readable.
+- **Realtime fail-fast validation suite:** Added `tests/Jira-Reporting-App-Customer-Speed-Simplicity-Trust-Realtime-Validation-Tests.spec.js` and orchestration wiring so `npm run test:all` now includes 16 fail-fast checks covering report/current-sprint/leadership UI geometry, deduped throughput rendering, hydration behavior, and realtime telemetry ("logcat-equivalent") guardrails.
 
 ### Preview Behaviour & Feedback
 

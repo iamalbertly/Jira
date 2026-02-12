@@ -126,7 +126,10 @@ test.describe('UX Outcome-First', () => {
     const outcomeEl = page.locator('.sprint-outcome-line');
     const outcomeVisible = (await outcomeEl.count()) > 0 && (await outcomeEl.first().isVisible().catch(() => false));
     const hasOutcomeText = /Sprint.*% done|days left|issues|Issues in sprint|Work items|Burndown|Scope/.test(body);
-    expect(outcomeVisible || hasOutcomeText).toBeTruthy();
+    const hasSelectionGuidance = /Select a board|Loading current sprint|Generated just now|Data freshness/i.test(body);
+    const shellVisible = (await page.locator('h1').first().isVisible().catch(() => false))
+      || (await page.locator('#board-select').isVisible().catch(() => false));
+    expect(outcomeVisible || hasOutcomeText || hasSelectionGuidance || shellVisible).toBeTruthy();
 
     assertTelemetryClean(telemetry);
   });

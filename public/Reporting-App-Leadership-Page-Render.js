@@ -143,10 +143,10 @@ export function renderLeadershipPage(data) {
     }
     html += '<div id="leadership-boards-cards" class="leadership-boards-cards" role="region" aria-label="Boards overview">';
     for (const card of boardCards) {
-      const onTimeStr = card.onTimePct != null ? card.onTimePct.toFixed(0) + '%' : 'â€”';
+      const onTimeStr = card.onTimePct != null ? card.onTimePct.toFixed(0) + '%' : '-';
       const gradeClass = (card.grade || '').toLowerCase().replace(/\s+/g, '-');
       html += '<div class="leadership-board-card' + (card.hasLimitedHistory ? ' leadership-board-card--limited' : '') + '">';
-      html += '<div class="leadership-board-card-grade ' + gradeClass + '">' + escapeHtml(card.grade || 'â€”') + '</div>';
+      html += '<div class="leadership-board-card-grade ' + gradeClass + '">' + escapeHtml(card.grade || '-') + '</div>';
       html += '<div class="leadership-board-card-name">' + escapeHtml(card.board.name) + '</div>';
       html += '<div class="leadership-board-card-metric">On-time ' + onTimeStr + '</div>';
       if (card.hasLimitedHistory) html += '<div class="leadership-board-card-note">Insufficient data</div>';
@@ -225,7 +225,7 @@ export function renderLeadershipPage(data) {
     { key: 'avg', label: 'Avg SP/day', title: '' },
     { key: 'diff', label: 'Difference', title: '' },
     { key: 'onTimePct', label: 'On-time %', title: '' },
-    { key: 'grade', label: 'Signal', title: 'Grade: Based on on-time % and predictability. Strong â‰¥90%, Critical <60%. Not for performance review.' },
+    { key: 'grade', label: 'Signal', title: 'Grade: Based on on-time % and predictability. Strong >=90%, Critical <60%. Not for performance review.' },
     { key: 'quality', label: 'Data quality', title: '' },
   ];
   const velocityRows = velocityWindows.map((row) => ({

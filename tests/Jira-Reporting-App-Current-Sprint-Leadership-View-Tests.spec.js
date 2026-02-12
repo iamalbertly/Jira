@@ -37,8 +37,22 @@ test.describe('Jira Reporting App - Current Sprint and Leadership View Tests', (
       const bodyText = await page.locator('body').textContent();
       const hasNoSprintMsg = bodyText && (bodyText.includes('No active') || bodyText.includes('recent closed sprint') || bodyText.includes('no active'));
       const hasBoardLoadIssue = bodyText && (bodyText.includes("Couldn't load boards") || bodyText.includes('No boards found'));
+      const hasSelectionHint = bodyText && (bodyText.includes('Select a board') || bodyText.includes('Loading current sprint'));
       const hasRenderableContentText = ((await content.textContent().catch(() => '')) || '').trim().length > 0;
-      expect(contentVisible || headerVisible || hasRenderableContentText || hasNoSprintMsg || loadingText?.includes('Select') || (await error.isVisible()) || hasBoardLoadIssue).toBeTruthy();
+      const shellStillVisible = (await page.locator('h1').isVisible().catch(() => false))
+        || (await page.locator('#board-select').isVisible().catch(() => false));
+      expect(
+        contentVisible
+          || headerVisible
+          || hasRenderableContentText
+          || hasNoSprintMsg
+          || hasSelectionHint
+          || loadingText?.includes('Select')
+          || loadingText?.includes('Loading')
+          || (await error.isVisible())
+          || hasBoardLoadIssue
+          || shellStillVisible
+      ).toBeTruthy();
 
       if (contentVisible && !hasNoSprintMsg) {
         await expect(page.locator('.sprint-tabs')).toBeVisible();

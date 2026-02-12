@@ -146,7 +146,7 @@ test('Login - Global nav hidden', async ({ page }) => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Select one project and a board.*sprint health and risks|Loading boards for project/i);
+      expect(text).toMatch(/Select one project and a board.*sprint health and risks|Loading boards for project|Loading current sprint/i);
     }
     assertTelemetryClean(telemetry);
   });

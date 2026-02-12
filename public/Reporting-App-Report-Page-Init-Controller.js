@@ -97,6 +97,9 @@ function hydrateFromLastQuery() {
       if (ssot) fallbackProjects = ssot.split(',').map((p) => p.trim()).filter(Boolean);
     } catch (_) {}
   }
+  if (fallbackProjects.length) {
+    fallbackProjects = Array.from(new Set(fallbackProjects));
+  }
 
   // If no history, use widest available cached project scope before falling back to defaults.
   if (!ctx || !ctx.projects) {

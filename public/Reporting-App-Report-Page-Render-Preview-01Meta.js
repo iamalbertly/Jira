@@ -13,7 +13,7 @@ function buildGeneratedLabels(generatedAt) {
     ? new Date(generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
     : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   const recent = ageMs >= 0 && ageMs < 3600000;
-  const ageMin = Math.round(ageMs / 60000);
+  const ageMin = Math.max(0, Math.round(ageMs / 60000));
   const label = recent
     ? (ageMin < 1 ? 'Generated: just now' : `Generated: ${ageMin} min ago`)
     : `Generated: ${generatedShort}`;
@@ -111,7 +111,7 @@ export function buildPreviewMetaAndStatus(params) {
     ? '<br><strong>Phase log:</strong> ' + phaseLog.map((p) => escapeHtml((p.phase || '') + (p.at ? ' @ ' + p.at : ''))).join(' | ')
     : '';
   let metaSummaryWhy = '';
-  if (partial) metaSummaryWhy = partialReason ? ` | Partial: ${escapeHtml(partialReason)}` : ' | Partial: time limit';
+  if (partial) metaSummaryWhy = partialReason ? ` | Partial: ${partialReason}` : ' | Partial: time limit';
   else if (timedOut) metaSummaryWhy = ' | Time limit reached (partial data)';
   else if (previewMode === 'recent-first') metaSummaryWhy = ' | Recent live; older from cache';
 
@@ -130,7 +130,7 @@ export function buildPreviewMetaAndStatus(params) {
     dataStateKind = 'cached';
   }
   const outcomeLine = rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix;
-  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} â€“ ${escapeHtml(windowEndLocal)} | ${escapeHtml(generated.label)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
+  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)} | ${escapeHtml(generated.label)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
   const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
   const previewMetaHTML = `
     <div class="meta-info-summary meta-summary-line">

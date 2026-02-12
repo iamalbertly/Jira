@@ -2,13 +2,14 @@
   max-width: min(1480px, 100%);
   width: 100%;
   margin: 0 auto;
-  padding: 28px;
+  padding: 24px;
   overflow-x: hidden;
 }
 
 header {
-  background: #ffffff;
-  padding: 14px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250, 252, 255, 0.96));
+  backdrop-filter: blur(4px);
+  padding: 16px 20px;
   border-radius: 12px;
   margin-bottom: 14px;
   border: 1px solid var(--border);
@@ -42,14 +43,15 @@ header .header-row {
 
 header h1 {
   color: var(--primary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-size: 1.6rem;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .subtitle {
   color: var(--muted);
-  font-size: 0.95em;
+  font-size: 0.92em;
 }
 
 .shared-context-bar {
@@ -106,6 +108,9 @@ header .subtitle {
   overflow-wrap: break-word;
 }
 @media (max-width: 480px) {
+  .container {
+    padding: 12px;
+  }
   header h1 {
     font-size: 1.25rem;
   }

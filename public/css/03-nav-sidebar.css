@@ -7,7 +7,7 @@
   gap: 6px;
   flex-wrap: wrap;
   padding: 2px;
-  background: #f6f9fc;
+  background: linear-gradient(180deg, #f8fbff, #f1f6fd);
   border: 1px solid var(--border);
   border-radius: 999px;
   width: fit-content;
@@ -41,6 +41,7 @@
   border-radius: 999px;
   font-weight: 600;
   cursor: default;
+  box-shadow: 0 4px 10px rgba(11, 87, 163, 0.28);
 }
 .app-global-nav-wrap {
   padding: 10px 20px;
@@ -68,7 +69,7 @@
   width: 240px;
   height: 100vh;
   z-index: 1200;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 65%, #f5f9ff 100%);
   border-right: 1px solid var(--border);
   box-shadow: 0 8px 28px rgba(15, 76, 129, 0.08);
   display: flex;
@@ -92,7 +93,7 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: var(--primary);
+  background: linear-gradient(145deg, var(--primary), #2f7dc8);
   color: #fff;
   font-size: 0.78rem;
   font-weight: 700;
@@ -129,7 +130,7 @@
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 10px 12px;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
 
 .sidebar-link svg {
@@ -140,18 +141,20 @@
 }
 
 .sidebar-link:hover {
-  background: #f2f7fd;
+  background: #eff5fd;
   color: var(--primary);
   border-color: #dce8f5;
   text-decoration: none;
+  transform: translateX(1px);
 }
 
 .sidebar-link.active,
 .sidebar-link.current {
-  background: #e8f1fb;
+  background: linear-gradient(90deg, #e9f2ff, #f1f7ff);
   color: var(--primary);
   border-color: #cfe0f4;
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(11, 87, 163, 0.08);
 }
 
 .sidebar-context-card {
@@ -194,7 +197,7 @@
   height: 40px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: #ffffff;
   color: var(--primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   z-index: 1260;
@@ -202,6 +205,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(11, 87, 163, 0.2);
 }
 
 .sidebar-backdrop {

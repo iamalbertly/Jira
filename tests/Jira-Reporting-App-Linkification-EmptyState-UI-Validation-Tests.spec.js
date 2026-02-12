@@ -95,10 +95,16 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
     await page.goto('/current-sprint');
     if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
 
-    await page.waitForSelector('#board-select option[value]:not([value=""])', { timeout: 15000 }).catch(() => null);
-    const firstOpt = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value');
-    if (!firstOpt) {
+    await page.waitForSelector('#board-select', { state: 'visible', timeout: 15000 }).catch(() => null);
+    const selectableOptions = page.locator('#board-select option[value]:not([value=""])');
+    const optionCount = await selectableOptions.count().catch(() => 0);
+    if (!optionCount) {
       test.skip(true, 'No boards loaded');
+      return;
+    }
+    const firstOpt = await selectableOptions.first().getAttribute('value');
+    if (!firstOpt) {
+      test.skip(true, 'No board option value available');
       return;
     }
 
@@ -138,7 +144,19 @@ test.describe('Jira Reporting App - Linkification and Empty-state UI Validation'
       const errorText = await page.locator('#current-sprint-error').textContent().catch(() => '');
       expect((content || '') + ' ' + (loadingText || '') + ' ' + (errorText || '')).toMatch(/no board|loading|select|failed/i);
     } else {
-      await page.selectOption('#board-select', await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value'));
+      const fallbackFirstOpt = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value').catch(() => null);
+      if (!fallbackFirstOpt) {
+        test.skip(true, 'No board option value available');
+        return;
+      }
+      const selected = await page.selectOption('#board-select', fallbackFirstOpt).catch(() => []);
+      if (!selected.length) {
+        const selectedByIndex = await page.selectOption('#board-select', { index: 1 }).catch(() => []);
+        if (!selectedByIndex.length) {
+          test.skip(true, 'Board options changed before selection');
+          return;
+        }
+      }
       await page.waitForTimeout(3000);
       const noSprint = await page.locator('.empty-state').isVisible().catch(() => false);
       if (noSprint) {

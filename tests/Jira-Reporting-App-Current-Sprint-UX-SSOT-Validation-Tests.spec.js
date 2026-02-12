@@ -68,10 +68,16 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       return;
     }
 
-    await page.waitForSelector('#board-select option[value]:not([value=""])', { timeout: 15000 }).catch(() => null);
-    const firstOptValue = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value');
-    if (!firstOptValue) {
+    await page.waitForSelector('#board-select', { state: 'visible', timeout: 15000 }).catch(() => null);
+    const selectableOptions = page.locator('#board-select option[value]:not([value=""])');
+    const optionCount = await selectableOptions.count().catch(() => 0);
+    if (!optionCount) {
       test.skip(true, 'No boards loaded');
+      return;
+    }
+    const firstOptValue = await selectableOptions.first().getAttribute('value');
+    if (!firstOptValue) {
+      test.skip(true, 'No board option value available');
       return;
     }
 
@@ -108,7 +114,16 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       return;
     }
 
-    await page.selectOption('#board-select', { index: 1 });
+    const firstBoardValue = await page.locator('#board-select option[value]:not([value=""])').first().getAttribute('value').catch(() => null);
+    if (!firstBoardValue) {
+      test.skip(true, 'No board option value available');
+      return;
+    }
+    const selected = await page.selectOption('#board-select', firstBoardValue).catch(() => []);
+    if (!selected.length) {
+      test.skip(true, 'Board options changed before selection');
+      return;
+    }
     await page.waitForSelector('#current-sprint-content, #current-sprint-error', { timeout: 20000 }).catch(() => null);
 
     const bodyText = await page.locator('body').textContent();

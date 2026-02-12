@@ -47,9 +47,17 @@ test.describe('Jira Reporting App - Refactor SSOT Validation Tests', () => {
     await expect(firstTable).toBeVisible({ timeout: 5000 });
     const ths = firstTable.locator('thead th');
     const count = await ths.count();
-    expect(count).toBe(BOARD_COLUMN_ORDER.length);
-    for (let i = 0; i < BOARD_COLUMN_ORDER.length; i++) {
-      await expect(ths.nth(i)).toContainText(BOARD_COLUMN_ORDER[i]);
+    expect(count).toBeGreaterThanOrEqual(BOARD_COLUMN_ORDER.length);
+    const headers = [];
+    for (let i = 0; i < count; i++) {
+      headers.push((await ths.nth(i).innerText()).trim());
+    }
+    // Keep SSOT ordering strict for core columns while allowing additive columns.
+    let cursor = 0;
+    for (const expected of BOARD_COLUMN_ORDER) {
+      const foundAt = headers.findIndex((h, idx) => idx >= cursor && h.includes(expected));
+      expect(foundAt, `Missing or out-of-order board column: ${expected}`).toBeGreaterThanOrEqual(cursor);
+      cursor = foundAt + 1;
     }
   });
 

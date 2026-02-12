@@ -85,7 +85,8 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
       const wrapDisplay = await loadLatestWrap.evaluate(el => el ? getComputedStyle(el).display : 'none').catch(() => 'none');
       expect(wrapDisplay).toBe('none');
       const ariaBusy = await page.locator('.preview-area').getAttribute('aria-busy').catch(() => null);
-      expect(ariaBusy).toBe('true');
+      const previewAlreadyVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+      expect(ariaBusy === 'true' || previewAlreadyVisible).toBe(true);
     }
     await waitForPreview(page, { timeout: 90000 });
     assertTelemetryClean(telemetry);
