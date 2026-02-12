@@ -1,5 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
-import { runDefaultPreview, waitForPreview, captureBrowserTelemetry, assertTelemetryClean, skipIfRedirectedToLogin } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { runDefaultPreview, waitForPreview, captureBrowserTelemetry, assertTelemetryClean, skipIfRedirectedToLogin, getViewportClippingReport } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 // Mobile viewport (iPhone 12-ish)
 const mobile = { viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15A372 Safari/604.1' };
@@ -132,6 +132,35 @@ test.describe('Jira Reporting App - Mobile Responsive UX Validation', () => {
     expect(sprintTitleBlockOverflow).toBe(false);
     const mainTitle = page.locator('header h1, .current-sprint-header-bar .header-sprint-name, #current-sprint-title').first();
     await expect(mainTitle).toBeVisible();
+    assertTelemetryClean(telemetry);
+  });
+
+  test('report mobile/tablet layout has no clipped containers and no forced left gutter', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    const viewports = [
+      { width: 320, height: 640 },
+      { width: 390, height: 844 },
+      { width: 1024, height: 768 },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.goto('/report');
+      if (await skipIfRedirectedToLogin(page, test)) return;
+      const clipping = await getViewportClippingReport(page, {
+        selectors: ['.container', '.main-layout', '.preview-area'],
+        maxLeftGapPx: viewport.width >= 1000 ? 40 : 16,
+        maxRightOverflowPx: 1,
+      });
+      expect(clipping.offenders, `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(clipping.offenders)}`).toEqual([]);
+      const containerLeft = await page.evaluate(() => {
+        const container = document.querySelector('.container');
+        if (!container) return 0;
+        return Math.round(container.getBoundingClientRect().left);
+      });
+      expect(containerLeft).toBeLessThanOrEqual(viewport.width >= 1000 ? 40 : 16);
+    }
+
     assertTelemetryClean(telemetry);
   });
 });

@@ -217,6 +217,8 @@
 
 body:not(.login-page) .container {
   margin-left: 240px;
+  margin-right: 0;
+  width: calc(100% - 240px);
 }
 
 body:not(.login-page) .app-global-nav-wrap {
@@ -241,103 +243,35 @@ body.sidebar-scroll-lock {
   white-space: nowrap;
 }
 
-.feedback-corner {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 1200;
-}
-
-.feedback-corner-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--muted);
-  font-size: 1.1rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.feedback-corner-btn:hover {
-  color: var(--primary);
-  background: #f8fafc;
-}
-
-.feedback-panel {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 320px;
-  max-width: 90vw;
-  margin-top: 0;
-  padding: 20px;
-  z-index: 1300;
-  background: var(--card);
-  box-shadow: 4px 0 20px rgba(0,0,0,0.1);
-  transform: translateX(-100%);
-  transition: transform 0.25s ease;
-  overflow-y: auto;
-}
-
-.feedback-panel.feedback-panel-open {
-  transform: translateX(0);
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card-muted);
-}
-
-.feedback-panel h2 {
-  margin-bottom: 6px;
-  font-size: 1em;
-  color: var(--text);
-}
-
-.feedback-panel label {
-  display: block;
-  margin-top: 10px;
-  font-size: 0.9em;
-  color: var(--text);
-}
-
-.feedback-panel input,
-.feedback-panel textarea {
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.9em;
-  background: #fff;
-}
-
-.feedback-panel input:focus,
-.feedback-panel textarea:focus {
-  outline: 2px solid rgba(15, 76, 129, 0.2);
-  border-color: var(--primary);
-}
-
-.feedback-actions {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.feedback-status {
-  font-size: 0.85em;
-  color: var(--primary);
-}
-
 .main-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 22px;
   min-width: 0;
   max-width: 100%;
+}
+
+@media (max-width: 1200px) {
+  body:not(.login-page) .container {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .app-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar-backdrop.active {
+    display: block;
+  }
 }
 

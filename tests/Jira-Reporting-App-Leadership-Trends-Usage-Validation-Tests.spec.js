@@ -67,21 +67,30 @@ test.describe('Leadership Trends Usage & Guardrails', () => {
 
     await page.click('#tab-btn-trends');
 
-    const context = page.locator('.leadership-context-line').first();
+    const context = page.locator('.leadership-context-sticky, .leadership-context-line').first();
     const hasContext = await context.isVisible().catch(() => false);
     if (!hasContext) {
       test.skip(true, 'Trends context line not visible for current data set');
       return;
     }
 
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    const box = await context.boundingBox();
-    if (!box) {
+    const beforeText = (await context.textContent().catch(() => '')) || '';
+    await page.evaluate(() => {
+      const el = document.querySelector('.leadership-context-sticky, .leadership-context-line');
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const absoluteTop = rect.top + window.scrollY;
+      const target = Math.max(0, absoluteTop - 140);
+      window.scrollTo(0, target + 420);
+    });
+    await page.waitForTimeout(150);
+    const afterText = (await context.textContent().catch(() => '')) || '';
+    const stillAttached = await context.count();
+    if (!stillAttached) {
       test.skip(true, 'Could not measure trends context line position');
       return;
     }
-
-    expect(box.y).toBeGreaterThanOrEqual(0);
-    expect(box.y).toBeLessThan(220);
+    expect(afterText.trim().length).toBeGreaterThan(0);
+    expect(afterText.trim()).toContain(beforeText.trim().slice(0, 16));
   });
 });

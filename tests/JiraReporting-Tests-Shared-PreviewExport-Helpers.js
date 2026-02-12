@@ -172,6 +172,44 @@ export async function runDefaultPreview(page, overrides = {}) {
 }
 
 /**
+ * Checks key layout containers for horizontal clipping/offset against viewport.
+ * Detects hidden overflows that scrollWidth-based checks can miss.
+ * @param {import('@playwright/test').Page} page
+ * @param {{ selectors?: string[], maxLeftGapPx?: number, maxRightOverflowPx?: number }} options
+ * @returns {Promise<{ viewportWidth: number, bodyClientWidth: number, bodyScrollWidth: number, offenders: Array<{ selector: string, left: number, right: number, width: number }> }>}
+ */
+export async function getViewportClippingReport(page, options = {}) {
+  const {
+    selectors = ['body', '.container', 'header', '.main-layout', '.preview-area', '.tabs'],
+    maxLeftGapPx = 16,
+    maxRightOverflowPx = 1,
+  } = options;
+
+  return page.evaluate(({ selectors, maxLeftGapPx, maxRightOverflowPx }) => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const offenders = [];
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      const left = Math.round(rect.left * 100) / 100;
+      const right = Math.round(rect.right * 100) / 100;
+      const width = Math.round(rect.width * 100) / 100;
+      if (left > maxLeftGapPx || right > viewportWidth + maxRightOverflowPx || left < -maxRightOverflowPx) {
+        offenders.push({ selector, left, right, width });
+      }
+    }
+
+    return {
+      viewportWidth,
+      bodyClientWidth: document.body.clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      offenders,
+    };
+  }, { selectors, maxLeftGapPx, maxRightOverflowPx });
+}
+
+/**
  * If login form is visible (auth enabled), skip the test.
  * @param {import('@playwright/test').Page} page
  * @param {import('@playwright/test').Test} test - from test.info() or passed in
@@ -181,6 +219,25 @@ export async function skipIfLoginVisible(page, test) {
   if (hasLogin) {
     test.skip(true, 'Auth enabled; login form visible.');
   }
+}
+
+/**
+ * If page was redirected to login or home (no content), skip the test. Use after page.goto(...).
+ * Reduces duplicate "if (page.url().includes('login')) test.skip(...)" across specs.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Test} test
+ * @param {{ currentSprint?: boolean }} options - set currentSprint: true to also skip when url ends with /
+ * @returns {Promise<boolean>} - true if skipped
+ */
+export async function skipIfRedirectedToLogin(page, test, options = {}) {
+  const url = page.url();
+  const isLogin = url.includes('login');
+  const isRoot = options.currentSprint && (url.endsWith('/') || url.match(/^https?:\/\/[^/]+\/?$/));
+  if (isLogin || isRoot) {
+    test.skip(true, 'Redirected to login or home; auth may be required');
+    return true;
+  }
+  return false;
 }
 
 /**

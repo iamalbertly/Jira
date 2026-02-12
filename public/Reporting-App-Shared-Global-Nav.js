@@ -4,7 +4,7 @@ const PAGE_REPORT = 'report';
 const PAGE_SPRINT = 'current-sprint';
 const PAGE_LEADERSHIP = 'leadership';
 const PAGE_LOGIN = 'login';
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = 1200;
 
 function getCurrentPage() {
   const path = typeof window !== 'undefined' && window.location ? window.location.pathname || '' : '';

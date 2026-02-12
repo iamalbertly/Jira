@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import { existsSync, statSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { captureBrowserTelemetry, assertTelemetryClean } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
+import { captureBrowserTelemetry, assertTelemetryClean, skipIfRedirectedToLogin, getViewportClippingReport } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
@@ -28,10 +28,7 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/report');
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
     const headerOverflow = await page.evaluate(() => {
       const h = document.querySelector('header');
       return h ? h.scrollWidth > h.clientWidth : false;
@@ -46,10 +43,7 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     const titleBlockOverflow = await page.evaluate(() => {
       const block = document.querySelector('header .current-sprint-header > div:first-child, header .current-sprint-header-bar .header-bar-left');
       return block ? block.scrollWidth > block.clientWidth : false;
@@ -64,10 +58,7 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/report');
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
     const hasNav = await page.locator('.app-sidebar, .sidebar-toggle, nav.app-nav, .app-global-nav-wrap').first().isVisible().catch(() => false);
     const hasFilters = await page.locator('#filters-panel-collapsed-bar, #filters-panel-body, [data-action="toggle-filters"]').first().isVisible().catch(() => false);
     expect(hasNav || hasFilters).toBe(true);
@@ -78,16 +69,11 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/report');
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
-    const noOverflow = await page.evaluate(() => {
-      const vw = document.documentElement.clientWidth;
-      const scrollW = document.documentElement.scrollWidth;
-      return scrollW <= vw + 1;
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    const clipping = await getViewportClippingReport(page, {
+      selectors: ['.container', 'header', '.main-layout', '.preview-area'],
     });
-    expect(noOverflow).toBe(true);
+    expect(clipping.offenders).toEqual([]);
     assertTelemetryClean(telemetry);
   });
 
@@ -95,16 +81,11 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
-    const noOverflow = await page.evaluate(() => {
-      const vw = document.documentElement.clientWidth;
-      const scrollW = document.documentElement.scrollWidth;
-      return scrollW <= vw + 1;
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
+    const clipping = await getViewportClippingReport(page, {
+      selectors: ['.container', 'header', '.main-layout'],
     });
-    expect(noOverflow).toBe(true);
+    expect(clipping.offenders).toEqual([]);
     assertTelemetryClean(telemetry);
   });
 
@@ -112,16 +93,33 @@ test.describe('CSS Build And Mobile Responsive Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/sprint-leadership');
-    if (page.url().includes('login')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
-    const noOverflow = await page.evaluate(() => {
-      const vw = document.documentElement.clientWidth;
-      const scrollW = document.documentElement.scrollWidth;
-      return scrollW <= vw + 1;
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    const clipping = await getViewportClippingReport(page, {
+      selectors: ['.container', 'header', '.main-layout', '#leadership-content'],
     });
-    expect(noOverflow).toBe(true);
+    expect(clipping.offenders).toEqual([]);
+    assertTelemetryClean(telemetry);
+  });
+
+  test('report desktop container does not leave oversized empty gutter and keeps content in viewport', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.goto('/report');
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    const metrics = await page.evaluate(() => {
+      const container = document.querySelector('.container');
+      if (!container) return null;
+      const rect = container.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        viewportWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(metrics).toBeTruthy();
+    expect(metrics.left).toBeLessThanOrEqual(260);
+    expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth + 1);
     assertTelemetryClean(telemetry);
   });
 });
