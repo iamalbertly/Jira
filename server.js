@@ -16,8 +16,7 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (process.env.NODE_ENV === 'production' && SESSION_SECRET && (!APP_LOGIN_USER || !APP_LOGIN_PASSWORD)) {
-  logger.error('Production requires APP_LOGIN_USER and APP_LOGIN_PASSWORD when SESSION_SECRET is set');
-  process.exit(1);
+  logger.warn('SESSION_SECRET is set but APP_LOGIN_USER/APP_LOGIN_PASSWORD are missing; auth middleware will remain disabled until both login env vars are configured.');
 }
 
 // Middleware
