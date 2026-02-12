@@ -16,6 +16,8 @@ export function buildMergedWorkRiskRows(data) {
       issueKey: key,
       issueUrl: row.issueUrl || story?.issueUrl || '',
       summary: row.summary || story?.summary || key || '-',
+      issueType: row.issuetype || story?.issueType || '-',
+      storyPoints: row.storyPoints ?? story?.storyPoints ?? null,
       status: row.status || story?.status || '-',
       assignee: row.assignee || story?.assignee || '-',
       reporter: row.reporter || story?.reporter || '-',
@@ -33,6 +35,8 @@ export function buildMergedWorkRiskRows(data) {
       issueKey: row.issueKey || row.key || '',
       issueUrl: row.issueUrl || '',
       summary: row.summary || '-',
+      issueType: row.issueType || '-',
+      storyPoints: row.storyPoints ?? null,
       status: row.status || '-',
       assignee: row.assignee || '-',
       reporter: row.reporter || '-',
@@ -55,6 +59,8 @@ export function buildMergedWorkRiskRows(data) {
       issueKey: row.issueKey || row.key || '',
       issueUrl: row.issueUrl || '',
       summary: row.summary || '-',
+      issueType: row.issueType || 'Sub-task',
+      storyPoints: row.storyPoints ?? null,
       status: row.status || '-',
       assignee: row.assignee || '-',
       reporter: row.reporter || '-',
@@ -75,6 +81,8 @@ export function buildMergedWorkRiskRows(data) {
       issueKey: row.issueKey || row.key || '',
       issueUrl: row.issueUrl || '',
       summary: row.summary || '-',
+      issueType: row.issueType || '-',
+      storyPoints: row.storyPoints ?? null,
       status: row.status || '-',
       assignee: row.assignee || '-',
       reporter: row.reporter || '-',
@@ -95,6 +103,8 @@ export function buildMergedWorkRiskRows(data) {
     if (!existing.riskType.includes(row.riskType)) existing.riskType += ', ' + row.riskType;
     if (existing.summary === '-' && row.summary !== '-') existing.summary = row.summary;
     if (existing.status === '-' && row.status !== '-') existing.status = row.status;
+    if (existing.issueType === '-' && row.issueType && row.issueType !== '-') existing.issueType = row.issueType;
+    if (existing.storyPoints == null && row.storyPoints != null) existing.storyPoints = row.storyPoints;
     if (existing.assignee === '-' && row.assignee !== '-') existing.assignee = row.assignee;
     if (existing.reporter === '-' && row.reporter !== '-') existing.reporter = row.reporter;
     if (existing.hoursInStatus == null && row.hoursInStatus != null) existing.hoursInStatus = row.hoursInStatus;

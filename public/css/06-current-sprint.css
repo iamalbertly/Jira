@@ -450,12 +450,13 @@
 
 .sprint-cards-row.secondary-row {
   grid-column: 1 / -1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .sprint-cards-row.risks-row {
   grid-column: 1 / -1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .card-column {
@@ -464,7 +465,7 @@
 }
 
 .countdown-column {
-  flex: 0 0 120px;
+  flex: 1 1 320px;
 }
 
 .health-column {
@@ -480,11 +481,6 @@
 .burndown-column {
   flex: 1;
   min-width: 350px;
-}
-
-.scope-column {
-  flex: 1;
-  min-width: 300px;
 }
 
 .risks-stuck-column,

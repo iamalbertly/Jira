@@ -30,6 +30,7 @@ export function renderHealthDashboard(data) {
   // Risk indicators
   const missingEstimates = (tracking.rows || []).filter(r => !r.estimateHours || r.estimateHours === 0).length;
   const missingLoggedItems = (tracking.rows || []).filter(r => !r.loggedHours || r.loggedHours === 0).length;
+  const stuckCount = (data.stuckCandidates || []).length;
 
   // Risk color logic
   let riskColor = 'green';

@@ -14,6 +14,7 @@ export function renderRisksAndInsights(data) {
   const notes = data.notes || { dependencies: [], learnings: [], updatedAt: null };
   const assumptions = data.assumptions || [];
   const stuckCandidates = data.stuckCandidates || [];
+  const scopeChanges = data.scopeChanges || [];
 
   const dependencies = notes.dependencies || [];
   const learnings = notes.learnings || [];
@@ -26,6 +27,14 @@ export function renderRisksAndInsights(data) {
   const blockersText = [];
   if (hasDependencies) {
     blockersText.push(...dependencies);
+  }
+  if (scopeChanges.length > 0) {
+    const addedSP = scopeChanges.reduce((sum, item) => sum + (Number(item.storyPoints) || 0), 0);
+    const unestimated = scopeChanges.filter((item) => item.storyPoints == null || item.storyPoints === '').length;
+    blockersText.push(
+      'Scope added mid-sprint: ' + scopeChanges.length + ' item' + (scopeChanges.length !== 1 ? 's' : '') +
+      ', +' + addedSP.toFixed(1) + ' SP' + (unestimated ? ', ' + unestimated + ' unestimated' : '')
+    );
   }
 
   let html = '<div class="transparency-card risks-insights-card" id="risks-insights-card">';

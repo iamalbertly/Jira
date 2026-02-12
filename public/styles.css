@@ -1797,6 +1797,20 @@ body.sidebar-scroll-lock {
   stroke-width: 3;
 }
 
+.burndown-projection {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-opacity: 0.32;
+  stroke-dasharray: 5 4;
+}
+
+.burndown-today-marker {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+
 .burndown-ideal {
   fill: none;
   stroke: #9aa5b1;
@@ -1849,6 +1863,10 @@ body.sidebar-scroll-lock {
 
 .legend-swatch.ideal {
   background: #9aa5b1;
+}
+
+.legend-swatch.projection {
+  background: linear-gradient(90deg, rgba(15, 76, 129, 0.3), rgba(15, 76, 129, 0.7));
 }
 
 .notes-columns {
@@ -2901,12 +2919,13 @@ body.notification-dock-visible .container {
 
 .sprint-cards-row.secondary-row {
   grid-column: 1 / -1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .sprint-cards-row.risks-row {
   grid-column: 1 / -1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .card-column {
@@ -2915,7 +2934,7 @@ body.notification-dock-visible .container {
 }
 
 .countdown-column {
-  flex: 0 0 120px;
+  flex: 1 1 320px;
 }
 
 .health-column {
@@ -2931,11 +2950,6 @@ body.notification-dock-visible .container {
 .burndown-column {
   flex: 1;
   min-width: 350px;
-}
-
-.scope-column {
-  flex: 1;
-  min-width: 300px;
 }
 
 .risks-stuck-column,

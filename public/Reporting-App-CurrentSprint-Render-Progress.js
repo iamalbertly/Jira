@@ -23,7 +23,20 @@ function buildBurndownChart(remaining, ideal) {
     return x.toFixed(2) + ',' + y.toFixed(2);
   }
 
-  const actualPoints = remaining.map((row, idx) => pointForIndex(idx, row.remainingSP || 0)).join(' ');
+  const now = Date.now();
+  let currentIndex = remaining.length - 1;
+  for (let i = 0; i < remaining.length; i++) {
+    const ts = new Date(remaining[i].date).getTime();
+    if (Number.isFinite(ts) && ts > now) {
+      currentIndex = Math.max(0, i - 1);
+      break;
+    }
+  }
+
+  const actualSeries = remaining.slice(0, currentIndex + 1);
+  const projectionSeries = remaining.slice(Math.max(0, currentIndex), remaining.length);
+  const actualPoints = actualSeries.map((row, idx) => pointForIndex(idx, row.remainingSP || 0)).join(' ');
+  const projectionPoints = projectionSeries.map((row, offset) => pointForIndex(Math.max(0, currentIndex) + offset, row.remainingSP || 0)).join(' ');
   const idealPoints = (ideal || remaining).map((row, idx) => pointForIndex(idx, row.remainingSP || 0)).join(' ');
   const startLabel = formatDayLabel(remaining[0].date);
   const midIndex = Math.floor(remaining.length / 2);
@@ -35,7 +48,11 @@ function buildBurndownChart(remaining, ideal) {
     '<svg class="burndown-chart" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Burndown chart with ideal line">' +
     '<rect x="0" y="0" width="' + width + '" height="' + height + '" fill="var(--card-muted)"></rect>' +
     '<polyline points="' + idealPoints + '" class="burndown-ideal" />' +
+    (projectionSeries.length > 1 ? '<polyline points="' + projectionPoints + '" class="burndown-projection" />' : '') +
     '<polyline points="' + actualPoints + '" class="burndown-actual" />' +
+    (currentIndex < maxX
+      ? '<line x1="' + (maxX > 0 ? (padding + (currentIndex / maxX) * (width - padding * 2)).toFixed(2) : padding) + '" y1="' + padding + '" x2="' + (maxX > 0 ? (padding + (currentIndex / maxX) * (width - padding * 2)).toFixed(2) : padding) + '" y2="' + (height - padding) + '" class="burndown-today-marker" />'
+      : '') +
     '</svg>' +
     '<div class="burndown-axis">' +
     '<span class="burndown-axis-y">Remaining SP</span>' +
@@ -47,6 +64,7 @@ function buildBurndownChart(remaining, ideal) {
     '</div>' +
     '<div class="burndown-legend">' +
     '<span><span class="legend-swatch actual"></span>Actual</span>' +
+    '<span><span class="legend-swatch projection"></span>Projection</span>' +
     '<span><span class="legend-swatch ideal"></span>Ideal</span>' +
     '</div>' +
     '</div>'

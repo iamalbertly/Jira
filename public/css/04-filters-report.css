@@ -1348,6 +1348,20 @@
   stroke-width: 3;
 }
 
+.burndown-projection {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-opacity: 0.32;
+  stroke-dasharray: 5 4;
+}
+
+.burndown-today-marker {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+
 .burndown-ideal {
   fill: none;
   stroke: #9aa5b1;
@@ -1400,6 +1414,10 @@
 
 .legend-swatch.ideal {
   background: #9aa5b1;
+}
+
+.legend-swatch.projection {
+  background: linear-gradient(90deg, rgba(15, 76, 129, 0.3), rgba(15, 76, 129, 0.7));
 }
 
 .notes-columns {

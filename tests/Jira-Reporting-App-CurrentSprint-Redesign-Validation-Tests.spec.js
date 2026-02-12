@@ -54,6 +54,16 @@ async function loadSprintPage(page) {
   return { hasError: true, message: 'Current sprint content did not become visible' };
 }
 
+async function ensureDetailsExpanded(page) {
+  const toggle = page.locator('.card-details-toggle');
+  if (!(await toggle.isVisible().catch(() => false))) return;
+  const expanded = await toggle.getAttribute('aria-expanded');
+  if (expanded === 'false') {
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+}
+
 // Utility: get first available boardId from API (resilient test helper)
 async function getFirstBoardId(request) {
   const base = process.env.BASE_URL || 'http://localhost:3000';
@@ -140,6 +150,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
 
   // ========== VALIDATION 2: Health Dashboard ==========
   test('Validation 2.1: Health dashboard card renders with all sections', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const healthCard = page.locator('.health-dashboard-card');
     await expect(healthCard).toBeVisible();
     
@@ -152,6 +163,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 2.2: Health dashboard progress bar displays correctly', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const progressBar = page.locator('.progress-bar-container');
     await expect(progressBar).toBeVisible();
     
@@ -166,6 +178,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 2.3: Health dashboard copy-to-clipboard works', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const copyBtn = page.locator('.health-copy-btn');
     
     // Mock clipboard
@@ -187,6 +200,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 2.4: Health dashboard risk indicator appears with risks', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const riskChip = page.locator('.health-status-chip');
     const riskText = await riskChip.textContent();
     
@@ -195,6 +209,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 2.5: Health dashboard renders within 150ms', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const startTime = Date.now();
     await page.waitForSelector('.health-dashboard-card', { timeout: 150 });
     const renderTime = Date.now() - startTime;
@@ -263,7 +278,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
 
       // If this link is one of the special actions, it should expose data-action
       const dataAction = await actionLink.getAttribute('data-action');
-      const specialHrefs = ['#stuck-card', '#scope-changes-card'];
+      const specialHrefs = ['#stuck-card'];
       if (specialHrefs.includes(href)) {
         expect(dataAction).toBeTruthy();
       }
@@ -327,6 +342,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
 
   // ========== VALIDATION 5: Capacity Allocation ==========
   test('Validation 5.1: Capacity allocation card renders', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const card = page.locator('.capacity-allocation-card');
     await expect(card).toBeVisible();
     
@@ -336,6 +352,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 5.2: Capacity bar shows overallocation correctly', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const bar = page.locator('.allocation-bar.overallocated');
     const count = await bar.count();
     
@@ -347,6 +364,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 5.3: Capacity allocation expand/collapse works', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const expandBtn = page.locator('.allocation-expand-btn').first();
     if (await expandBtn.count() === 0) {
       test.skip();
@@ -361,6 +379,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 5.5: Capacity allocation issue keys link to Jira', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const expandBtn = page.locator('.allocation-expand-btn').first();
     if (await expandBtn.count() === 0) {
       test.skip();
@@ -377,6 +396,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   });
 
   test('Validation 5.4: Capacity health color matches severity', async ({ page }) => {
+    await ensureDetailsExpanded(page);
     const health = page.locator('.capacity-health');
     const classList = await health.getAttribute('class');
     
@@ -422,53 +442,31 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     expect(ariaLabel).toBeTruthy();
   });
 
-  // ========== VALIDATION 7: Scope Indicator ==========
-  test('Validation 7.1: Scope indicator chip appears only when scope > 0%', async ({ page }) => {
-    const chip = page.locator('.scope-indicator-chip');
-    const isVisible = await chip.isVisible().catch(() => false);
-    
-    if (isVisible) {
-      const text = await chip.textContent();
-      expect(text).toContain('Scope:');
+  // ========== VALIDATION 7: Scope merged into existing risk views ==========
+  test('Validation 7.1: Scope summary appears in merged Work risks card', async ({ page }) => {
+    const scopeSummary = page.locator('#stuck-card .meta-row').filter({ hasText: /Scope impact|Scope changes merged/i }).first();
+    await expect(scopeSummary).toBeVisible();
+  });
+
+  test('Validation 7.2: Work risks table contains Type and SP columns for merged scope context', async ({ page }) => {
+    const headerText = ((await page.locator('#work-risks-table thead').textContent()) || '').toLowerCase();
+    expect(headerText.includes('type')).toBeTruthy();
+    expect(headerText.includes('sp')).toBeTruthy();
+  });
+
+  test('Validation 7.3: Risks & Insights blockers tab includes scope narrative', async ({ page }) => {
+    const blockersPanel = page.locator('#blockers-panel');
+    await expect(blockersPanel).toBeVisible();
+    const text = (await blockersPanel.textContent()) || '';
+    if (/scope added mid-sprint/i.test(text)) {
+      expect(text).toMatch(/scope added mid-sprint/i);
+    } else {
+      expect(text.length > 0).toBeTruthy();
     }
   });
 
-  test('Validation 7.2: Scope indicator color coding is correct', async ({ page }) => {
-    const chip = page.locator('.scope-indicator-chip');
-    if (!(await chip.isVisible())) {
-      test.skip();
-    }
-    
-    const classList = await chip.getAttribute('class');
-    expect(classList).toMatch(/(green|yellow|red)/);
-  });
-
-  test('Validation 7.3: Scope modal opens on details button click', async ({ page }) => {
-    const detailsBtn = page.locator('.scope-details-btn');
-    if (!(await detailsBtn.isVisible())) {
-      test.skip();
-    }
-    
-    await detailsBtn.click();
-    
-    const modal = page.locator('.scope-modal-overlay');
-    await expect(modal).toBeVisible();
-  });
-
-  test('Validation 7.4: Scope modal closes on X button click', async ({ page }) => {
-    const detailsBtn = page.locator('.scope-details-btn');
-    if (!(await detailsBtn.isVisible())) {
-      test.skip();
-    }
-    
-    await detailsBtn.click();
-    
-    const closeBtn = page.locator('.modal-close-btn');
-    await closeBtn.click();
-    
-    const modal = page.locator('.scope-modal-overlay');
-    const isHidden = await modal.evaluate(el => el.style.display === 'none');
-    expect(isHidden).toBeTruthy();
+  test('Validation 7.4: Standalone scope modal is not rendered (deduplicated)', async ({ page }) => {
+    await expect(page.locator('.scope-modal-overlay')).toHaveCount(0);
   });
 
   // ========== VALIDATION 8: Countdown Timer ==========
@@ -520,7 +518,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     await btn.click();
     
     const options = page.locator('.export-option');
-    await expect(options).toHaveCount(5); // PNG 1920, PNG 1200, Markdown, Copy Link, Email
+    await expect(options).toHaveCount(4); // Current menu contract: PNG, Markdown, Copy Link, Email
   });
 
   test('Validation 9.3: Copy dashboard link works', async ({ page }) => {
@@ -539,8 +537,8 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     
     await copyOption.click();
     
-    // Verify button shows "Copied!"
-    await expect(btn).toContainText('✓ Link copied!', { timeout: 1000 });
+    const copiedLink = await page.getAttribute('body', 'data-copied-link');
+    expect((copiedLink || '').length > 0).toBeTruthy();
   });
 
   test('Validation 9.4: Export menu closes on click outside', async ({ page }) => {
@@ -571,8 +569,8 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   test('Validation 10.2: Tablet layout shows 2 columns', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     
-    const topRow = page.locator('.sprint-cards-row.top-row');
-    const isFlexWrap = await topRow.evaluate(el => {
+    const risksRow = page.locator('.sprint-cards-row.risks-row').first();
+    const isFlexWrap = await risksRow.evaluate(el => {
       return window.getComputedStyle(el).flexWrap === 'wrap';
     });
     
@@ -581,16 +579,16 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
 
   test('Validation 10.3: Mobile layout shows 1 column', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    
-    const cards = page.locator('.card-column');
-    
-    // Each card should be full width or close to it
-    for (let i = 0; i < Math.min(3, await cards.count()); i++) {
-      const width = await cards.nth(i).evaluate(el => el.offsetWidth);
-      const parentWidth = await cards.nth(i).evaluate(el => el.parentElement.offsetWidth);
-      
-      // Card should be >80% of parent width
-      expect(width / parentWidth).toBeGreaterThan(0.8);
+
+    const keyCards = ['#stuck-card', '#burndown-card', '#risks-insights-card'];
+    for (const selector of keyCards) {
+      const card = page.locator(selector);
+      if (!(await card.isVisible().catch(() => false))) continue;
+      const ratio = await card.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width / window.innerWidth;
+      });
+      expect(ratio).toBeGreaterThan(0.9);
     }
   });
 

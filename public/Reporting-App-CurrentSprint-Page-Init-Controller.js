@@ -12,7 +12,6 @@ import { wireAlertBannerHandlers } from './Reporting-App-CurrentSprint-Alert-Ban
 import { wireRisksAndInsightsHandlers } from './Reporting-App-CurrentSprint-Risks-Insights.js';
 import { wireCapacityAllocationHandlers } from './Reporting-App-CurrentSprint-Capacity-Allocation.js';
 import { wireSprintCarouselHandlers } from './Reporting-App-CurrentSprint-Navigation-Carousel.js';
-import { wireScopeIndicatorHandlers } from './Reporting-App-CurrentSprint-Scope-Indicator.js';
 import { wireCountdownTimerHandlers } from './Reporting-App-CurrentSprint-Countdown-Timer.js';
 import { wireSubtasksShowMoreHandlers } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
 import { wireProgressShowMoreHandlers } from './Reporting-App-CurrentSprint-Render-Progress.js';
@@ -50,7 +49,6 @@ function wireRedesignHandlers(data) {
   wireRisksAndInsightsHandlers();
   wireCapacityAllocationHandlers();
   wireCountdownTimerHandlers();
-  wireScopeIndicatorHandlers();
   // Wire show-more handlers for large tables to reduce initial DOM node count
   wireSubtasksShowMoreHandlers();
   wireProgressShowMoreHandlers();

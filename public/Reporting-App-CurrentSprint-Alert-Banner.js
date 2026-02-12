@@ -61,9 +61,9 @@ export function buildAlerts(data) {
         icon: '📈',
         title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
         message: scopeChanges.length + ' new issues added (' + scopeSP + ' SP). Sprint commitment at risk.',
-        action: 'Review Scope',
-        actionHref: '#scope-changes-card',
-        actionData: 'review-scope',
+        action: 'Review Risks',
+        actionHref: '#stuck-card',
+        actionData: 'review-risks',
         color: 'orange'
       });
     } else if (scopePercent > scopeThresholdMedium) {
@@ -74,9 +74,9 @@ export function buildAlerts(data) {
         icon: '📈',
         title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
         message: scopeChanges.length + ' new items. Monitor impact on delivery.',
-        action: 'Review Scope',
-        actionHref: '#scope-changes-card',
-        actionData: 'review-scope',
+        action: 'Review Risks',
+        actionHref: '#stuck-card',
+        actionData: 'review-risks',
         color: 'yellow'
       });
     }
@@ -252,13 +252,12 @@ export function wireAlertBannerHandlers() {
         }
         return;
       }
-      if (actionData === 'review-scope') {
-        const target = document.querySelector('#scope-changes-card');
+      if (actionData === 'review-risks') {
+        const target = document.querySelector('#stuck-card');
         if (target) {
           target.scrollIntoView({ behavior: 'smooth' });
-          // Open scope modal if available
-          const scopeDetails = document.querySelector('.scope-details-btn');
-          if (scopeDetails) scopeDetails.click();
+          target.classList.add('highlight-flash');
+          setTimeout(() => target.classList.remove('highlight-flash'), 2000);
         }
         return;
       }

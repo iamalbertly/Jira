@@ -159,8 +159,10 @@ test.describe('Jira Reporting App - Customer Speed Simplicity Trust Realtime Val
     const hasBoardSelect = await page.locator('#board-select').isVisible().catch(() => false);
     const bodyText = (await page.locator('body').textContent()) || '';
     const hasFallback = /No boards available|Couldn't load boards|No active or recent closed sprint|Loading boards for project/i.test(bodyText);
+    const hasRuntimeErrorText = /ReferenceError|TypeError|is not defined|Cannot read properties of|undefined is not an object/i.test(bodyText);
 
     expect(hasBoardSelect || hasFallback).toBeTruthy();
+    expect(hasRuntimeErrorText).toBeFalsy();
 
     assertTelemetryClean(telemetry);
   });

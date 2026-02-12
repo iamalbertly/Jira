@@ -6,6 +6,9 @@ import { buildMergedWorkRiskRows } from './Reporting-App-CurrentSprint-Data-Work
 
 export function renderWorkRisksMerged(data) {
   const rows = buildMergedWorkRiskRows(data);
+  const scopeChanges = data.scopeChanges || [];
+  const scopeSP = scopeChanges.reduce((sum, row) => sum + (Number(row.storyPoints) || 0), 0);
+  const scopeUnestimated = scopeChanges.filter((row) => row.storyPoints == null || row.storyPoints === '').length;
   const initialLimit = resolveResponsiveRowLimit(20, 8);
   const toShow = rows.slice(0, initialLimit);
   const remaining = rows.slice(initialLimit);
@@ -17,6 +20,9 @@ export function renderWorkRisksMerged(data) {
   html += '</div>';
   html += '<h2>Work risks (Scope + Stuck + Sub-task + Sprint issues)</h2>';
   html += '<p class="section-definition"><small>Scope changes, items stuck >24h, sub-task time-tracking risks, and in-sprint ownership gaps in one place.</small></p>';
+  if (scopeChanges.length > 0) {
+    html += '<p class="meta-row"><small>Scope impact: ' + scopeChanges.length + ' added mid-sprint, +' + formatNumber(scopeSP, 1, '0') + ' SP' + (scopeUnestimated > 0 ? ' (' + scopeUnestimated + ' unestimated)' : '') + '.</small></p>';
+  }
   html += '<p class="meta-row"><small>Items stuck in progress for more than 24 hours are included in this table.</small></p>';
 
   if (!rows.length) {
@@ -25,9 +31,9 @@ export function renderWorkRisksMerged(data) {
     return html;
   }
 
-  const headers = ['Source', 'Risk', 'Issue', 'Summary', 'Status', 'Reporter', 'Assignee', 'Est Hrs', 'Logged Hrs', 'Hours in status', 'Updated'];
+  const headers = ['Source', 'Risk', 'Issue', 'Summary', 'Type', 'SP', 'Status', 'Reporter', 'Assignee', 'Est Hrs', 'Logged Hrs', 'Hours in status', 'Updated'];
   html += '<div class="data-table-scroll-wrap"><table class="data-table" id="work-risks-table" style="table-layout: auto;">';
-  html += '<thead><tr><th>Source</th><th>Risk</th><th>Issue</th><th class="cell-wrap">Summary</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Est Hrs</th><th>Logged Hrs</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
+  html += '<thead><tr><th>Source</th><th>Risk</th><th>Issue</th><th class="cell-wrap">Summary</th><th>Type</th><th>SP</th><th>Status</th><th>Reporter</th><th>Assignee</th><th>Est Hrs</th><th>Logged Hrs</th><th>Hours in status</th><th>Updated</th></tr></thead><tbody>';
 
   for (const row of toShow) {
     html += '<tr>';
@@ -35,13 +41,15 @@ export function renderWorkRisksMerged(data) {
     html += '<td data-label="' + escapeHtml(headers[1]) + '">' + escapeHtml(row.riskType || '-') + '</td>';
     html += '<td data-label="' + escapeHtml(headers[2]) + '">' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
     html += '<td class="cell-wrap" data-label="' + escapeHtml(headers[3]) + '">' + escapeHtml(row.summary || '-') + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[4]) + '">' + escapeHtml(row.status || '-') + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[5]) + '">' + escapeHtml(row.reporter || '-') + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[6]) + '">' + escapeHtml(row.assignee || '-') + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[7]) + '">' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[8]) + '">' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[9]) + '">' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
-    html += '<td data-label="' + escapeHtml(headers[10]) + '">' + escapeHtml(formatDateTime(row.updated)) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[4]) + '">' + escapeHtml(row.issueType || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[5]) + '">' + (row.storyPoints == null ? '-' : formatNumber(row.storyPoints, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[6]) + '">' + escapeHtml(row.status || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[7]) + '">' + escapeHtml(row.reporter || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[8]) + '">' + escapeHtml(row.assignee || '-') + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[9]) + '">' + (row.estimateHours == null ? '-' : formatNumber(row.estimateHours, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[10]) + '">' + (row.loggedHours == null ? '-' : formatNumber(row.loggedHours, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[11]) + '">' + (row.hoursInStatus == null ? '-' : formatNumber(row.hoursInStatus, 1, '-')) + '</td>';
+    html += '<td data-label="' + escapeHtml(headers[12]) + '">' + escapeHtml(formatDateTime(row.updated)) + '</td>';
     html += '</tr>';
   }
 
@@ -56,6 +64,8 @@ export function renderWorkRisksMerged(data) {
       html += '<td data-label="Risk">' + escapeHtml(row.riskType || '-') + '</td>';
       html += '<td data-label="Issue">' + renderIssueKeyLink(row.issueKey || '-', row.issueUrl) + '</td>';
       html += '<td class="cell-wrap" data-label="Summary">' + escapeHtml(row.summary || '-') + '</td>';
+      html += '<td data-label="Type">' + escapeHtml(row.issueType || '-') + '</td>';
+      html += '<td data-label="SP">' + (row.storyPoints == null ? '-' : formatNumber(row.storyPoints, 1, '-')) + '</td>';
       html += '<td data-label="Status">' + escapeHtml(row.status || '-') + '</td>';
       html += '<td data-label="Reporter">' + escapeHtml(row.reporter || '-') + '</td>';
       html += '<td data-label="Assignee">' + escapeHtml(row.assignee || '-') + '</td>';
