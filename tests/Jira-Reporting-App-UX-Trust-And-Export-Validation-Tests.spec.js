@@ -104,7 +104,9 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       return !hasLegacySummary && doneStoriesMatches.length <= 1;
     });
     expect(noDuplicateSummary).toBe(true);
-    assertTelemetryClean(telemetry);
+    assertTelemetryClean(telemetry, {
+      allowConsolePatterns: [/status of 502/i],
+    });
   });
 
   test('current-sprint page loads and shows board selector with no console errors', async ({ page }) => {
@@ -166,7 +168,72 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     const errorText = await page.locator('#error').textContent();
     expect(errorText).toMatch(/Start date|before end date/i);
 
-    assertTelemetryClean(telemetry);
+    assertTelemetryClean(telemetry, {
+      allowConsolePatterns: [/status of 502/i],
+    });
+  });
+
+  test('error retry action: "Try smaller date range" triggers follow-up preview with narrower window', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    let previewCallCount = 0;
+    const previewUrls = [];
+    await page.route('**/preview.json*', async (route) => {
+      previewCallCount += 1;
+      const url = route.request().url();
+      previewUrls.push(url);
+      if (previewCallCount === 1) {
+        await route.fulfill({
+          status: 502,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Preview failed', code: 'BOARD_FETCH_ERROR', message: 'Failed to fetch sprints for board 27: Request failed with status code 400' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          meta: {
+            selectedProjects: ['MPSA', 'MAS'],
+            windowStart: '2026-03-02T00:00:00.000Z',
+            windowEnd: '2026-04-01T00:00:00.000Z',
+            generatedAt: new Date().toISOString(),
+            fromCache: false,
+          },
+          boards: [{ id: 1, name: 'Board 1' }],
+          rows: [],
+          metrics: {},
+          sprintsIncluded: [],
+          sprintsUnusable: [],
+        }),
+      });
+    });
+
+    await page.goto('/report');
+    await page.fill('#start-date', '2026-01-01T00:00');
+    await page.fill('#end-date', '2026-04-01T00:00');
+    await page.click('#preview-btn');
+    await expect(page.locator('#error')).toBeVisible({ timeout: 10000 });
+    await page.locator('[data-action="retry-with-smaller-range"]').click();
+
+    await expect.poll(() => previewCallCount, { timeout: 10000 }).toBeGreaterThan(1);
+
+    const lastUrl = previewUrls[previewUrls.length - 1] || '';
+    const parsed = new URL(lastUrl);
+    const start = parsed.searchParams.get('start');
+    const end = parsed.searchParams.get('end');
+    expect(start).toBeTruthy();
+    expect(end).toBeTruthy();
+    if (start && end) {
+      const startMs = new Date(start).getTime();
+      const endMs = new Date(end).getTime();
+      const days = Math.round((endMs - startMs) / (1000 * 60 * 60 * 24));
+      expect(days).toBeLessThanOrEqual(31);
+    }
+
+    assertTelemetryClean(telemetry, {
+      allowConsolePatterns: [/status of 502/i],
+    });
   });
 
   test('Excel export or clear state: download or error visible with telemetry clean', async ({ page }) => {

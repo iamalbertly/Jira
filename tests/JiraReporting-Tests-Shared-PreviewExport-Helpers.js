@@ -62,10 +62,10 @@ export function captureBrowserTelemetry(page) {
  * Asserts no critical telemetry: failed requests (after ignore patterns and optional preview abort),
  * page errors, and unexpected console errors. Use after captureBrowserTelemetry in specs.
  * @param {{ consoleErrors: string[], pageErrors: string[], failedRequests: Array<{ url: string }> }} telemetry
- * @param {{ excludePreviewAbort?: boolean }} options - set excludePreviewAbort: true when test aborts preview.json (error-path tests)
+ * @param {{ excludePreviewAbort?: boolean, allowConsolePatterns?: RegExp[] }} options - set excludePreviewAbort for aborted preview paths, and allowConsolePatterns for intentional mocked console errors
  */
 export function assertTelemetryClean(telemetry, options = {}) {
-  const { excludePreviewAbort = false } = options;
+  const { excludePreviewAbort = false, allowConsolePatterns = [] } = options;
   const isAbortFailure = (failureText = '') => /ERR_ABORTED|NS_BINDING_ABORTED|aborted/i.test(String(failureText || ''));
   const criticalFailures = (telemetry.failedRequests || []).filter(
     (r) => !IGNORE_REQUEST_PATTERNS.some((p) => p.test(r.url))
@@ -74,6 +74,7 @@ export function assertTelemetryClean(telemetry, options = {}) {
   );
   const unexpectedConsole = (telemetry.consoleErrors || []).filter(
     (t) => !IGNORE_CONSOLE_ERRORS.some((ignored) => t === ignored || t.includes(ignored))
+      && !allowConsolePatterns.some((pattern) => pattern.test(String(t || '')))
   );
   if (telemetry.pageErrors && telemetry.pageErrors.length > 0) {
     throw new Error(`Expected no page errors. Got: ${JSON.stringify(telemetry.pageErrors)}`);

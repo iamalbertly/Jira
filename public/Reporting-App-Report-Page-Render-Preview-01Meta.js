@@ -129,6 +129,14 @@ export function buildPreviewMetaAndStatus(params) {
     dataStateLabel = 'Cached';
     dataStateKind = 'cached';
   }
+  if (meta.failedBoardCount && meta.failedBoardCount > 0) {
+    const failedBoards = Array.isArray(meta.failedBoards) ? meta.failedBoards : [];
+    const boardNames = failedBoards
+      .map((b) => b?.boardName || (b?.boardId != null ? `Board ${b.boardId}` : 'Unknown board'))
+      .filter(Boolean);
+    const suffix = boardNames.length ? ` (${boardNames.join(', ')})` : '';
+    detailsLines.push(`Skipped boards: ${meta.failedBoardCount}${suffix}`);
+  }
   const outcomeLine = rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix;
   const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)} | ${escapeHtml(generated.label)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
   const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
@@ -152,7 +160,9 @@ export function buildPreviewMetaAndStatus(params) {
   if (rowsCount > 0 && (partial || previewMode !== 'normal' || reducedScope)) {
     let bannerMessage;
     if (reducedScope) {
-      bannerMessage = 'Showing closest available data for your selection. Use Full refresh for exact filters.';
+      bannerMessage = meta.failedBoardCount > 0
+        ? `Showing available data. ${meta.failedBoardCount} board(s) could not return sprint history; use Retry preview or narrow filters.`
+        : 'Showing closest available data for your selection. Use Full refresh for exact filters.';
     } else if (partial) {
       bannerMessage = 'Partial data: preview hit a time limit. Export shows what you see now; narrow the dates for full history.';
     } else if (previewMode === 'recent-first' || previewMode === 'recent-only' || recentSplitDays) {

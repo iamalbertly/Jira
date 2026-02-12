@@ -537,7 +537,7 @@ export function initPreviewFlow() {
         } else if (errorCode === 'AUTH_ERROR') {
           displayMessage = 'Authentication failed. Please check your Jira credentials in the server configuration.';
         } else if (errorCode === 'BOARD_FETCH_ERROR') {
-          displayMessage = 'Unable to fetch boards. Please verify project access and try again.';
+          displayMessage = 'Unable to fetch sprint history for one or more boards. Retry preview or use a smaller date range.';
         } else if (errorCode === 'RATE_LIMIT_ERROR') {
           displayMessage = 'Jira API rate limit exceeded. Please wait a moment and try again.';
         } else if (errorCode === 'RATE_LIMIT_COOLDOWN') {
