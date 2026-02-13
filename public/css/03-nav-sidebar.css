@@ -62,6 +62,24 @@
   pointer-events: none;
 }
 
+.skip-to-content {
+  position: fixed;
+  left: 12px;
+  top: calc(-100px + env(safe-area-inset-top, 0px));
+  z-index: 1400;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: top 0.2s ease;
+}
+
+.skip-to-content:focus {
+  top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
 .app-sidebar {
   position: fixed;
   left: 0;
@@ -75,6 +93,9 @@
   display: flex;
   flex-direction: column;
   padding: 16px 12px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-brand {
@@ -130,7 +151,13 @@
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 10px 12px;
+  min-height: 44px;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.sidebar-link span {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .sidebar-link svg {
@@ -192,7 +219,7 @@
 .sidebar-toggle {
   position: fixed;
   left: 12px;
-  top: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
   width: 40px;
   height: 40px;
   border-radius: 10px;
@@ -206,6 +233,12 @@
   justify-content: center;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .sidebar-toggle:hover {
@@ -281,6 +314,10 @@ body.sidebar-scroll-lock {
 
   .sidebar-backdrop.active {
     display: block;
+  }
+
+  .app-sidebar {
+    width: min(86vw, 320px);
   }
 }
 

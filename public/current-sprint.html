@@ -65,7 +65,9 @@
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
+      <!-- M9: Sprint loading context — shows board + sprint name above spinner while loading -->
+      <div id="sprint-loading-context" class="sprint-loading-context" aria-live="polite"></div>
       <div id="current-sprint-loading">Select one project and a board to see sprint health and risks. Boards load automatically for the selected project.</div>
       <div id="current-sprint-error" class="alert alert-error" style="display: none;"></div>
       <div id="current-sprint-content"></div>

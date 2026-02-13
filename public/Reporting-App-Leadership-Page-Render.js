@@ -1,4 +1,4 @@
-﻿import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber, formatDateShort, parseISO, addMonths } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 import { buildDataTableHtml } from './Reporting-App-Shared-Table-Renderer.js';
@@ -53,22 +53,8 @@ export function renderLeadershipPage(data) {
   const windowEndDate = parseISO(windowEnd) || new Date();
   const windowEndIso = windowEndDate.toISOString();
 
-  const projectsLabel = meta.projects ? meta.projects.replace(/,/g, ', ') : '-';
   const rangeStart = meta.windowStart ? formatDateShort(meta.windowStart) : '-';
   const rangeEnd = meta.windowEnd ? formatDateShort(meta.windowEnd) : '-';
-  const generatedAt = meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  const generatedAtMs = meta.generatedAt ? new Date(meta.generatedAt).getTime() : Date.now();
-  const ageMs = Date.now() - generatedAtMs;
-  const generatedAgo = ageMs >= 0 && ageMs < 3600000
-    ? (Math.round(ageMs / 60000) < 1 ? 'just now' : Math.round(ageMs / 60000) + ' min ago')
-    : generatedAt;
-  const freshnessBits = [];
-  freshnessBits.push(meta.fromCache ? 'Cache' : 'Live');
-  if (meta.cacheAgeMinutes != null) freshnessBits.push('Cache age ' + meta.cacheAgeMinutes + 'm');
-  if (meta.partial === true) freshnessBits.push('Partial');
-  if (meta.recentSplitReason) freshnessBits.push('Split: ' + meta.recentSplitReason);
-  const freshnessLine = freshnessBits.length ? (' | Data mode: ' + freshnessBits.join(' | ')) : '';
-
   const rangeTooltip = 'Completion anchored to resolution date. Indexed Delivery = current SP/day vs own baseline (last 6 closed sprints). Use for trend visibility, not performance ranking.';
   const rangeStartAttr = meta.windowStart ? formatDateShort(meta.windowStart) : '';
   const rangeEndAttr = meta.windowEnd ? formatDateShort(meta.windowEnd) : '';
@@ -76,7 +62,7 @@ export function renderLeadershipPage(data) {
   let html = '<div class="leadership-context-sticky">';
   html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
-  html += 'Projects ' + escapeHtml(projectsLabel) + ' | <span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span> | Generated ' + escapeHtml(generatedAgo) + escapeHtml(freshnessLine);
+  html += '<span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span>';
   html += '</p>';
 
   let outcomeLine = '';
@@ -216,8 +202,9 @@ export function renderLeadershipPage(data) {
     return { months, current, diff, predictabilityAvg, grade };
   });
 
+  html += '<details class="leadership-secondary-details" data-mobile-collapse="true">';
+  html += '<summary>Velocity (SP/day) and trend</summary>';
   html += '<div class="leadership-card">';
-  html += '<h2>Velocity (SP/day) and trend</h2>';
   html += '<p class="metrics-hint">Rolling averages by sprint end date. Difference compares against the previous window of the same length.</p>';
   const velocityColumns = [
     { key: 'window', label: 'Window', title: '' },
@@ -239,6 +226,7 @@ export function renderLeadershipPage(data) {
   }));
   html += buildDataTableHtml(velocityColumns, velocityRows);
   html += '</div>';
+  html += '</details>';
 
   if (Object.keys(perSprint).length > 0) {
     const sprintIndex = new Map();
@@ -261,6 +249,8 @@ export function renderLeadershipPage(data) {
         return bTime - aTime;
       });
 
+    html += '<details class="leadership-secondary-details" data-mobile-collapse="true">';
+    html += '<summary>Predictability by sprint</summary>';
     html += '<div class="leadership-card">';
     html += '<h2>Predictability by sprint (committed vs delivered)</h2>';
     html += '<p class="metrics-hint">Planned = created before sprint start; unplanned = added after. Detection assumptions apply.</p>';
@@ -279,6 +269,7 @@ export function renderLeadershipPage(data) {
       html += '</tr>';
     }
     html += '</tbody></table></div></div>';
+    html += '</details>';
   }
 
   return html;
@@ -294,4 +285,3 @@ export function renderLeadershipContent(data, container) {
   if (!container) return;
   container.innerHTML = renderLeadershipPage(data || {});
 }
-

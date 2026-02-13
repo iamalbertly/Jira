@@ -176,19 +176,21 @@ export async function runDefaultPreview(page, overrides = {}) {
  * Checks key layout containers for horizontal clipping/offset against viewport.
  * Detects hidden overflows that scrollWidth-based checks can miss.
  * @param {import('@playwright/test').Page} page
- * @param {{ selectors?: string[], maxLeftGapPx?: number, maxRightOverflowPx?: number }} options
- * @returns {Promise<{ viewportWidth: number, bodyClientWidth: number, bodyScrollWidth: number, offenders: Array<{ selector: string, left: number, right: number, width: number }> }>}
+ * @param {{ selectors?: string[], maxLeftGapPx?: number, maxRightOverflowPx?: number, checkScrollSelectors?: string[] }} options
+ * @returns {Promise<{ viewportWidth: number, bodyClientWidth: number, bodyScrollWidth: number, offenders: Array<{ selector: string, left: number, right: number, width: number }>, horizontalOverflow: Array<{ selector: string, scrollWidth: number, clientWidth: number }> }>}
  */
 export async function getViewportClippingReport(page, options = {}) {
   const {
     selectors = ['body', '.container', 'header', '.main-layout', '.preview-area', '.tabs'],
     maxLeftGapPx = 16,
     maxRightOverflowPx = 1,
+    checkScrollSelectors = [],
   } = options;
 
-  return page.evaluate(({ selectors, maxLeftGapPx, maxRightOverflowPx }) => {
+  return page.evaluate(({ selectors, maxLeftGapPx, maxRightOverflowPx, checkScrollSelectors }) => {
     const viewportWidth = document.documentElement.clientWidth;
     const offenders = [];
+    const horizontalOverflow = [];
     for (const selector of selectors) {
       const el = document.querySelector(selector);
       if (!el) continue;
@@ -200,14 +202,22 @@ export async function getViewportClippingReport(page, options = {}) {
         offenders.push({ selector, left, right, width });
       }
     }
+    for (const selector of checkScrollSelectors) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      if (el.scrollWidth > el.clientWidth + 1) {
+        horizontalOverflow.push({ selector, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth });
+      }
+    }
 
     return {
       viewportWidth,
       bodyClientWidth: document.body.clientWidth,
       bodyScrollWidth: document.body.scrollWidth,
       offenders,
+      horizontalOverflow,
     };
-  }, { selectors, maxLeftGapPx, maxRightOverflowPx });
+  }, { selectors, maxLeftGapPx, maxRightOverflowPx, checkScrollSelectors });
 }
 
 /**

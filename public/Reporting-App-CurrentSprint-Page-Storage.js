@@ -12,6 +12,11 @@ export function getProjectsParam() {
   const selection = normalizeForCurrentSprint(projectsSelect?.value || '');
   if (selection) return selection;
   try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = normalizeForCurrentSprint(params.get('projects'));
+    if (fromUrl) return fromUrl;
+  } catch (_) {}
+  try {
     const s = normalizeForCurrentSprint(localStorage.getItem(currentSprintKeys.projectsKey));
     if (s) return s;
   } catch (_) {}

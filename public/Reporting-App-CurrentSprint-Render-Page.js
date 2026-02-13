@@ -37,8 +37,6 @@ export function renderCurrentSprintPage(data) {
   const missingLoggedItems = trackingRows.filter((r) => !r.loggedHours || r.loggedHours === 0).length;
   const percentDone = typeof summary.percentDone === 'number' ? summary.percentDone : 0;
 
-  let healthLabel = 'Healthy';
-  let healthClass = 'healthy';
   const signals = [];
   if (stuckCount > 0) signals.push(stuckCount + ' stuck >24h');
   if (missingEstimates > 0) signals.push(missingEstimates + ' missing estimates');
@@ -46,13 +44,6 @@ export function renderCurrentSprintPage(data) {
   if (percentDone < 50 && (summary.totalStories || 0) > 0) signals.push('less than half of stories done');
 
   const riskCount = signals.length;
-  if (riskCount >= 2) {
-    healthLabel = 'Needs attention';
-    healthClass = 'needs-attention';
-  } else if (riskCount === 1) {
-    healthLabel = 'At risk';
-    healthClass = 'at-risk';
-  }
 
   // Flaw 3: Single-line verdict bar first (one sentence, one color, one action)
   html += renderVerdictBar(data);

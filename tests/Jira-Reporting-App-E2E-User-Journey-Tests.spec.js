@@ -48,7 +48,8 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
     // If preview is visible, check outcome-first preview meta semantics
     if (previewVisible) {
       const metaText = await page.locator('#preview-meta').innerText();
-      expect(metaText.toLowerCase()).toContain('done stories');
+      // UX Fix #1: compact summary shows "Window coverage: Boards Z | Sprints Y" (not "X done stories")
+      expect(metaText.toLowerCase()).toContain('sprints');
       expect(metaText.toLowerCase()).toContain('boards');
       expect(metaText.toLowerCase()).toContain('projects:');
       expect(metaText.toLowerCase()).toContain('window:');

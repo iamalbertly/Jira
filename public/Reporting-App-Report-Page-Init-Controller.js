@@ -2,7 +2,7 @@
 import { initFeedbackPanel } from './Reporting-App-Report-UI-Feedback.js';
 import { initTabs } from './Reporting-App-Report-UI-Tabs.js';
 import { initProjectSelection, getSelectedProjects } from './Reporting-App-Report-Page-Selections-Manager.js';
-import { initDateRangeControls, isRangeValid } from './Reporting-App-Report-Page-DateRange-Controller.js';
+import { initDateRangeControls, isRangeValid, updateRangeHint } from './Reporting-App-Report-Page-DateRange-Controller.js';
 import { initPreviewFlow, clearPreviewOnFilterChange } from './Reporting-App-Report-Page-Preview-Flow.js';
 import { initSearchClearButtons } from './Reporting-App-Report-Page-Search-Clear.js';
 import { renderNotificationDock } from './Reporting-App-Shared-Notifications-Dock-Manager.js';
@@ -14,6 +14,9 @@ import { applyDoneStoriesOptionalColumnsPreference } from './Reporting-App-Repor
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { initExportMenu as initReportExportMenu } from './Reporting-App-Report-Page-Export-Menu.js';
+import { classifyPreviewComplexity } from './Reporting-App-Report-Page-Preview-Complexity-Config.js';
+
+const LEADERSHIP_HASH = '#trends';
 
 function getShortRangeLabel() {
   const activePill = document.querySelector('.quarter-pill.is-active');
@@ -27,16 +30,52 @@ function getShortRangeLabel() {
   return '';
 }
 
+function getRangeDaysFromInputs() {
+  const startInput = document.getElementById('start-date');
+  const endInput = document.getElementById('end-date');
+  const startVal = startInput?.value || '';
+  const endVal = endInput?.value || '';
+  if (!startVal || !endVal) return null;
+  const startMs = new Date(startVal).getTime();
+  const endMs = new Date(endVal).getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) return null;
+  return Math.max(1, Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24)));
+}
+
+function getCurrentSelectionComplexity() {
+  const projects = getSelectedProjects();
+  const rangeDays = getRangeDaysFromInputs();
+  const { level } = classifyPreviewComplexity({
+    rangeDays,
+    projectCount: projects.length,
+    includePredictability: document.getElementById('include-predictability')?.checked === true,
+    includeActiveOrMissingEndDateSprints: document.getElementById('include-active-or-missing-end-date-sprints')?.checked === true,
+    requireResolvedBySprintEnd: document.getElementById('require-resolved-by-sprint-end')?.checked === true,
+  });
+  return { level, isHeavy: level === 'heavy' || level === 'veryHeavy' };
+}
+
+function shouldAutoPreviewOnInit() {
+  const projects = getSelectedProjects();
+  if (!Array.isArray(projects) || projects.length === 0) return false;
+  if (!isRangeValid()) return false;
+  if (getCurrentSelectionComplexity().isHeavy) return false;
+  return true;
+}
+
 function refreshPreviewButtonLabel() {
   const previewBtn = document.getElementById('preview-btn');
+  const rangeHintEl = document.getElementById('range-hint');
   if (!previewBtn) return;
   const projects = getSelectedProjects();
   const n = projects.length;
   const rangeLabel = getShortRangeLabel();
+  const complexity = getCurrentSelectionComplexity();
   if (n === 0) {
     previewBtn.textContent = 'Preview';
     previewBtn.title = 'Select at least one project to preview.';
     previewBtn.disabled = true;
+    if (rangeHintEl) rangeHintEl.style.display = 'none';
     return;
   }
   if (reportState.previewInProgress) {
@@ -48,12 +87,26 @@ function refreshPreviewButtonLabel() {
     previewBtn.disabled = false;
     previewBtn.title = 'End date must be after start date.';
     previewBtn.textContent = 'Preview';
+    if (rangeHintEl) {
+      rangeHintEl.style.display = 'block';
+      rangeHintEl.textContent = 'Fix date range before preview.';
+    }
     return;
   }
   previewBtn.disabled = false;
   const rangePart = rangeLabel ? ', ' + rangeLabel : '';
+  if (complexity.isHeavy) {
+    previewBtn.textContent = 'Preview now (' + n + ' project' + (n !== 1 ? 's' : '') + rangePart + ')';
+    previewBtn.title = 'Large range detected. Manual preview prevents surprise auto-loads.';
+    if (rangeHintEl) {
+      rangeHintEl.style.display = 'block';
+      rangeHintEl.textContent = 'Large selection detected. Preview runs manually for speed and reliability.';
+    }
+    return;
+  }
   previewBtn.textContent = 'Preview (' + n + ' project' + (n !== 1 ? 's' : '') + rangePart + ')';
   previewBtn.title = 'Generate report for selected filters.';
+  updateRangeHint();
 }
 
 function updateAppliedFiltersSummary() {
@@ -73,7 +126,29 @@ function updateAppliedFiltersSummary() {
     ? 'Applied: ' + projLabel + ' · ' + rangeLabel + (opts.length ? ' · ' + opts.join(', ') : '')
     : 'Select projects and dates, then preview.';
   if (el) el.textContent = summaryText;
-  if (chipsEl) chipsEl.textContent = summaryText;
+  if (chipsEl) {
+    const primaryProject = projects.length === 0 ? 'No project' : projects[0] + (projects.length > 1 ? ' +' + (projects.length - 1) : '');
+    const chips = [];
+    if (projects.length > 0) chips.push('Projects: ' + primaryProject);
+    if (rangeLabel) chips.push('Range: ' + rangeLabel);
+    if (opts.length > 0) chips.push('+Advanced (' + opts.length + ')');
+    chipsEl.textContent = chips.length ? chips.join(' | ') : 'No filters selected';
+  }
+
+  // M5: Truncated summary for mobile — first project + "+N more" saves horizontal space
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  if (el && isMobile && projects.length > 1) {
+    const truncProjLabel = projects[0] + ' +' + (projects.length - 1) + ' more';
+    const truncSummary = (truncProjLabel !== 'None' && rangeLabel)
+      ? 'Applied: ' + truncProjLabel + ' · ' + rangeLabel
+      : summaryText;
+    el.textContent = truncSummary;
+  }
+
+  // M12: Filter count badge — shows how many filters are active for prominence
+  const activeCount = projects.length + (startVal && endVal ? 1 : 0) + opts.length;
+  const countBadge = document.querySelector('.filters-active-count-badge');
+  if (countBadge) countBadge.textContent = activeCount > 0 ? activeCount + ' active' : '';
   refreshPreviewButtonLabel();
   const loadLatestWrapSync = document.getElementById('report-load-latest-wrap');
   const previewBtnSync = document.getElementById('preview-btn');
@@ -148,14 +223,41 @@ function initReportPage() {
   }
 
   initFeedbackPanel();
+  function syncHashWithTab(tabName) {
+    const onLeadershipTab = tabName === 'trends';
+    const hasLeadershipHash = window.location.hash === LEADERSHIP_HASH;
+    if (onLeadershipTab && !hasLeadershipHash) {
+      history.replaceState(null, '', '/report' + LEADERSHIP_HASH);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      return;
+    }
+    if (!onLeadershipTab && hasLeadershipHash) {
+      history.replaceState(null, '', '/report');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    }
+  }
+
+  function activateTabFromHash() {
+    try {
+      if (window.location.hash !== LEADERSHIP_HASH) return;
+      const trendsBtn = document.getElementById('tab-btn-trends');
+      if (trendsBtn && !trendsBtn.classList.contains('active')) {
+        trendsBtn.click();
+      }
+    } catch (_) {}
+  }
+
   initTabs(() => initReportExportMenu(), (tabName) => {
     if (tabName === 'done-stories') applyDoneStoriesOptionalColumnsPreference();
+    syncHashWithTab(tabName);
   });
   // initExportMenu is called later
 
   try { window.__reportPreviewButtonSync = refreshPreviewButtonLabel; } catch (_) { }
   initProjectSelection();
-  initDateRangeControls(() => { scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS); }, () => { refreshPreviewButtonLabel(); });
+  initDateRangeControls(() => {
+    if (!getCurrentSelectionComplexity().isHeavy) scheduleAutoPreview(AUTO_PREVIEW_DELAY_MS);
+  }, () => { refreshPreviewButtonLabel(); });
   hydrateFromLastQuery();
   const reportContextLine = document.getElementById('report-context-line');
   if (reportContextLine) reportContextLine.textContent = getContextDisplayString();
@@ -174,7 +276,7 @@ function initReportPage() {
     }
   }
   updateAppliedFiltersSummary();
-  if (getContextDisplayString() !== 'No report run yet') {
+  if (shouldAutoPreviewOnInit()) {
     const previewBtn = document.getElementById('preview-btn');
     if (previewBtn && !previewBtn.disabled) scheduleAutoPreview(1000);
   }
@@ -192,10 +294,14 @@ function initReportPage() {
     updateAppliedFiltersSummary();
     if (panel?.classList.contains('collapsed')) setFiltersPanelCollapsed(true);
     clearPreviewOnFilterChange();
-    scheduleAutoPreview();
+    if (!getCurrentSelectionComplexity().isHeavy) {
+      scheduleAutoPreview();
+    }
   }
   document.getElementById('start-date')?.addEventListener('change', onFilterChange);
   document.getElementById('end-date')?.addEventListener('change', onFilterChange);
+  document.getElementById('start-date')?.addEventListener('input', onFilterChange);
+  document.getElementById('end-date')?.addEventListener('input', onFilterChange);
   document.getElementById('require-resolved-by-sprint-end')?.addEventListener('change', onFilterChange);
   document.getElementById('include-predictability')?.addEventListener('change', onFilterChange);
   document.getElementById('include-active-or-missing-end-date-sprints')?.addEventListener('change', onFilterChange);
@@ -303,8 +409,12 @@ function initReportPage() {
   window.addEventListener('report-preview-shown', (ev) => {
     if (!panel || !panelBody || !collapsedBar) return;
     try {
-      if (sessionStorage.getItem(REPORT_FILTERS_COLLAPSED_KEY) === '1') {
-        setFiltersPanelCollapsed(true);
+      sessionStorage.setItem(REPORT_FILTERS_COLLAPSED_KEY, '1');
+      setFiltersPanelCollapsed(true);
+      const savedTab = sessionStorage.getItem('report-active-tab');
+      if (savedTab) {
+        const tabBtn = document.querySelector('.tab-btn[data-tab="' + savedTab + '"]');
+        if (tabBtn && !tabBtn.classList.contains('active')) tabBtn.click();
       }
     } catch (_) { }
   });
@@ -319,25 +429,56 @@ function initReportPage() {
   };
 
   try {
-    if (window.location && window.location.hash === '#trends') {
-      const trendsBtn = document.getElementById('tab-btn-trends');
-      if (trendsBtn) {
-        trendsBtn.click();
-        trendsBtn.setAttribute('aria-selected', 'true');
-        trendsBtn.setAttribute('tabindex', '0');
-      }
-      const lastQuery = getValidLastQuery();
-      const leadershipContent = document.getElementById('leadership-content');
-      const hasTrendsContent = !!(leadershipContent && leadershipContent.children && leadershipContent.children.length > 0);
-      if (lastQuery && !hasTrendsContent) {
-        scheduleAutoPreview(200);
-      }
+    activateTabFromHash();
+    const lastQuery = getValidLastQuery();
+    const leadershipContent = document.getElementById('leadership-content');
+    const hasTrendsContent = !!(leadershipContent && leadershipContent.children && leadershipContent.children.length > 0);
+    if (window.location && window.location.hash === LEADERSHIP_HASH && lastQuery && !hasTrendsContent) {
+      scheduleAutoPreview(200);
     }
+    window.addEventListener('hashchange', activateTabFromHash);
+    window.addEventListener('app:navigate', activateTabFromHash);
   } catch (_) { }
 }
 
+// M2: Scroll-aware page identity — inject compact page name into sticky header when H1 scrolls away (X.com pattern)
+function initPageIdentityObserver() {
+  try {
+    const h1 = document.querySelector('main h1, .page-title, h1');
+    if (!h1 || typeof IntersectionObserver === 'undefined') return;
+    const headerRow = document.querySelector('header .header-row');
+    if (!headerRow) return;
+    let ctxSpan = document.querySelector('.header-page-context');
+    if (!ctxSpan) {
+      ctxSpan = document.createElement('span');
+      ctxSpan.className = 'header-page-context';
+      ctxSpan.setAttribute('aria-hidden', 'true');
+      headerRow.appendChild(ctxSpan);
+    }
+    ctxSpan.textContent = h1.textContent.trim().slice(0, 30);
+    const obs = new IntersectionObserver((entries) => {
+      const hidden = !entries[0].isIntersecting;
+      ctxSpan.classList.toggle('visible', hidden);
+    }, { threshold: 0 });
+    obs.observe(h1);
+  } catch (_) {}
+}
+
+// M11: Bidirectional scroll fade — capture-phase delegation so dynamically-rendered wrappers are covered
+function initTableScrollIndicators() {
+  try {
+    document.addEventListener('scroll', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('data-table-scroll-wrap')) {
+        e.target.classList.toggle('scrolled-right', e.target.scrollLeft > 8);
+      }
+    }, { passive: true, capture: true });
+  } catch (_) {}
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initReportPage);
+  document.addEventListener('DOMContentLoaded', () => { initReportPage(); initPageIdentityObserver(); initTableScrollIndicators(); });
 } else {
   initReportPage();
+  initPageIdentityObserver();
+  initTableScrollIndicators();
 }

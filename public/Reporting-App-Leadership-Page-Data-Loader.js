@@ -123,18 +123,25 @@ function setQuarterStripEnabled(enabled) {
 
 let leadershipRequestSeq = 0;
 let leadershipInFlightController = null;
+let retryLeadershipIntent = () => {};
 
 async function loadPreview() {
   const { startInput, endInput, projectsSelect } = leadershipDom;
   const startVal = startInput?.value || '';
   const endVal = endInput?.value || '';
   if (!startVal || !endVal || startVal > endVal) {
-    showError('Start date must be before end date.');
+    showError({
+      title: 'Invalid date range.',
+      message: 'Start date must be before end date.',
+      primaryLabel: 'Retry preview',
+      primaryAction: 'retry-leadership-preview',
+    });
     return;
   }
   const url = buildPreviewUrl();
   saveFilters();
   showLoading('Loading preview...');
+  retryLeadershipIntent = () => loadPreview();
   leadershipRequestSeq += 1;
   const requestId = leadershipRequestSeq;
   if (leadershipInFlightController) {
@@ -151,7 +158,12 @@ async function loadPreview() {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401) {
-        showError('Session expired. Sign in again to continue. ');
+        showError({
+          title: 'Session expired.',
+          message: 'Sign in again to continue.',
+          primaryLabel: 'Retry preview',
+          primaryAction: 'retry-leadership-preview',
+        });
         const errorEl = document.getElementById('leadership-error');
         if (errorEl) {
           const link = document.createElement('a');
@@ -172,7 +184,12 @@ async function loadPreview() {
     const rows = body.rows || [];
     const meta = body.meta || {};
     if (!boards || boards.length === 0 || (sprintsIncluded && sprintsIncluded.length === 0)) {
-      showError('No sprint data in this range. Widen the date range or check project access.');
+      showError({
+        title: 'No sprint data in this range.',
+        message: 'Widen the date range or check project access.',
+        primaryLabel: 'Retry preview',
+        primaryAction: 'retry-leadership-preview',
+      });
       setQuarterStripEnabled(true);
       return;
     }
@@ -187,7 +204,12 @@ async function loadPreview() {
     setQuarterStripEnabled(true);
   } catch (err) {
     if (err && err.name === 'AbortError') return;
-    showError(err.message || 'Failed to load preview.');
+    showError({
+      title: 'Could not load trends.',
+      message: err.message || 'Failed to load preview.',
+      primaryLabel: 'Retry preview',
+      primaryAction: 'retry-leadership-preview',
+    });
     setQuarterStripEnabled(true);
   } finally {
     if (requestId === leadershipRequestSeq) {
@@ -223,6 +245,13 @@ export function initLeadershipFilters() {
     saveFilters();
     scheduleAutoPreview();
   });
+  if (leadershipDom.errorEl) {
+    leadershipDom.errorEl.addEventListener('click', (event) => {
+      const btn = event.target?.closest?.('[data-action="retry-leadership-preview"]');
+      if (!btn) return;
+      retryLeadershipIntent();
+    });
+  }
 
   initQuarterStrip('.quarter-strip-inner-leadership', startInput, endInput, {
     formatInputValue: (date) => date.toISOString().slice(0, 10),

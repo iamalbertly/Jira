@@ -157,10 +157,16 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const stickyVisible = await sticky.isVisible().catch(() => false);
     if (stickyVisible) {
       const stickyText = await sticky.textContent().catch(() => '');
-      expect(stickyText).toMatch(/Generated (just now|\d+ min ago)/i);
+      // UX Fix #1: Sticky suffix uses "Updated X min ago" or "Updated just now" (not "Generated:")
+      expect(stickyText).toMatch(/Updated (just now|\d+ min ago)|(just now|\d+ min ago)/i);
     } else {
+      // UX Fix #1: Freshness is in the data-state badge inside .meta-summary-line
+      // Badge shows: "Live", "Just updated", "X min ago", "Partial data", "Closest match"
+      const metaBadge = await page.locator('#preview-meta .data-state-badge').textContent().catch(() => '');
       const metaSummary = await page.locator('#preview-meta .meta-summary-line').textContent().catch(() => '');
-      expect(metaSummary).toMatch(/Generated: (just now|\d+ min ago)/i);
+      const freshnessFound = /just now|\d+ min ago|live|just updated|partial|closest/i.test(metaBadge) ||
+                             /just now|\d+ min ago|live|just updated/i.test(metaSummary);
+      expect(freshnessFound).toBe(true);
     }
     assertTelemetryClean(telemetry);
   });
@@ -270,8 +276,8 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const stuckCard = page.locator('#stuck-card');
     const stuckVisible = await stuckCard.isVisible().catch(() => false);
     if (stuckVisible) {
-      const cardText = await stuckCard.textContent();
-      expect(cardText).toMatch(/Items stuck|in progress|0 items/);
+      const cardText = (await stuckCard.textContent()) || '';
+      expect(cardText).toMatch(/items stuck|in progress|0 items|stuck >24h|work risks/i);
     }
     assertTelemetryClean(telemetry);
   });

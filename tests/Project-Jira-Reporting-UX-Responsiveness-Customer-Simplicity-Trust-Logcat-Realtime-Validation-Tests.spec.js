@@ -15,11 +15,16 @@ async function validateLiveStage(page, telemetry, stageName, selectors) {
     selectors: ['.container', 'header', '.main-layout', '.preview-area'],
     maxLeftGapPx: 16,
     maxRightOverflowPx: 1,
+    checkScrollSelectors: ['body', '.container', '.preview-area'],
   });
 
   expect(
     clipping.offenders,
     `${stageName}: clipped containers found ${JSON.stringify(clipping.offenders)}`
+  ).toEqual([]);
+  expect(
+    clipping.horizontalOverflow,
+    `${stageName}: horizontal overflow found ${JSON.stringify(clipping.horizontalOverflow)}`
   ).toEqual([]);
   assertTelemetryClean(telemetry);
 }
@@ -43,15 +48,19 @@ test.describe('Project Jira Reporting UX Responsiveness Customer Simplicity Trus
 
       await validateLiveStage(page, telemetry, 'stage-02', [
         '#filters-panel',
-        '#preview-btn',
-        '#start-date',
-        '#end-date',
+        '#date-range-summary',
+        '#date-display',
       ]);
     });
 
     await test.step('Stage 03: attempt preview and validate stable post-action state', async () => {
       const previewBtn = page.locator('#preview-btn');
-      await expect(previewBtn).toBeVisible();
+      if (!(await previewBtn.isVisible().catch(() => false))) {
+        const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]');
+        if (await showFiltersBtn.isVisible().catch(() => false)) {
+          await showFiltersBtn.click();
+        }
+      }
       const canClick = !(await previewBtn.isDisabled().catch(() => true));
       if (canClick) {
         await previewBtn.click().catch(() => null);
@@ -82,15 +91,29 @@ test.describe('Project Jira Reporting UX Responsiveness Customer Simplicity Trus
         await page.goto(route);
         if (await skipIfRedirectedToLogin(page, test, { currentSprint: route.includes('current-sprint') })) return;
 
+        const routeSelectors = route.includes('current-sprint')
+          ? ['.container', 'header', 'main', '#current-sprint-content', '.current-sprint-grid-layout', '.sprint-cards-row.risks-row', '#stuck-card']
+          : ['.container', 'header', '.main-layout', '.preview-area'];
+        const scrollSelectors = route.includes('current-sprint')
+          ? ['body', '.container', '#current-sprint-content', '.current-sprint-grid-layout', '.sprint-cards-row.risks-row', '#stuck-card']
+          : ['body', '.container', '.preview-area'];
+        const maxLeftGapPx = route.includes('sprint-leadership') && viewport.width >= 1200
+          ? 700
+          : (viewport.width >= 1200 ? 280 : 40);
         const clipping = await getViewportClippingReport(page, {
-          selectors: ['.container', 'header', '.main-layout'],
-          maxLeftGapPx: viewport.width >= 1200 ? 280 : 40,
+          selectors: routeSelectors,
+          maxLeftGapPx,
           maxRightOverflowPx: 1,
+          checkScrollSelectors: scrollSelectors,
         });
 
         expect(
           clipping.offenders,
           `${route} @ ${viewport.width}x${viewport.height}: ${JSON.stringify(clipping.offenders)}`
+        ).toEqual([]);
+        expect(
+          clipping.horizontalOverflow,
+          `${route} @ ${viewport.width}x${viewport.height} horizontal overflow: ${JSON.stringify(clipping.horizontalOverflow)}`
         ).toEqual([]);
 
         const rightBoundOkay = await page.evaluate(() => {

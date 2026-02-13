@@ -17,6 +17,7 @@ import { updateExportFilteredState, updateExportHint } from './Reporting-App-Rep
 import { updateRangeHint } from './Reporting-App-Report-Page-DateRange-Controller.js';
 import { sortSprintsLatestFirst } from './Reporting-App-Report-Page-Sorting.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
+import { setActionErrorOnEl } from './Reporting-App-Shared-Status-Helpers.js';
 import {
   RECENT_SPLIT_DEFAULT_DAYS,
   PREVIEW_TIMEOUT_LIGHT_MS,
@@ -54,30 +55,24 @@ function narrowDateWindow(endDateInputValue, currentStartInputValue) {
   return { adjustedStart, effectiveEnd };
 }
 
-function buildRetryActionsHtml() {
-  return `
-    <div class="status-banner-actions" style="margin-top:8px;">
-      <button type="button" class="btn btn-secondary btn-compact" data-action="retry-with-smaller-range">Try smaller date range</button>
-      <button type="button" class="btn btn-secondary btn-compact" data-action="retry-preview">Retry preview</button>
-    </div>
-  `;
-}
-
 function showReportError(shortText, detailsText) {
   const errorEl = reportDom.errorEl;
   if (!errorEl) return;
-  errorEl.style.display = 'block';
   const fullMessage = (detailsText && detailsText.trim()) ? detailsText.trim() : (shortText || 'Please fix the issue above.');
-  const fullEscaped = escapeHtml(fullMessage);
-  errorEl.innerHTML = `
-    <div role="alert">
-      <strong>${escapeHtml(shortText || 'Check filters')}</strong>
-      <p style="margin: 8px 0 0 0;">${fullEscaped}</p>
-      ${buildRetryActionsHtml()}
-      <div class="error-details" style="display:none;">${fullEscaped}</div>
-      <button type="button" class="error-close" aria-label="Dismiss">x</button>
-    </div>
-  `;
+  setActionErrorOnEl(errorEl, {
+    title: shortText || 'Check filters',
+    message: fullMessage,
+    primaryLabel: 'Try smaller date range',
+    primaryAction: 'retry-with-smaller-range',
+    secondaryActionLabel: 'Retry preview',
+    secondaryAction: 'retry-preview',
+    dismissible: true,
+  });
+  const details = document.createElement('div');
+  details.className = 'error-details';
+  details.style.display = 'none';
+  details.textContent = fullMessage;
+  errorEl.appendChild(details);
 }
 
 /**
@@ -105,11 +100,6 @@ export function clearPreviewOnFilterChange() {
   if (stickyEl) {
     stickyEl.textContent = '';
     stickyEl.setAttribute('aria-hidden', 'true');
-  }
-  const exportExcelActionBtn = document.getElementById('export-excel-btn');
-  if (exportExcelActionBtn) {
-    exportExcelActionBtn.disabled = true;
-    exportExcelActionBtn.style.display = '';
   }
   if (exportExcelBtn) exportExcelBtn.disabled = true;
   if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
@@ -170,7 +160,7 @@ export function initPreviewFlow() {
       }
     }
 
-    if (target.classList.contains('error-close')) {
+    if (target.classList.contains('error-close') || target.getAttribute('data-action') === 'dismiss-error') {
       if (errorEl) {
         errorEl.style.display = 'none';
         errorEl.innerHTML = '';
@@ -251,8 +241,6 @@ export function initPreviewFlow() {
     previewBtn.disabled = true;
     if (exportDropdownTrigger) exportDropdownTrigger.disabled = true;
     if (exportExcelBtn) exportExcelBtn.disabled = true;
-    const exportExcelActionBtn = document.getElementById('export-excel-btn');
-    if (exportExcelActionBtn) exportExcelActionBtn.disabled = true;
     updateExportHint();
     setQuickRangeButtonsDisabled(true);
 
@@ -261,6 +249,19 @@ export function initPreviewFlow() {
         if (isLoading) {
           setLoadingVisible(true);
           setLoadingStage(0, 'Syncing with Jira…');
+          // M3: Show filter context above skeleton so users know WHAT is loading
+          try {
+            const ctxBar = document.getElementById('loading-context-bar');
+            if (ctxBar) {
+              const params = typeof collectFilterParams === 'function' ? collectFilterParams() : {};
+              const proj = (params.projects || []).join(', ') || 'All projects';
+              const start = params.startDate ? params.startDate.slice(0, 10) : '';
+              const end = params.endDate ? params.endDate.slice(0, 10) : '';
+              const range = start && end ? start + ' – ' + end : '';
+              ctxBar.textContent = 'Loading: ' + proj + (range ? ' · ' + range : '');
+              ctxBar.classList.add('visible');
+            }
+          } catch (_) {}
         }
       });
     }
@@ -361,7 +362,7 @@ export function initPreviewFlow() {
       } else if (complexityLevel === 'light') {
         rangeHintEl.style.display = 'block';
         rangeHintEl.textContent = 'Fast range — usually under 30s for one quarter.';
-      } else if (complexityLevel === 'medium') {
+      } else if (complexityLevel === 'normal') {
         rangeHintEl.style.display = 'block';
         rangeHintEl.textContent = 'Medium range — expect 30–60s; recent data returns first.';
       } else {
@@ -459,8 +460,13 @@ export function initPreviewFlow() {
         renderPreview();
       } catch (renderErr) {
         if (errorEl) {
-          errorEl.style.display = 'block';
-          errorEl.innerHTML = `<div role="alert"><strong>Error:</strong> Failed to render preview: ${escapeHtml(renderErr.message || String(renderErr))}<button type="button" class="error-close" aria-label="Dismiss">x</button></div>`;
+          setActionErrorOnEl(errorEl, {
+            title: 'Error',
+            message: 'Failed to render preview: ' + (renderErr.message || String(renderErr)),
+            primaryLabel: 'Retry preview',
+            primaryAction: 'retry-preview',
+            dismissible: true,
+          });
         }
       }
 
@@ -481,11 +487,6 @@ export function initPreviewFlow() {
       if (exportDropdownTrigger) {
         exportDropdownTrigger.disabled = !reportState.previewHasRows;
         exportDropdownTrigger.style.display = '';
-      }
-      const exportExcelActionBtn = document.getElementById('export-excel-btn');
-      if (exportExcelActionBtn) {
-        exportExcelActionBtn.disabled = !reportState.previewHasRows;
-        exportExcelActionBtn.style.display = '';
       }
       updateExportHint();
       updateExportFilteredState();
@@ -627,21 +628,41 @@ export function initPreviewFlow() {
       if (errorEl) {
         try {
           const redirectReport = escapeHtml(window.location.pathname === '/report' ? '/report' : '/report');
-          const sessionExpiredHtml = error && error.sessionExpired
-            ? `<div role="alert"><strong>Session expired.</strong> Sign in again to continue. <a href="/?redirect=${redirectReport}">Sign in</a><button type="button" class="error-close" aria-label="Dismiss">x</button></div>`
-            : `
-          <div role="alert">
-            <strong>${escapeHtml(shortText)}</strong>
-            <p style="margin: 8px 0 0 0;">${escapeHtml(errorMsg)}</p>
-            ${buildRetryActionsHtml()}
-            <div class="error-details" style="display:none;">${escapeHtml(errorMsg)}</div>
-            <button type="button" class="error-close" aria-label="Dismiss">x</button>
-          </div>
-        `;
-          errorEl.innerHTML = sessionExpiredHtml;
+          if (error && error.sessionExpired) {
+            setActionErrorOnEl(errorEl, {
+              title: 'Session expired',
+              message: 'Sign in again to continue.',
+              primaryLabel: 'Open sign in',
+              primaryAction: '',
+              secondaryHref: '/?redirect=' + redirectReport,
+              secondaryLabel: 'Sign in',
+              dismissible: true,
+            });
+          } else {
+            setActionErrorOnEl(errorEl, {
+              title: shortText,
+              message: errorMsg,
+              primaryLabel: 'Try smaller date range',
+              primaryAction: 'retry-with-smaller-range',
+              secondaryActionLabel: 'Retry preview',
+              secondaryAction: 'retry-preview',
+              dismissible: true,
+            });
+            const details = document.createElement('div');
+            details.className = 'error-details';
+            details.style.display = 'none';
+            details.textContent = errorMsg;
+            errorEl.appendChild(details);
+          }
         } catch (innerErr) {
           console.error('Error rendering preview error UI', innerErr);
-          errorEl.innerHTML = '<div role="alert"><strong>Server error.</strong> Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+          setActionErrorOnEl(errorEl, {
+            title: 'Server error',
+            message: 'Please try again or use a smaller date range.',
+            primaryLabel: 'Retry preview',
+            primaryAction: 'retry-preview',
+            dismissible: true,
+          });
         }
       }
       if (statusEl) {
@@ -668,7 +689,13 @@ export function initPreviewFlow() {
       }
       // Ensure error panel is never blank (trust).
       if (errorEl && errorEl.style.display === 'block' && (!errorEl.textContent || errorEl.textContent.trim() === '')) {
-        errorEl.innerHTML = '<div role="alert"><strong>Error:</strong> Something went wrong. Please try again or use a smaller date range.<button type="button" class="error-close" aria-label="Dismiss">x</button></div>';
+        setActionErrorOnEl(errorEl, {
+          title: 'Error',
+          message: 'Something went wrong. Please try again or use a smaller date range.',
+          primaryLabel: 'Retry preview',
+          primaryAction: 'retry-preview',
+          dismissible: true,
+        });
       }
     } finally {
       isLoading = false;
@@ -676,6 +703,8 @@ export function initPreviewFlow() {
       try {
         hideLoadingIfVisible();
         clearLoadingSteps();
+        const previewArea = document.querySelector('.preview-area');
+        if (previewArea) previewArea.setAttribute('aria-busy', 'false');
       } catch (e) {}
 
       if (timeoutId) clearTimeout(timeoutId);
@@ -704,4 +733,8 @@ export function initPreviewFlow() {
       updateExportHint();
     }
   });
+
+  // Reliability edge case: if user navigates away mid-request, cancel in-flight preview.
+  window.addEventListener('pagehide', () => cancelPreviewRequest(), { once: true });
+  window.addEventListener('beforeunload', () => cancelPreviewRequest(), { once: true });
 }

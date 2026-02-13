@@ -15,6 +15,9 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Guard: fail fast if styles.css was edited directly instead of via partials
+      - name: Verify CSS partials are in sync
+        run: npm run build:css && npm run check:css
       - run: npm run test:all
         env:
           CI: true

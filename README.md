@@ -171,6 +171,13 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
 - **Preview cache key normalization (2026-02-12):** Preview cache keys now normalize project sets, date windows (day precision), and mode flags to increase hit rates for semantically equivalent requests.
 - **TTL tuning refresh (2026-02-12):** Heavy user-facing caches (preview, sprint issues, current sprint snapshots) now use longer calibrated TTLs with short-lived partial entries.
 - **Cache observability endpoint (2026-02-12):** Added `GET /api/cache-metrics` for backend/namespace hit/miss/set/error visibility.
+- **Navigation consistency hardening (2026-02-13):** Global sidebar now uses one canonical leadership destination (`/sprint-leadership` -> `/report#trends`), hash-aware active states, and same-page leadership navigation on report without full reload.
+- **Mobile nav reliability pass (2026-02-13):** Sidebar drawer now includes keyboard focus trapping, Escape close, outside-click close, touch-safe sizing, safe-area aware toggle positioning, and 44px minimum touch targets.
+- **Accessibility and trust pass (2026-02-13):** Added global skip-link (`Skip to main content`), main landmarks on report/current-sprint, and cleaned navigation/help copy consistency.
+- **Normalized report error actions (2026-02-13):** Report preview/export errors now use one shared action-banner pattern with explicit retry actions and dismiss behavior (`retry-preview`, `retry-with-smaller-range`) to reduce dead-end states.
+- **Current Sprint preferred-sprint fallback (2026-02-13):** When a stored preferred sprint is stale for the selected board, current-sprint now retries board load without the stale sprint id instead of failing the full auto-load flow.
+- **Current Sprint header verdict line (2026-02-13):** Header now surfaces one compact verdict line (`Healthy/Watch/At risk/Critical`) with key risk details for faster first-scan decision making.
+- **Report first-paint and mobile reliability test hardening (2026-02-13):** Updated existing fail-fast Playwright suites to handle auto-collapsed filters and auto-preview timing without false negatives while preserving telemetry checks.
 
 ### Preview Behaviour & Feedback
 
@@ -372,6 +379,9 @@ npm run test:current-sprint-ux-ssot
 
 # Focused cache reliability and preview metadata checks
 npm run test:cache-reliability
+
+# Navigation consistency + realtime mobile trust checks (13 fail-fast assertions)
+npm run test:navigation-consistency
 ```
 
 ### Test Coverage and Caching Behavior

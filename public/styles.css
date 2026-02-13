@@ -1,4 +1,8 @@
-/* Built from public/css/ – do not edit directly. */
+/* ═══════════════════════════════════════════════════════════════
+   GENERATED FILE — DO NOT EDIT
+   Built from public/css/ (8 partials — see public/css/README.md)
+   To change styles: edit a partial, then run: npm run build:css
+   ═══════════════════════════════════════════════════════════════ */
 :root {
   --bg: #eef2f7;
   --bg-accent: #dfe7f1;
@@ -162,6 +166,29 @@ header .subtitle {
   }
 }
 
+/* M2: Scroll-aware page identity — compact page name fades in as H1 scrolls off (X.com pattern) */
+.header-page-context {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 8px;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, max-width 0.25s ease;
+  display: inline-block;
+  vertical-align: middle;
+}
+.header-page-context.visible {
+  opacity: 1;
+  max-width: 200px;
+}
+@media (min-width: 769px) {
+  /* Desktop shows page name via breadcrumbs/title; hide the scroll pill */
+  .header-page-context { display: none; }
+}
+
 .app-nav {
   margin-top: 8px;
   font-size: 0.82em;
@@ -225,6 +252,24 @@ header .subtitle {
   pointer-events: none;
 }
 
+.skip-to-content {
+  position: fixed;
+  left: 12px;
+  top: calc(-100px + env(safe-area-inset-top, 0px));
+  z-index: 1400;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: top 0.2s ease;
+}
+
+.skip-to-content:focus {
+  top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
 .app-sidebar {
   position: fixed;
   left: 0;
@@ -238,6 +283,9 @@ header .subtitle {
   display: flex;
   flex-direction: column;
   padding: 16px 12px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-brand {
@@ -293,7 +341,13 @@ header .subtitle {
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 10px 12px;
+  min-height: 44px;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.sidebar-link span {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .sidebar-link svg {
@@ -355,7 +409,7 @@ header .subtitle {
 .sidebar-toggle {
   position: fixed;
   left: 12px;
-  top: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
   width: 40px;
   height: 40px;
   border-radius: 10px;
@@ -369,6 +423,12 @@ header .subtitle {
   justify-content: center;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .sidebar-toggle:hover {
@@ -444,6 +504,10 @@ body.sidebar-scroll-lock {
 
   .sidebar-backdrop.active {
     display: block;
+  }
+
+  .app-sidebar {
+    width: min(86vw, 320px);
   }
 }
 
@@ -1248,6 +1312,9 @@ body.sidebar-scroll-lock {
 .applied-filters-chips {
   font-size: 0.85em;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-banner {
@@ -1364,6 +1431,51 @@ body.sidebar-scroll-lock {
 
 .tab-pane.active {
   display: block;
+}
+
+.tab-btn-secondary-mobile-hidden {
+  display: none !important;
+}
+
+.tabs-more-wrap {
+  position: relative;
+}
+
+.tabs-more-btn {
+  min-width: 96px;
+}
+
+.tabs-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 100;
+  display: none;
+}
+
+.tabs-more-menu.open {
+  display: block;
+}
+
+.tabs-more-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.tabs-more-item:hover {
+  background: var(--bg-accent);
 }
 
 #tab-done-stories .col-optional {
@@ -1544,6 +1656,30 @@ body.sidebar-scroll-lock {
 .leadership-card {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.leadership-secondary-details {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.leadership-secondary-details > summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.leadership-secondary-details[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .leadership-secondary-details:not([open]) .leadership-card {
+    display: none;
+  }
 }
 
 /* Current Sprint Enhancements */
@@ -2086,6 +2222,152 @@ body.notification-dock-visible .container {
   font-weight: 500;
 }
 
+
+/* M3: Loading state filter context bar — shows what's being loaded above skeleton */
+.loading-context-bar {
+  display: none;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--card-muted);
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loading-context-bar.visible {
+  display: block;
+}
+
+/* UX Fix #1: Data-state badge — human-readable freshness signals replacing [Cached]/[Live] dev-speak.
+   Used on report preview meta and leadership context bar. */
+.data-state-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.data-state-badge--live {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.data-state-badge--cached {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+/* stale = >30 min — amber alert to signal potential data freshness concern */
+.data-state-badge--stale {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.data-state-badge--partial {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+.data-state-badge--closest {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+/* M4: Applied filters dedup — hide on mobile when preview sticky bar is showing the same info */
+@media (max-width: 768px) {
+  body.preview-active #applied-filters-summary {
+    display: none;
+  }
+}
+
+/* M7: iOS safe-area inset for loading status chip (report page fixed element) */
+.loading-status-chip {
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 768px) {
+  .loading-status-chip {
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* M8: Sticky tab bar — stays visible while scrolling through long table content */
+.tabs {
+  position: sticky;
+  top: 72px;
+  z-index: 89;
+  background: var(--bg);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+@media (max-width: 720px) {
+  .tabs {
+    top: 56px;
+  }
+}
+
+/* M10: Minimum touch targets on report page controls (Apple HIG / Material: 44px) */
+@media (max-width: 768px) {
+  .tab-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .filter-chip,
+  .applied-filter-chip {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* M12: Show filters prominence on mobile — elevated pill button with count badge */
+@media (max-width: 1024px) {
+  .filters-panel-collapsed-bar {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-shadow: 0 2px 6px rgba(14, 42, 79, 0.08);
+    cursor: pointer;
+  }
+  .filters-panel-collapsed-bar:hover {
+    border-color: var(--primary);
+    background: var(--card-muted);
+  }
+  .filters-panel-collapsed-bar .filters-collapsed-summary {
+    font-size: 0.88rem;
+    color: var(--text);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .filters-active-count-badge {
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .filters-active-count-badge:empty {
+    display: none;
+  }
+}
 /* Tables */
 .data-table {
   width: 100%;
@@ -2196,7 +2478,27 @@ body.notification-dock-visible .container {
   .data-table { font-size: 0.82em; }
   .data-table th { padding: 8px; font-size: 0.78em; }
   .data-table td { padding: 6px 8px; }
-  .data-table-scroll-wrap::after { display: none; }
+  /* M11: Restore right-edge fade on mobile — don't hide the scroll affordance */
+  .data-table-scroll-wrap::after { display: block; width: 20px; margin-left: -20px; }
+}
+
+/* M11: Left-edge fade — shows when user has scrolled right, signals more content to the left */
+.data-table-scroll-wrap::before {
+  content: '';
+  position: sticky;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: linear-gradient(to left, transparent, rgba(255,255,255,0.95));
+  pointer-events: none;
+  opacity: 0;
+  transition: width 0.15s, opacity 0.15s;
+}
+.data-table-scroll-wrap.scrolled-right::before {
+  width: 24px;
+  margin-right: -24px;
+  opacity: 1;
 }
 
 .data-table th[title] {
@@ -2782,6 +3084,22 @@ body.notification-dock-visible .container {
   color: var(--primary-strong, #1a1a1a);
 }
 
+.sprint-verdict-line {
+  width: 100%;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.sprint-verdict-green { color: #166534; }
+.sprint-verdict-yellow { color: #854d0e; }
+.sprint-verdict-orange,
+.sprint-verdict-red { color: #991b1b; }
+
+.sprint-verdict-explain {
+  display: inline;
+}
+
 .header-bar-left {
   flex: 0 1 auto;
   min-width: 250px;
@@ -2903,7 +3221,9 @@ body.notification-dock-visible .container {
 .current-sprint-grid-layout {
   display: grid;
   gap: 20px;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  width: 100%;
 }
 
 .sprint-cards-row {
@@ -2912,6 +3232,7 @@ body.notification-dock-visible .container {
   flex-wrap: wrap;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
 }
 
 .sprint-cards-row.top-row {
@@ -2935,6 +3256,15 @@ body.notification-dock-visible .container {
 .card-column {
   flex: 1;
   min-width: 280px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.card-column > .transparency-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .countdown-column {
@@ -2997,12 +3327,20 @@ body.notification-dock-visible .container {
 .verdict-text { font-weight: 600; }
 .verdict-detail { color: var(--muted); font-size: 0.9em; }
 .verdict-more {
+  border: 0;
+  background: transparent;
   font-size: 0.85em;
   color: var(--primary);
   cursor: pointer;
   text-decoration: underline;
+  padding: 0;
 }
 .verdict-action { flex-shrink: 0; }
+.verdict-explain {
+  width: 100%;
+  font-size: 0.82em;
+  color: var(--muted);
+}
 
 .card-details-toggle-wrap {
   margin-bottom: 8px;
@@ -4233,6 +4571,40 @@ body.notification-dock-visible .container {
   margin-left: auto;
 }
 
+/* Tech Debt #1: Fix WORK ITEMS4 — .header-metric-link must flex-column so label stacks above value */
+.header-metric-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Tech Debt #3: Live/Snapshot status badge is read-only status — remove interactive pointer affordance */
+.status-badge {
+  pointer-events: none;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* UX Fix #7: Collapsed "No data" carousel cards — minimal height, muted, no wasted visual space */
+.carousel-tab--no-data {
+  opacity: 0.55;
+  min-width: 120px !important;
+  padding: 6px 8px !important;
+  background: var(--card-muted) !important;
+  border-style: dashed !important;
+}
+.carousel-tab--no-data .carousel-tab-dates {
+  font-size: 0.68rem;
+}
+.carousel-tab--no-data .carousel-completion {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.carousel-tab--no-data:hover {
+  opacity: 0.8;
+}
+
 /* Export Dashboard */
 .export-dashboard-container {
   position: fixed;
@@ -4347,6 +4719,101 @@ body.notification-dock-visible .export-dashboard-container {
   }
 }
 
+
+/* M9: Sprint loading context — shows board + sprint name above spinner */
+.sprint-loading-context {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 16px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.sprint-loading-context:empty {
+  display: none;
+}
+
+/* M10: 44px touch targets for carousel tabs on mobile */
+@media (max-width: 768px) {
+  .current-sprint-header-bar {
+    width: auto;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .carousel-tab {
+    min-height: 44px;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .carousel-tab--no-data {
+    min-height: 36px !important; /* collapsed no-data cards can be slightly smaller */
+  }
+}
+
+/* M7: iOS safe-area inset for export dashboard container (sprint page) */
+.export-dashboard-container {
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 768px) {
+  .export-dashboard-container {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* M7: Notification dock pushes export container further up — account for safe-area too */
+body.notification-dock-visible .export-dashboard-container {
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+}
+
+/* M6: Sprint carousel horizontal scroll affordance — right-edge fade + swipe hint */
+.sprint-carousel::after {
+  content: '';
+  position: sticky;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  margin-left: -32px;
+  flex-shrink: 0;
+  background: linear-gradient(to right, transparent, rgba(245, 248, 252, 0.95));
+  pointer-events: none;
+}
+.sprint-carousel-scroll-hint {
+  display: none;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0 2px;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  transition: opacity 0.4s;
+}
+@media (max-width: 768px) {
+  .sprint-carousel-scroll-hint { display: block; }
+  .sprint-carousel-scroll-hint.scrolled { opacity: 0; pointer-events: none; }
+}
+
+/* M10: Minimum 44px touch targets for alert and verdict actions on sprint page */
+@media (max-width: 768px) {
+  .verdict-action,
+  .alert-action,
+  .alert-dismiss {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .verdict-detail,
+  .verdict-explain,
+  .sprint-verdict-explain {
+    display: none;
+  }
+}
 /* Leadership viewport containment */
 #hud-grid,
 .hud-grid {
@@ -4446,11 +4913,33 @@ body.notification-dock-visible .export-dashboard-container {
     flex-direction: column;
     min-width: 0;
     max-width: 100%;
+    width: 100%;
   }
 
   .card-column {
     min-width: 0;
     max-width: 100%;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .risks-stuck-column,
+  .risks-insights-column,
+  .burndown-column,
+  .health-column,
+  .capacity-column,
+  .countdown-column {
+    min-width: 0;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  #stuck-card,
+  #burndown-card,
+  #stories-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .export-dashboard-container {

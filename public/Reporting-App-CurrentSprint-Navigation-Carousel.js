@@ -74,23 +74,32 @@ export function renderSprintCarousel(data) {
     const endDate = sprint.endDate ? formatDate(sprint.endDate) : '-';
     const tooltip = sprintName + '\nStart: ' + startDate + '\nEnd: ' + endDate + '\n' + (noData ? 'No data' : completionPercent + '%');
 
-    html += '<button class="carousel-tab ' + (isActive ? 'active carousel-tab-current' : '') + ' ' + completionColor + '" ';
-    html += 'type="button" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" data-sprint-id="' + sprint.id + '" title="' + escapeHtml(tooltip) + '">';
+    // UX Fix #7: No-data closed cards collapse to minimal size — saves 70% of visual noise
+    // when board has no historical SP tracking. A tooltip explains WHY data is absent.
+    const noDataClass = noData ? ' carousel-tab--no-data' : '';
+    const noDataTooltip = noData ? sprintName + '\n' + startDate + ' → ' + endDate + '\nNo data — SP tracking may not have been enabled for this sprint.' : tooltip;
+    html += '<button class="carousel-tab ' + (isActive ? 'active carousel-tab-current' : '') + ' ' + completionColor + noDataClass + '" ';
+    html += 'type="button" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" data-sprint-id="' + sprint.id + '" title="' + escapeHtml(noDataTooltip) + '">';
     html += '<span class="carousel-tab-name">' + escapeHtml(sprintName) + '</span>';
-    html += '<span class="carousel-tab-dates">' + startDate + ' → ' + endDate + '</span>';
-    html += '<div class="carousel-health-indicator" style="width: ' + (noData ? 0 : completionPercent) + '%;" role="img" aria-label="' + (noData ? 'No data' : completionPercent + '% complete') + '"></div>';
+    if (!noData) {
+      html += '<span class="carousel-tab-dates">' + startDate + ' → ' + endDate + '</span>';
+      html += '<div class="carousel-health-indicator" style="width: ' + completionPercent + '%;" role="img" aria-label="' + completionPercent + '% complete"></div>';
+    }
     if (isOpen) html += '<span class="carousel-status current">Current</span>';
-    else if (isClosed) html += '<span class="carousel-status closed">Closed</span>';
-    html += '<span class="carousel-completion">' + (noData ? 'No data' : completionPercent + '%') + '</span>';
+    else if (isClosed && !noData) html += '<span class="carousel-status closed">Closed</span>';
+    html += '<span class="carousel-completion">' + (noData ? '—' : completionPercent + '%') + '</span>';
     html += '</button>';
   });
 
   html += '</div>';
+  // M6: Horizontal scroll affordance hint (auto-hides on first scroll via wireSprintCarouselHandlers)
+  html += '<div class="carousel-scroll-hint sprint-carousel-scroll-hint" aria-hidden="true">← swipe for older sprints →</div>';
   html += '<div class="carousel-legend">';
   html += '<span class="legend-item"><span class="legend-dot green"></span>100%</span>';
   html += '<span class="legend-item"><span class="legend-dot yellow"></span>50-99%</span>';
   html += '<span class="legend-item"><span class="legend-dot gray"></span>0-49%</span>';
-  html += '<span class="legend-item"><span class="legend-dot muted"></span>No data</span>';
+  // UX Fix #7: "No data" legend item — collapsed/muted card style (hover tooltip explains cause)
+  html += '<span class="legend-item"><span class="legend-dot muted"></span>— No data</span>';
   html += '</div>';
   html += '</div>';
 
@@ -115,6 +124,14 @@ export function wireSprintCarouselHandlers(onSprintSelect) {
         if (tab) tab.click();
       }
     });
+  }
+
+  // M6: Auto-hide scroll hint on first carousel scroll
+  const scrollHint = document.querySelector('.sprint-carousel-scroll-hint');
+  if (scrollHint) {
+    carousel.addEventListener('scroll', () => {
+      scrollHint.classList.add('scrolled');
+    }, { passive: true, once: true });
   }
 
   tabs.forEach((tab, idx) => {

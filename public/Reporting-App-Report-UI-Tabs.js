@@ -1,13 +1,37 @@
 export function initTabs(updateExportFilteredState, onTabActivate) {
-  const tabButtons = document.querySelectorAll('.tab-btn');
-  const tabPanes = document.querySelectorAll('.tab-pane');
+  const REPORT_ACTIVE_TAB_KEY = 'report-active-tab';
+  const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  const tabPanes = Array.from(document.querySelectorAll('.tab-pane'));
   const tabsContainer = document.querySelector('.tabs');
+  const secondaryTabs = new Set(['unusable-sprints', 'trends']);
+  const moreItems = [];
+  let moreButton = null;
+  let moreMenu = null;
 
   if (tabsContainer) {
     tabsContainer.setAttribute('role', 'tablist');
   }
 
-  function activateTab(btn) {
+  function closeMoreMenu() {
+    if (!moreButton || !moreMenu) return;
+    moreMenu.classList.remove('open');
+    moreButton.setAttribute('aria-expanded', 'false');
+  }
+
+  function updateMoreButtonLabel(activeTabName = '') {
+    if (!moreButton) return;
+    if (secondaryTabs.has(activeTabName)) {
+      const activeBtn = tabButtons.find((b) => b.dataset.tab === activeTabName);
+      const activeLabel = activeBtn ? (activeBtn.textContent || 'More').trim() : 'More';
+      moreButton.textContent = 'More: ' + activeLabel;
+    } else {
+      moreButton.textContent = 'More';
+    }
+  }
+
+  function activateTab(btn, options = {}) {
+    if (!btn) return;
+    const { skipFocus = false } = options;
     const tabName = btn.dataset.tab;
     if (!tabName) return;
 
@@ -22,11 +46,90 @@ export function initTabs(updateExportFilteredState, onTabActivate) {
     const pane = document.getElementById(`tab-${tabName}`);
     if (pane) {
       pane.classList.add('active');
-      const firstFocusable = pane.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (firstFocusable) firstFocusable.focus();
+      if (!skipFocus) {
+        const firstFocusable = pane.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) firstFocusable.focus();
+      }
     }
+    updateMoreButtonLabel(tabName);
+    closeMoreMenu();
+    try { sessionStorage.setItem(REPORT_ACTIVE_TAB_KEY, tabName); } catch (_) {}
     if (updateExportFilteredState) updateExportFilteredState();
     if (onTabActivate && typeof onTabActivate === 'function') onTabActivate(tabName);
+  }
+
+  function ensureMoreMenu() {
+    if (!tabsContainer || moreButton || !tabButtons.length) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tabs-more-wrap';
+    wrapper.setAttribute('data-tabs-more', 'true');
+
+    moreButton = document.createElement('button');
+    moreButton.type = 'button';
+    moreButton.className = 'tab-btn tabs-more-btn';
+    moreButton.setAttribute('aria-haspopup', 'menu');
+    moreButton.setAttribute('aria-expanded', 'false');
+    moreButton.textContent = 'More';
+
+    moreMenu = document.createElement('div');
+    moreMenu.className = 'tabs-more-menu';
+    moreMenu.setAttribute('role', 'menu');
+    moreMenu.setAttribute('aria-hidden', 'true');
+
+    tabButtons.forEach((btn) => {
+      const tabName = btn.dataset.tab || '';
+      if (!secondaryTabs.has(tabName)) return;
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tabs-more-item';
+      item.setAttribute('role', 'menuitem');
+      item.textContent = btn.textContent || tabName;
+      item.dataset.targetTab = tabName;
+      item.addEventListener('click', () => activateTab(btn));
+      moreItems.push(item);
+      moreMenu.appendChild(item);
+    });
+
+    moreButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!moreMenu) return;
+      const open = moreMenu.classList.toggle('open');
+      moreButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        const first = moreMenu.querySelector('.tabs-more-item');
+        if (first) first.focus();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!wrapper.contains(e.target)) closeMoreMenu();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMoreMenu();
+    });
+
+    wrapper.appendChild(moreButton);
+    wrapper.appendChild(moreMenu);
+    tabsContainer.appendChild(wrapper);
+  }
+
+  function applyResponsiveTabPriority() {
+    ensureMoreMenu();
+    const mobile = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 860px)').matches
+      : false;
+    tabButtons.forEach((btn) => {
+      const tabName = btn.dataset.tab || '';
+      const isSecondary = secondaryTabs.has(tabName);
+      btn.classList.toggle('tab-btn-secondary-mobile-hidden', mobile && isSecondary);
+    });
+    if (moreButton && moreMenu) {
+      const showMore = mobile && moreItems.length > 0;
+      moreButton.style.display = showMore ? '' : 'none';
+      moreMenu.setAttribute('aria-hidden', showMore ? 'false' : 'true');
+      if (!showMore) closeMoreMenu();
+    }
   }
 
   tabButtons.forEach((btn) => {
@@ -44,14 +147,29 @@ export function initTabs(updateExportFilteredState, onTabActivate) {
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
-        const buttons = Array.from(tabButtons);
+        const visibleButtons = tabButtons.filter((b) => !b.classList.contains('tab-btn-secondary-mobile-hidden'));
+        const buttons = visibleButtons.length ? visibleButtons : tabButtons;
         const dir = e.key === 'ArrowRight' ? 1 : -1;
         const currentIndex = buttons.indexOf(btn);
         const nextIndex = (currentIndex + dir + buttons.length) % buttons.length;
         const nextBtn = buttons[nextIndex];
         nextBtn.focus();
-        activateTab(nextBtn);
+        activateTab(nextBtn, { skipFocus: true });
       }
     });
   });
+
+  applyResponsiveTabPriority();
+  try {
+    window.addEventListener('resize', applyResponsiveTabPriority, { passive: true });
+  } catch (_) {
+    window.addEventListener('resize', applyResponsiveTabPriority);
+  }
+  const activeTab = tabButtons.find((b) => b.classList.contains('active'));
+  updateMoreButtonLabel(activeTab?.dataset?.tab || '');
+  try {
+    const savedTab = sessionStorage.getItem(REPORT_ACTIVE_TAB_KEY);
+    const savedButton = savedTab ? tabButtons.find((b) => b.dataset.tab === savedTab) : null;
+    if (savedButton) activateTab(savedButton, { skipFocus: true });
+  } catch (_) {}
 }

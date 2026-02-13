@@ -108,7 +108,27 @@
   .data-table { font-size: 0.82em; }
   .data-table th { padding: 8px; font-size: 0.78em; }
   .data-table td { padding: 6px 8px; }
-  .data-table-scroll-wrap::after { display: none; }
+  /* M11: Restore right-edge fade on mobile — don't hide the scroll affordance */
+  .data-table-scroll-wrap::after { display: block; width: 20px; margin-left: -20px; }
+}
+
+/* M11: Left-edge fade — shows when user has scrolled right, signals more content to the left */
+.data-table-scroll-wrap::before {
+  content: '';
+  position: sticky;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: linear-gradient(to left, transparent, rgba(255,255,255,0.95));
+  pointer-events: none;
+  opacity: 0;
+  transition: width 0.15s, opacity 0.15s;
+}
+.data-table-scroll-wrap.scrolled-right::before {
+  width: 24px;
+  margin-right: -24px;
+  opacity: 1;
 }
 
 .data-table th[title] {

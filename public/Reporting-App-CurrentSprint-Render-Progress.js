@@ -25,12 +25,20 @@ function buildBurndownChart(remaining, ideal) {
 
   const now = Date.now();
   let currentIndex = remaining.length - 1;
+  let foundFuture = false;
   for (let i = 0; i < remaining.length; i++) {
     const ts = new Date(remaining[i].date).getTime();
-    if (Number.isFinite(ts) && ts > now) {
+    if (!Number.isFinite(ts)) continue;
+    if (ts > now) {
       currentIndex = Math.max(0, i - 1);
+      foundFuture = true;
       break;
     }
+  }
+  // If every point is in the future (timezone/window edge case), anchor marker at first point.
+  if (!foundFuture) {
+    const firstTs = new Date(remaining[0]?.date).getTime();
+    if (Number.isFinite(firstTs) && firstTs > now) currentIndex = 0;
   }
 
   const actualSeries = remaining.slice(0, currentIndex + 1);

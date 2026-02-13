@@ -218,7 +218,13 @@ test('Login - Global nav hidden', async ({ page }) => {
     await page.waitForTimeout(500);
     await page.locator('#tab-btn-sprints').click();
     await page.waitForTimeout(300);
-    await page.locator('#preview-btn').click();
+    const previewBtn = page.locator('#preview-btn');
+    const previewVisible = await previewBtn.isVisible().catch(() => false);
+    if (!previewVisible) {
+      await page.locator('[data-action="toggle-filters"]').click();
+      await expect(previewBtn).toBeVisible();
+    }
+    await previewBtn.click();
     await waitForPreview(page, { timeout: 90000 });
     const selectedTabs = page.locator('.tab-btn[aria-selected="true"]');
     await expect(selectedTabs.first()).toBeVisible();

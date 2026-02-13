@@ -18,6 +18,13 @@ export function renderTrendsTab(previewData) {
   const container = document.getElementById('leadership-content');
   if (!container) return;
   renderLeadershipContent(previewData, container);
+  try {
+    if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
+      container.querySelectorAll('details[data-mobile-collapse="true"]').forEach((el) => {
+        el.open = false;
+      });
+    }
+  } catch (_) {}
 
   const meta = previewData.meta || {};
   const isPartial = meta.partial === true;

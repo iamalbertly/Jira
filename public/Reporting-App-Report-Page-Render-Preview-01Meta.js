@@ -14,13 +14,14 @@ function buildGeneratedLabels(generatedAt) {
     : new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   const recent = ageMs >= 0 && ageMs < 3600000;
   const ageMin = Math.max(0, Math.round(ageMs / 60000));
+  // UX Fix #1: Human-readable freshness — no developer-speak [Cached]/[Live] brackets
   const label = recent
-    ? (ageMin < 1 ? 'Generated: just now' : `Generated: ${ageMin} min ago`)
-    : `Generated: ${generatedShort}`;
+    ? (ageMin < 1 ? 'Updated just now' : `Updated ${ageMin} min ago`)
+    : `Updated: ${generatedShort}`;
   const stickySuffix = generatedAt
-    ? (ageMin < 1 ? ' | Generated just now' : ` | Generated ${ageMin} min ago`)
+    ? (ageMin < 1 ? ' | Updated just now' : ` | Updated ${ageMin} min ago`)
     : '';
-  return { label, stickySuffix };
+  return { label, stickySuffix, ageMin, isRecent: recent };
 }
 
 /**
@@ -115,19 +116,22 @@ export function buildPreviewMetaAndStatus(params) {
   else if (timedOut) metaSummaryWhy = ' | Time limit reached (partial data)';
   else if (previewMode === 'recent-first') metaSummaryWhy = ' | Recent live; older from cache';
 
+  // UX Fix #1: Human-readable data state — replace [Cached]/[Live] developer-speak with
+  // freshness signals that communicate data reality to business users, not engineers.
   const generated = buildGeneratedLabels(meta.generatedAt);
-
-  let dataStateLabel = 'Live complete';
+  const ageMin = generated.ageMin;
+  let dataStateLabel = 'Live';
   let dataStateKind = 'live';
   if (reducedScope) {
-    dataStateLabel = 'Closest available';
+    dataStateLabel = 'Closest match';
     dataStateKind = 'closest';
   } else if (partial) {
-    dataStateLabel = 'Partial';
+    dataStateLabel = 'Partial data';
     dataStateKind = 'partial';
   } else if (fromCache) {
-    dataStateLabel = 'Cached';
-    dataStateKind = 'cached';
+    // Show actual age instead of opaque "Cached" — users need to know if data is stale
+    dataStateLabel = ageMin < 1 ? 'Just updated' : (ageMin < 60 ? `${ageMin} min ago` : 'Over 1h ago');
+    dataStateKind = ageMin > 30 ? 'stale' : 'cached';
   }
   if (meta.failedBoardCount && meta.failedBoardCount > 0) {
     const failedBoards = Array.isArray(meta.failedBoards) ? meta.failedBoards : [];
@@ -138,11 +142,14 @@ export function buildPreviewMetaAndStatus(params) {
     detailsLines.push(`Skipped boards: ${meta.failedBoardCount}${suffix}`);
   }
   const outcomeLine = rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix;
-  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)} | ${escapeHtml(generated.label)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
-  const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}">${escapeHtml(dataStateLabel)}</span>`;
+  const compactSummaryLine = 'Window coverage: Boards ' + boardsCount + (sprintsCount > 0 ? ' | Sprints ' + sprintsCount : '');
+  // UX Fix #1: contextLine = scope info only; freshness is carried by the badge (avoids "9 min ago 9 min ago" duplication)
+  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
+  // data-state-badge--stale triggers amber warning colour via CSS (> 30 min = stale signal to user)
+  const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}" title="Data freshness: ${escapeHtml(generated.label)}">${escapeHtml(dataStateLabel)}</span>`;
   const previewMetaHTML = `
     <div class="meta-info-summary meta-summary-line">
-      <div class="meta-outcome-line">${escapeHtml(outcomeLine)}${prevRunHtml ? ' ' + prevRunHtml : ''}</div>
+      <div class="meta-outcome-line">${escapeHtml(compactSummaryLine)}</div>
       <div class="meta-context-line">${contextLine} ${dataStateBadgeHTML}</div>
     </div>
     <div class="meta-info meta-info-details">

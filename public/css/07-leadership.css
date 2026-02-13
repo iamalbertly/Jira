@@ -97,11 +97,33 @@
     flex-direction: column;
     min-width: 0;
     max-width: 100%;
+    width: 100%;
   }
 
   .card-column {
     min-width: 0;
     max-width: 100%;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .risks-stuck-column,
+  .risks-insights-column,
+  .burndown-column,
+  .health-column,
+  .capacity-column,
+  .countdown-column {
+    min-width: 0;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  #stuck-card,
+  #burndown-card,
+  #stories-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .export-dashboard-container {

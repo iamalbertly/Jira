@@ -70,7 +70,7 @@ function initAdvancedOptionsToggle() {
     const setOpen = (open) => {
       panel.hidden = !open;
       toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      toggleBtn.textContent = open ? 'Hide options' : 'Options';
+      toggleBtn.textContent = open ? 'Hide advanced' : '+ Advanced';
       try { localStorage.setItem(REPORT_ADVANCED_OPTIONS_OPEN_KEY, open ? '1' : '0'); } catch (_) {}
     };
     let shouldOpen = false;

@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { captureBrowserTelemetry, assertTelemetryClean } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
+async function ensureReportFiltersExpanded(page) {
+  const projectSearch = page.locator('#project-search');
+  const isVisible = await projectSearch.isVisible().catch(() => false);
+  if (isVisible) return;
+  const toggle = page.locator('[data-action="toggle-filters"]').first();
+  if (await toggle.isVisible().catch(() => false)) {
+    await toggle.click();
+  }
+  await expect(projectSearch).toBeVisible();
+}
+
 test.describe('UX Report Flow & Export Experience', () => {
   test('report subtitle explains auto-refresh with manual Preview control', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
@@ -16,12 +27,14 @@ test.describe('UX Report Flow & Export Experience', () => {
   test('projects are directly selectable and search still works without extra toggles', async ({ page }) => {
     await page.goto('/report');
 
+    await ensureReportFiltersExpanded(page);
     await expect(page.locator('#project-search')).toBeVisible();
     await expect(page.locator('#projects-no-match')).toBeHidden();
     await expect(page.locator('#show-all-squads')).toHaveCount(0);
 
     await page.fill('#project-search', 'MPSA');
     await expect(page.locator('#projects-no-match')).toBeHidden();
+    await ensureReportFiltersExpanded(page);
     await page.fill('#project-search', 'ZZZ-DOES-NOT-EXIST');
     await expect(page.locator('#projects-no-match')).toBeVisible();
   });
@@ -29,6 +42,7 @@ test.describe('UX Report Flow & Export Experience', () => {
   test('applied filters summary stays visible and reflects current date range', async ({ page }) => {
     await page.goto('/report');
 
+    await ensureReportFiltersExpanded(page);
     await page.uncheck('#project-rpa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00');
     await page.fill('#end-date', '2025-09-30T23:59');
@@ -49,10 +63,18 @@ test.describe('UX Report Flow & Export Experience', () => {
 
     await expect(page.locator('#export-excel-btn')).toBeHidden();
 
+    await ensureReportFiltersExpanded(page);
     await page.check('#project-mpsa').catch(() => {});
     await page.fill('#start-date', '2025-07-01T00:00').catch(() => {});
     await page.fill('#end-date', '2025-09-30T23:59').catch(() => {});
-    await page.click('#preview-btn');
+    const previewContent = page.locator('#preview-content');
+    const hasPreviewAlready = await previewContent.isVisible().catch(() => false);
+    if (!hasPreviewAlready) {
+      const previewBtn = page.locator('#preview-btn');
+      if (await previewBtn.isVisible().catch(() => false)) {
+        await previewBtn.click();
+      }
+    }
     await expect(page.locator('#preview-content')).toBeVisible({ timeout: 60000 });
 
     await expect(page.locator('#export-excel-btn')).toBeVisible();

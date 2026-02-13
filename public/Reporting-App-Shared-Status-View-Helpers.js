@@ -3,7 +3,7 @@
  * @typedef {{ loadingEl?: HTMLElement | null, errorEl?: HTMLElement | null, contentEl?: HTMLElement | null }} StatusDom
  */
 
-import { setErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
+import { setErrorOnEl, setActionErrorOnEl, clearEl } from './Reporting-App-Shared-Status-Helpers.js';
 
 /**
  * @param {StatusDom} dom
@@ -26,7 +26,10 @@ export function showLoadingView(dom, msg) {
 export function showErrorView(dom, msg) {
   const { loadingEl, errorEl, contentEl } = dom;
   if (loadingEl) loadingEl.style.display = 'none';
-  if (errorEl) setErrorOnEl(errorEl, msg);
+  if (errorEl) {
+    if (msg && typeof msg === 'object') setActionErrorOnEl(errorEl, msg);
+    else setErrorOnEl(errorEl, msg);
+  }
   if (contentEl) contentEl.style.display = 'none';
 }
 

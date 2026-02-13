@@ -85,6 +85,7 @@ function showRenderedContent(data) {
 let currentBoardId = null;
 let currentSprintId = null;
 let lastBoardsRefreshRequestId = 0;
+let retryLastIntent = () => {};
 
 function setBoardSelectCouldntLoad() {
   const { boardSelect } = currentSprintDom;
@@ -96,7 +97,23 @@ function setBoardSelectCouldntLoad() {
   boardSelect.appendChild(opt);
 }
 
+function showBoardsLoadError(message, preferredBoardId = null, preferredSprintId = null) {
+  const { loadingEl, contentEl } = currentSprintDom;
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
+  showError({
+    title: 'Could not load boards.',
+    message: String(message || 'Please retry or adjust project filters.'),
+    primaryLabel: 'Retry boards',
+    primaryAction: 'retry-last-intent',
+    secondaryHref: '/report',
+    secondaryLabel: 'Open report',
+  });
+  retryLastIntent = () => refreshBoards(preferredBoardId, preferredSprintId);
+}
+
 function refreshBoards(preferredId, preferredSprintId) {
+  retryLastIntent = () => refreshBoards(preferredId, preferredSprintId);
   const requestId = ++lastBoardsRefreshRequestId;
   const { boardSelect } = currentSprintDom;
   showLoading('Loading boards for project ' + getProjectsParam() + '...');
@@ -118,7 +135,7 @@ function refreshBoards(preferredId, preferredSprintId) {
       });
       if (!boards.length) {
         setBoardSelectCouldntLoad();
-        showError('No boards found for the selected projects. Check project selection or try Report to refresh project list.');
+        showBoardsLoadError('No boards found for selected projects. Check project filters or run Report preview.', preferredId, preferredSprintId);
         return null;
       }
       const boardIds = boards.map((b) => String(b.id));
@@ -127,18 +144,23 @@ function refreshBoards(preferredId, preferredSprintId) {
       currentBoardId = boardId;
       showLoading('Loading current sprint...');
       const sprintRequestId = ++lastBoardsRefreshRequestId;
-      return loadCurrentSprint(boardId, preferredSprintId).then((data) => {
-        if (sprintRequestId !== lastBoardsRefreshRequestId) return null;
-        currentSprintId = data?.sprint?.id || null;
-        persistSelection(currentBoardId, currentSprintId);
-        showRenderedContent(data);
-        return null;
-      });
+      return loadCurrentSprint(boardId, preferredSprintId)
+        .catch((err) => {
+          if (!preferredSprintId) throw err;
+          return loadCurrentSprint(boardId);
+        })
+        .then((data) => {
+          if (sprintRequestId !== lastBoardsRefreshRequestId) return null;
+          currentSprintId = data?.sprint?.id || null;
+          persistSelection(currentBoardId, currentSprintId);
+          showRenderedContent(data);
+          return null;
+        });
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load boards.';
       setBoardSelectCouldntLoad();
-      showError(msg || "Couldn't load boards.");
+      showBoardsLoadError(msg || "Couldn't load boards.", preferredId, preferredSprintId);
       if ((msg || '').includes('Session expired')) addLoginLink();
       return null;
     });
@@ -155,6 +177,16 @@ function onBoardChange() {
   currentSprintId = null;
   persistSelection(boardId, null);
   showLoading('Loading current sprint...');
+  // M9: Show board name in loading context so user knows which board is loading
+  try {
+    const ctxEl = document.getElementById('sprint-loading-context');
+    if (ctxEl) {
+      const boardSelect = currentSprintDom.boardSelect;
+      const boardLabel = boardSelect ? (boardSelect.options[boardSelect.selectedIndex]?.text || '') : '';
+      ctxEl.textContent = boardLabel ? 'Loading: ' + boardLabel : '';
+    }
+  } catch (_) {}
+  retryLastIntent = () => onBoardChange();
   loadCurrentSprint(boardId)
     .then((data) => {
       currentSprintId = data?.sprint?.id || null;
@@ -163,7 +195,12 @@ function onBoardChange() {
     })
     .catch((err) => {
       const msg = err.message || 'Failed to load current sprint.';
-      showError(msg);
+      showError({
+        title: 'Could not load sprint.',
+        message: msg,
+        primaryLabel: 'Retry sprint',
+        primaryAction: 'retry-last-intent',
+      });
       if ((msg || '').includes('Session expired')) addLoginLink();
     });
 }
@@ -177,6 +214,7 @@ function onProjectsChange() {
   updateProjectHint();
   currentBoardId = null;
   currentSprintId = null;
+  retryLastIntent = () => onProjectsChange();
   return refreshBoards(getPreferredBoardId(), getPreferredSprintId());
 }
 
@@ -188,12 +226,18 @@ function onSprintTabClick(event) {
   currentSprintId = sprintId;
   persistSelection(currentBoardId, sprintId);
   showLoading('Loading sprint...');
+  retryLastIntent = () => selectSprintById(sprintId);
   loadCurrentSprint(currentBoardId, sprintId)
     .then((data) => {
       showRenderedContent(data);
     })
     .catch((err) => {
-      showError(err.message || 'Failed to load sprint.');
+      showError({
+        title: 'Could not load sprint.',
+        message: err.message || 'Failed to load sprint.',
+        primaryLabel: 'Retry sprint',
+        primaryAction: 'retry-last-intent',
+      });
     });
 }
 
@@ -205,6 +249,7 @@ function handleRefreshSprint() {
     refreshBtn.textContent = 'Refreshing...';
   }
   showLoading('Refreshing sprint...');
+  retryLastIntent = () => handleRefreshSprint();
   loadCurrentSprint(currentBoardId, currentSprintId)
     .then((data) => {
       currentSprintId = data?.sprint?.id || null;
@@ -212,7 +257,12 @@ function handleRefreshSprint() {
       showRenderedContent(data);
     })
     .catch((err) => {
-      showError(err.message || 'Failed to refresh sprint.');
+      showError({
+        title: 'Could not refresh sprint.',
+        message: err.message || 'Failed to refresh sprint.',
+        primaryLabel: 'Retry refresh',
+        primaryAction: 'retry-last-intent',
+      });
     })
     .finally(() => {
       if (refreshBtn) {
@@ -227,12 +277,18 @@ function selectSprintById(sprintId) {
   currentSprintId = sprintId;
   persistSelection(currentBoardId, sprintId);
   showLoading('Loading sprint...');
+  retryLastIntent = () => selectSprintById(sprintId);
   loadCurrentSprint(currentBoardId, sprintId)
     .then((data) => {
       showRenderedContent(data);
     })
     .catch((err) => {
-      showError(err.message || 'Failed to load sprint.');
+      showError({
+        title: 'Could not load sprint.',
+        message: err.message || 'Failed to load sprint.',
+        primaryLabel: 'Retry sprint',
+        primaryAction: 'retry-last-intent',
+      });
     });
 }
 
@@ -247,7 +303,7 @@ const initHandlers = {
 };
 
 function init() {
-  const { boardSelect, contentEl, projectsSelect } = currentSprintDom;
+  const { boardSelect, contentEl, projectsSelect, errorEl } = currentSprintDom;
   const preferredId = getPreferredBoardId();
   const preferredSprintId = getPreferredSprintId();
   syncProjectsSelect(getStoredProjects());
@@ -259,6 +315,17 @@ function init() {
   initHandlers.updateProjectHint();
   if (boardSelect) boardSelect.addEventListener('change', initHandlers.onBoardChange);
   if (contentEl) contentEl.addEventListener('click', initHandlers.onSprintTabClick);
+  if (errorEl) {
+    errorEl.addEventListener('click', (event) => {
+      const btn = event.target?.closest?.('[data-action="retry-last-intent"]');
+      if (!btn) return;
+      try {
+        retryLastIntent();
+      } catch (err) {
+        showError(err.message || 'Failed to retry last action.');
+      }
+    });
+  }
   document.addEventListener('refreshSprint', initHandlers.handleRefreshSprint);
   if (projectsSelect) {
     projectsSelect.addEventListener('change', initHandlers.onProjectsChange);
@@ -272,8 +339,43 @@ function init() {
   });
 }
 
+// M2: Scroll-aware page identity — inject compact header subtitle when h1 scrolls off (X.com pattern)
+function initSprintPageIdentityObserver() {
+  try {
+    const h1 = document.querySelector('header h1, .header-sprint-name');
+    if (!h1 || typeof IntersectionObserver === 'undefined') return;
+    const headerRow = document.querySelector('header .header-row') || document.querySelector('header');
+    if (!headerRow) return;
+    let ctxSpan = document.querySelector('.header-page-context');
+    if (!ctxSpan) {
+      ctxSpan = document.createElement('span');
+      ctxSpan.className = 'header-page-context';
+      ctxSpan.setAttribute('aria-hidden', 'true');
+      headerRow.appendChild(ctxSpan);
+    }
+    ctxSpan.textContent = 'Sprint';
+    const obs = new IntersectionObserver((entries) => {
+      ctxSpan.classList.toggle('visible', !entries[0].isIntersecting);
+    }, { threshold: 0 });
+    obs.observe(h1);
+  } catch (_) {}
+}
+
+// M11: Bidirectional scroll fade — capture-phase delegation so dynamically-rendered wrappers are covered
+function initSprintTableScrollIndicators() {
+  try {
+    document.addEventListener('scroll', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('data-table-scroll-wrap')) {
+        e.target.classList.toggle('scrolled-right', e.target.scrollLeft > 8);
+      }
+    }, { passive: true, capture: true });
+  } catch (_) {}
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => { init(); initSprintPageIdentityObserver(); initSprintTableScrollIndicators(); });
 } else {
   init();
+  initSprintPageIdentityObserver();
+  initSprintTableScrollIndicators();
 }

@@ -14,6 +14,7 @@ export function getSteps(projectRoot) {
   return [
     ...installStep,
     { name: 'Run Focused Cache Reliability API Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-API-Integration-Tests.spec.js', '--grep', 'cache', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
+    { name: 'Run Navigation Consistency Mobile Trust Realtime Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Navigation-Consistency-Mobile-Trust-Realtime-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Focused Mobile Responsive UX Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Mobile-Responsive-UX-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Realtime Logcat-Equivalent Responsive Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Project-Jira-Reporting-UX-Responsiveness-Customer-Simplicity-Trust-Logcat-Realtime-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },
     { name: 'Run Customer Speed Simplicity Trust Realtime Validation Tests', command: 'npx', args: ['playwright', 'test', 'tests/Jira-Reporting-App-Customer-Speed-Simplicity-Trust-Realtime-Validation-Tests.spec.js', '--reporter=list', '--headed', '--max-failures=1', '--workers=1'], cwd: projectRoot },

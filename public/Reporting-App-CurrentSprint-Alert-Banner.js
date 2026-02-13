@@ -7,7 +7,6 @@
  */
 
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
-import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 
 /**
  * Build alerts array from sprint data (shared for verdict bar and banner).
@@ -20,37 +19,42 @@ export function buildAlerts(data) {
   const tracking = data.subtaskTracking || {};
   const totalSP = summary.totalSP ?? 0;
 
-  // Adaptive team size calculation to tune thresholds (defaults to 1 if unknown)
   const assignees = new Set();
-  (data.stories || []).forEach(s => { if (s.assignee) assignees.add(s.assignee); });
-  (data.stuckCandidates || []).forEach(s => { if (s.assignee) assignees.add(s.assignee); });
+  (data.stories || []).forEach((s) => { if (s.assignee) assignees.add(s.assignee); });
+  (data.stuckCandidates || []).forEach((s) => { if (s.assignee) assignees.add(s.assignee); });
   const teamSize = Math.max(1, assignees.size || 1);
-
-  // Stuck threshold scales with team size: ~1 per 5 people
   const stuckThresholdCount = Math.max(1, Math.ceil(teamSize / 5));
 
-  // Alert 1: Stuck items (>24h in same status)
   if (stuckCount >= stuckThresholdCount) {
     const severity = stuckCount > Math.max(5, stuckThresholdCount + 3) ? 'critical' : (stuckCount > Math.max(2, stuckThresholdCount) ? 'high' : 'medium');
+    const stuckItems = data.stuckCandidates || [];
+    const previewKeys = stuckItems.slice(0, 2)
+      .map((s) => s.key || s.issueKey || '')
+      .filter(Boolean);
+    const keyPreview = previewKeys.length
+      ? previewKeys.join(', ') + (stuckCount > 2 ? ' +' + (stuckCount - 2) + ' more' : '')
+      : '';
+    const oldestHours = stuckItems.reduce((max, s) => Math.max(max, s.hoursInStatus || 0), 0);
+    const oldestSuffix = oldestHours > 0 ? ' · Oldest: ' + Math.round(oldestHours) + 'h' : '';
+    const titleText = stuckCount + ' blocker' + (stuckCount > 1 ? 's' : '')
+      + (keyPreview ? ' · ' + keyPreview : '') + oldestSuffix;
     alerts.push({
       id: 'stuck-items',
       type: 'stuck',
       severity,
-      icon: 'âš ï¸',
-      title: stuckCount + ' issue' + (stuckCount > 1 ? 's' : '') + ' stuck > 24h',
-      message: 'Potential blockers in progress. Review and unblock immediately.',
-      action: 'View Blockers',
+      icon: '?',
+      title: titleText,
+      message: 'Items stuck >24h in the same status. Unblock immediately to protect delivery.',
+      action: 'View all',
       actionHref: '#stuck-card',
       actionData: 'view-blockers',
       color: severity === 'critical' ? 'red' : (severity === 'high' ? 'orange' : 'yellow')
     });
   }
 
-  // Alert 2: Scope change (adaptive percent threshold based on team size)
   if (scopeChanges.length > 0 && totalSP > 0) {
     const scopeSP = scopeChanges.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
     const scopePercent = (scopeSP / totalSP) * 100;
-    // Smaller teams: be more sensitive
     const scopeThresholdHigh = teamSize <= 3 ? 8 : 15;
     const scopeThresholdMedium = teamSize <= 3 ? 4 : 5;
     if (scopePercent > scopeThresholdHigh) {
@@ -58,7 +62,7 @@ export function buildAlerts(data) {
         id: 'scope-growth',
         type: 'scope',
         severity: 'high',
-        icon: 'ðŸ“ˆ',
+        icon: '?',
         title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
         message: scopeChanges.length + ' new issues added (' + scopeSP + ' SP). Sprint commitment at risk.',
         action: 'Review Risks',
@@ -71,7 +75,7 @@ export function buildAlerts(data) {
         id: 'scope-growth',
         type: 'scope',
         severity: 'medium',
-        icon: 'ðŸ“ˆ',
+        icon: '?',
         title: 'Scope growth: +' + scopePercent.toFixed(0) + '%',
         message: scopeChanges.length + ' new items. Monitor impact on delivery.',
         action: 'Review Risks',
@@ -82,15 +86,14 @@ export function buildAlerts(data) {
     }
   }
 
-  // Alert 3: Sub-task estimation gaps
   const trackingRows = tracking.rows || [];
-  const missingEstimates = trackingRows.filter(r => !r.estimateHours || r.estimateHours === 0).length;
+  const missingEstimates = trackingRows.filter((r) => !r.estimateHours || r.estimateHours === 0).length;
   if (missingEstimates > 5) {
     alerts.push({
       id: 'missing-estimates',
       type: 'estimation',
       severity: 'high',
-      icon: 'âŒ',
+      icon: '?',
       title: missingEstimates + ' sub-tasks missing estimates',
       message: 'Cannot accurately forecast completion. Add estimates immediately.',
       action: 'View Sub-tasks',
@@ -102,7 +105,7 @@ export function buildAlerts(data) {
       id: 'missing-estimates',
       type: 'estimation',
       severity: 'medium',
-      icon: 'âŒ',
+      icon: '?',
       title: missingEstimates + ' sub-tasks missing estimates',
       message: 'Reduce forecast uncertainty by adding estimates.',
       action: 'View Sub-tasks',
@@ -111,7 +114,6 @@ export function buildAlerts(data) {
     });
   }
 
-  // Alert 4: Low time logging
   const totalLogged = trackingRows.reduce((sum, r) => sum + (r.loggedHours || 0), 0);
   const totalEstimated = trackingRows.reduce((sum, r) => sum + (r.estimateHours || 0), 0);
   if (totalEstimated > 0 && totalLogged === 0) {
@@ -119,7 +121,7 @@ export function buildAlerts(data) {
       id: 'low-logging',
       type: 'logging',
       severity: 'medium',
-      icon: 'ðŸ“',
+      icon: '??',
       title: 'No time logged on sub-tasks',
       message: 'Team members need to log hours for accurate burndown visibility.',
       action: 'View Tracking',
@@ -131,26 +133,55 @@ export function buildAlerts(data) {
   return alerts;
 }
 
+export function deriveSprintVerdict(data) {
+  const stuckCount = (data.stuckCandidates || []).length;
+  const summary = data.summary || {};
+  const totalStories = Number(summary.totalStories || (data.stories || []).length || 0);
+  const doneStories = Number(summary.doneStories || 0);
+  const donePct = totalStories > 0 ? Math.round((doneStories / totalStories) * 100) : 0;
+  const missingEstimate = Number(summary.subtaskMissingEstimate || 0);
+  const missingLogged = Number(summary.subtaskMissingLogged || 0);
+  const riskScore = (stuckCount * 3) + (missingEstimate * 2) + missingLogged + (donePct < 45 && totalStories > 0 ? 3 : 0);
+
+  let verdict = 'Healthy';
+  let color = 'green';
+  if (riskScore >= 14) {
+    verdict = 'Critical';
+    color = 'red';
+  } else if (riskScore >= 8) {
+    verdict = 'At risk';
+    color = 'orange';
+  } else if (riskScore >= 3) {
+    verdict = 'Watch';
+    color = 'yellow';
+  }
+
+  let detail = donePct + '% done';
+  if (stuckCount > 0) detail += ' · ' + stuckCount + ' blockers';
+  if (missingEstimate > 0) detail += ' · ' + missingEstimate + ' missing estimates';
+  if (missingLogged > 0) detail += ' · ' + missingLogged + ' no log';
+  return { verdict, color, detail };
+}
+
 /**
  * Single-line verdict bar: one sentence, one color, one action (Flaw 3).
  */
 export function renderVerdictBar(data) {
   const alerts = buildAlerts(data);
-  const first = alerts[0];
-  const moreCount = alerts.length - 1;
-  if (!first) {
-    return '<div class="verdict-bar verdict-bar-green" role="status" aria-live="polite">' +
-      '<span class="verdict-text">On Track</span>' +
-      '<span class="verdict-detail">No critical risks. Review Work risks for details.</span>' +
-      '</div>';
-  }
-  const color = first.color === 'red' ? 'red' : (first.color === 'orange' ? 'orange' : 'yellow');
-  let html = '<div class="verdict-bar verdict-bar-' + color + '" role="alert" aria-live="polite">';
-  html += '<span class="verdict-text">' + escapeHtml(first.title) + '</span>';
+  const first = alerts[0] || null;
+  const moreCount = alerts.length > 0 ? alerts.length - 1 : 0;
+  const { verdict, color, detail } = deriveSprintVerdict(data);
+
+  let html = '<div class="verdict-bar verdict-bar-' + color + '" role="status" aria-live="polite">';
+  html += '<span class="verdict-text">' + escapeHtml(verdict) + '</span>';
+  html += '<span class="verdict-detail">' + escapeHtml(detail) + '</span>';
   if (moreCount > 0) {
-    html += '<span class="verdict-more" data-action="expand-verdict" aria-expanded="false">+' + moreCount + ' more</span>';
+    html += '<button type="button" class="verdict-more" data-action="expand-verdict" aria-expanded="false">+' + moreCount + ' more</button>';
   }
-  html += ' <a href="' + (first.actionHref || '#stuck-card') + '" class="verdict-action btn btn-primary btn-compact">' + escapeHtml(first.action || 'View') + '</a>';
+  html += ' <a href="' + (first?.actionHref || '#stuck-card') + '" class="verdict-action btn btn-primary btn-compact">' + escapeHtml(first?.action || 'Review') + '</a>';
+  if (verdict !== 'Healthy') {
+    html += '<span class="verdict-explain">Based on blockers, progress pace, and sub-task hygiene.</span>';
+  }
   html += '</div>';
   return html;
 }
@@ -159,10 +190,11 @@ export function renderVerdictBar(data) {
  * Renders the full alert banner. Scope growth is shown only in the verdict bar (single source); exclude it here to avoid duplication.
  */
 export function renderAlertBanner(data) {
-  const alerts = buildAlerts(data).filter((a) => a.id !== 'scope-growth');
+  const allAlerts = buildAlerts(data).filter((a) => a.id !== 'scope-growth');
+  if (allAlerts.length === 0) return '';
+  const alerts = allAlerts.slice(1);
   if (alerts.length === 0) return '';
 
-  // Determine overall banner severity (worst of all alerts)
   const maxSeverity = alerts.reduce((max, a) => {
     const severities = { critical: 3, high: 2, medium: 1 };
     return Math.max(max, severities[a.severity] || 0);
@@ -171,19 +203,17 @@ export function renderAlertBanner(data) {
   const bannerSeverity = severityMap[maxSeverity] || 'medium';
   const bannerColor = bannerSeverity === 'critical' ? 'red' : (bannerSeverity === 'high' ? 'orange' : 'yellow');
 
-  // Check if banner is dismissed (localStorage)
   const dismissKey = `alert_banner_dismissed_${data.sprint?.id || 'unknown'}`;
   const dismissedTime = localStorage.getItem(dismissKey);
   const now = Date.now();
   const fourHoursMs = 4 * 60 * 60 * 1000;
-  const isDismissed = dismissedTime && (now - parseInt(dismissedTime)) < fourHoursMs;
+  const isDismissed = dismissedTime && (now - parseInt(dismissedTime, 10)) < fourHoursMs;
 
   if (isDismissed) return '';
 
   let html = '<div class="alert-banner ' + bannerColor + '" role="alert" aria-live="polite">';
   html += '<div class="alert-banner-content">';
 
-  // Alert list
   alerts.forEach((alert, idx) => {
     if (idx > 0) html += '<div class="alert-separator"></div>';
     html += '<div class="alert-item">';
@@ -192,16 +222,13 @@ export function renderAlertBanner(data) {
     html += '<strong>' + escapeHtml(alert.title) + '</strong>';
     html += '<p>' + escapeHtml(alert.message) + '</p>';
     html += '</div>';
-    // Add data-action-data attribute for action handlers (backwards-compatible)
     const actionDataAttr = alert.actionData ? (' data-action="' + alert.actionData + '"') : '';
     html += '<a href="' + alert.actionHref + '" class="alert-action"' + actionDataAttr + '>' + alert.action + '</a>';
     html += '</div>';
   });
 
   html += '</div>';
-
-  // Dismiss button
-  html += '<button class="alert-dismiss" type="button" aria-label="Dismiss alert" title="Dismiss for 4 hours">âœ•</button>';
+  html += '<button class="alert-dismiss" type="button" aria-label="Dismiss alert" title="Dismiss for 4 hours">?</button>';
   html += '</div>';
 
   return html;
@@ -217,18 +244,13 @@ export function wireAlertBannerHandlers() {
   const dismissBtn = banner.querySelector('.alert-dismiss');
   if (dismissBtn) {
     dismissBtn.addEventListener('click', () => {
-      // Get sprint ID from header data attribute if available
       const headerBar = document.querySelector('.current-sprint-header-bar');
       const sprintId = headerBar?.getAttribute('data-sprint-id') || 'unknown';
-
-      // Store dismissal in localStorage with timestamp (store both sprint-specific and generic key for compatibility)
       const dismissKey = `alert_banner_dismissed_${sprintId}`;
-      const genericKey = `alert_banner_dismissed_unknown`;
+      const genericKey = 'alert_banner_dismissed_unknown';
       const ts = String(Date.now());
       localStorage.setItem(dismissKey, ts);
       localStorage.setItem(genericKey, ts);
-
-      // Hide banner with fade animation
       banner.style.animation = 'fadeOut 0.3s ease-out';
       setTimeout(() => {
         banner.style.display = 'none';
@@ -236,23 +258,13 @@ export function wireAlertBannerHandlers() {
     });
   }
 
-  // Make action links scroll smoothly and wire actionData handlers
   const actionLinks = banner.querySelectorAll('.alert-action');
-  actionLinks.forEach(link => {
+  actionLinks.forEach((link) => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
       const href = link.getAttribute('href');
-      const actionData = link.getAttribute('data-action') || link.getAttribute('data-action-data') || link.getAttribute('data-action');
-      if (actionData === 'view-blockers') {
-        const target = document.querySelector('#stuck-card');
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth' });
-          target.classList.add('highlight-flash');
-          setTimeout(() => target.classList.remove('highlight-flash'), 2000);
-        }
-        return;
-      }
-      if (actionData === 'review-risks') {
+      const actionData = link.getAttribute('data-action') || '';
+      if (actionData === 'view-blockers' || actionData === 'review-risks') {
         const target = document.querySelector('#stuck-card');
         if (target) {
           target.scrollIntoView({ behavior: 'smooth' });
@@ -262,7 +274,7 @@ export function wireAlertBannerHandlers() {
         return;
       }
 
-      const target = document.querySelector(href);
+      const target = href ? document.querySelector(href) : null;
       if (target) {
         target.scrollIntoView({ behavior: 'smooth' });
       }
@@ -275,11 +287,11 @@ export function wireAlertBannerHandlers() {
  */
 export function shouldShowAlertBanner(sprintId) {
   const dismissKey = `alert_banner_dismissed_${sprintId}`;
-  const genericKey = `alert_banner_dismissed_unknown`;
+  const genericKey = 'alert_banner_dismissed_unknown';
   const dismissedTime = localStorage.getItem(dismissKey) || localStorage.getItem(genericKey);
   if (!dismissedTime) return true;
 
   const now = Date.now();
   const fourHoursMs = 4 * 60 * 60 * 1000;
-  return (now - parseInt(dismissedTime)) >= fourHoursMs;
+  return (now - parseInt(dismissedTime, 10)) >= fourHoursMs;
 }

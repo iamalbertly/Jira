@@ -1,7 +1,7 @@
 /**
  * UX Outcome-First No-Click-Hidden validation.
  * Validates: error message + primary CTA inline (no Details click), preview meta one-line visible,
- * copy "Preview report", Done Stories first when rows, filters panel not auto-collapsed,
+ * copy "Preview report", Done Stories first when rows, filters panel auto-collapsed after success,
  * range hint when > 90 days, Export tooltip, Current Sprint scope inline/View all,
  * health snapshot visible, Leadership empty state suggestion.
  * Uses captureBrowserTelemetry and realtime UI assertions; fails on UI or telemetry mismatch.
@@ -95,7 +95,7 @@ test.describe('UX Outcome-First No-Click-Hidden', () => {
     assertTelemetryClean(telemetry);
   });
 
-  test('Report – Filters panel expanded after preview (no auto-collapse)', async ({ page }) => {
+  test('Report – Filters panel collapses after preview for faster return-to-results flow', async ({ page }) => {
     test.setTimeout(120000);
     const telemetry = captureBrowserTelemetry(page);
     await runDefaultPreview(page);
@@ -104,9 +104,8 @@ test.describe('UX Outcome-First No-Click-Hidden', () => {
       test.skip(true, 'Preview not visible within timeout');
       return;
     }
-    const collapsedBar = page.locator('#filters-panel-collapsed-bar');
-    const isCollapsed = await collapsedBar.evaluate((el) => el.style.display === 'block');
-    expect(isCollapsed).toBe(false);
+    await expect(page.locator('#filters-panel')).toHaveClass(/collapsed/);
+    await expect(page.locator('#filters-panel-collapsed-bar')).toBeVisible();
 
     assertTelemetryClean(telemetry);
   });

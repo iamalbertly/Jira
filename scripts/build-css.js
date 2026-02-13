@@ -24,7 +24,11 @@ const PARTIALS = [
   '08-modals-misc.css',
 ];
 
-const BUILD_COMMENT = '/* Built from public/css/ – do not edit directly. */\n';
+const BUILD_COMMENT = `/* ═══════════════════════════════════════════════════════════════
+   GENERATED FILE — DO NOT EDIT
+   Built from public/css/ (8 partials — see public/css/README.md)
+   To change styles: edit a partial, then run: npm run build:css
+   ═══════════════════════════════════════════════════════════════ */\n`;
 
 function main() {
   for (const name of PARTIALS) {

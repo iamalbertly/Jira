@@ -186,12 +186,13 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       const predictPerSprint = metrics.predictability.perSprint || {};
       for (const data of Object.values(predictPerSprint)) {
         if (!data) continue;
+        // UX Fix #6: '??-' → '—' for missing predictability data (intentional absence, not error)
         const plannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.plannedCarryoverPct == null)
-          ? '??-'
-          : (data.plannedCarryoverStories ?? '??-') + ' (' + formatPercent(data.plannedCarryoverPct) + '%)';
+          ? '—'
+          : (data.plannedCarryoverStories ?? '—') + ' (' + formatPercent(data.plannedCarryoverPct) + '%)';
         const unplannedCell = (data.deliveredStories == null || data.deliveredStories === 0 || data.unplannedSpilloverPct == null)
-          ? '??-'
-          : (data.unplannedSpilloverStories ?? '??-') + ' (' + formatPercent(data.unplannedSpilloverPct) + '%)';
+          ? '—'
+          : (data.unplannedSpilloverStories ?? '—') + ' (' + formatPercent(data.unplannedSpilloverPct) + '%)';
         html += `<tr>
           <td>${escapeHtml(data.sprintName)}</td>
           <td>${data.committedStories}</td>

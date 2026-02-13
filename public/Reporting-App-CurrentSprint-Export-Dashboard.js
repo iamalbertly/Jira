@@ -9,7 +9,7 @@ import { exportRisksInsightsAsMarkdown } from './Reporting-App-CurrentSprint-Ris
 export function renderExportButton(inline = false) {
   const containerClass = 'export-dashboard-container' + (inline ? ' header-export-inline' : '');
   let html = '<div class="' + containerClass + '">';
-  html += '<button class="btn btn-secondary btn-compact export-dashboard-btn" type="button" aria-label="Export sprint dashboard" aria-haspopup="true" aria-expanded="false" aria-live="polite">Export ?</button>';
+  html += '<button class="btn btn-secondary btn-compact export-dashboard-btn" type="button" aria-label="Export sprint snapshot" aria-haspopup="true" aria-expanded="false" aria-live="polite">Export snapshot</button>';
   html += '<div class="export-menu hidden" id="export-menu" role="menu">';
   html += '<button class="export-option" data-action="copy-text" role="menuitem">Copy as Text</button>';
   html += '<button class="export-option" data-action="export-markdown" role="menuitem">Markdown</button>';

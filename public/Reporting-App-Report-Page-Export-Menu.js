@@ -1,13 +1,19 @@
 import { reportDom } from './Reporting-App-Report-Page-Context.js';
 import { getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
-import { exportCSV } from './Reporting-App-Report-Page-Export-CSV.js';
+import { exportCSV, exportSectionCSV } from './Reporting-App-Report-Page-Export-CSV.js';
+import { setActionErrorOnEl } from './Reporting-App-Shared-Status-Helpers.js';
 
 function showExportError(message) {
   const { errorEl } = reportDom;
   if (!errorEl) return;
-  errorEl.style.display = 'block';
-  errorEl.innerHTML = `<div role="alert"><strong>Export error:</strong> ${String(message || 'Failed to export Excel.')}</div>`;
+  setActionErrorOnEl(errorEl, {
+    title: 'Export error',
+    message: String(message || 'Failed to export Excel.'),
+    primaryLabel: 'Retry export',
+    primaryAction: 'trigger-export-excel',
+    dismissible: true,
+  });
 }
 
 function createSheet(name, rows) {
@@ -72,6 +78,29 @@ async function handleExcelExport(full = true) {
   await requestExcelDownload(workbookData, meta);
 }
 
+function getRowsForSection(sectionName) {
+  const safeName = String(sectionName || '').trim();
+  if (safeName === 'project-epic-level') {
+    return reportState.visibleBoardRows || reportState.previewData?.boards || [];
+  }
+  if (safeName === 'sprints') {
+    return reportState.visibleSprintRows || reportState.previewData?.sprintsIncluded || [];
+  }
+  if (safeName === 'unusable-sprints') {
+    return reportState.previewData?.sprintsUnusable || [];
+  }
+  return reportState.visibleRows || reportState.previewRows || [];
+}
+
+function getActiveTabSectionName() {
+  const activeBtn = document.querySelector('.tab-btn.active[data-tab]');
+  const tab = activeBtn?.getAttribute('data-tab') || '';
+  if (tab === 'project-epic-level') return 'project-epic-level';
+  if (tab === 'sprints') return 'sprints';
+  if (tab === 'unusable-sprints') return 'unusable-sprints';
+  return 'done-stories';
+}
+
 /**
  * Triggers Excel export by programmatically clicking the sidebar Export to Excel button.
  * Used by the preview-header Export button and any keyboard shortcuts.
@@ -86,7 +115,7 @@ export function updateExportHint() {
   const { exportExcelBtn, exportDropdownTrigger, exportHint } = reportDom;
   if (!exportHint) return;
   const disabled = (exportExcelBtn ? exportExcelBtn.disabled : true) && (exportDropdownTrigger ? exportDropdownTrigger.disabled : true);
-  exportHint.textContent = disabled ? 'Run a report to enable export.' : '';
+  exportHint.textContent = disabled ? 'Run a report to enable Share / Export.' : '';
 }
 
 export function updateExportFilteredState() {
@@ -161,7 +190,22 @@ export function initExportMenu() {
     if (mode === 'csv-filtered') {
       exportCSV(reportState.visibleRows || [], 'filtered', Object.keys((reportState.visibleRows || [])[0] || {}));
       closeExportMenu();
+      return;
     }
+    if (mode === 'csv-active-tab') {
+      const section = getActiveTabSectionName();
+      const rows = getRowsForSection(section);
+      exportCSV(rows || [], section, Object.keys((rows || [])[0] || {}));
+      closeExportMenu();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const quickCsvBtn = event.target && event.target.closest ? event.target.closest('.export-section-btn[data-section]') : null;
+    if (!quickCsvBtn || quickCsvBtn.disabled) return;
+    const section = quickCsvBtn.getAttribute('data-section') || 'done-stories';
+    const rows = getRowsForSection(section);
+    exportSectionCSV(section, rows, quickCsvBtn).catch((err) => showExportError(err?.message || err));
   });
 
   updateExportFilteredState();

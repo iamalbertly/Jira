@@ -84,7 +84,7 @@ router.get('/current-sprint', requireAuth, (req, res) => {
  * GET /leadership - Executive HUD
  */
 router.get('/leadership', requireAuth, (req, res) => {
-    res.sendFile('leadership.html', { root: './public' });
+    res.redirect('/report#trends');
 });
 
 // Legacy Redirect

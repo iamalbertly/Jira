@@ -277,8 +277,13 @@ test.describe('Jira Reporting App - Customer Speed Simplicity Trust Realtime Val
     await page.goto('/report');
 
     const previewBtn = page.locator('#preview-btn');
+    await previewBtn.scrollIntoViewIfNeeded();
+    await expect(previewBtn).toBeVisible();
     await previewBtn.click();
-    await previewBtn.click({ force: true });
+    await page.evaluate(() => {
+      const btn = document.getElementById('preview-btn');
+      if (btn) btn.click();
+    });
 
     await expect(previewBtn).toBeDisabled({ timeout: 5000 });
     await waitForPreview(page, { timeout: 120000 });

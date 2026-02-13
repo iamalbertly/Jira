@@ -313,6 +313,22 @@
   color: var(--primary-strong, #1a1a1a);
 }
 
+.sprint-verdict-line {
+  width: 100%;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.sprint-verdict-green { color: #166534; }
+.sprint-verdict-yellow { color: #854d0e; }
+.sprint-verdict-orange,
+.sprint-verdict-red { color: #991b1b; }
+
+.sprint-verdict-explain {
+  display: inline;
+}
+
 .header-bar-left {
   flex: 0 1 auto;
   min-width: 250px;
@@ -434,7 +450,9 @@
 .current-sprint-grid-layout {
   display: grid;
   gap: 20px;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  width: 100%;
 }
 
 .sprint-cards-row {
@@ -443,6 +461,7 @@
   flex-wrap: wrap;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
 }
 
 .sprint-cards-row.top-row {
@@ -466,6 +485,15 @@
 .card-column {
   flex: 1;
   min-width: 280px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.card-column > .transparency-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .countdown-column {
@@ -528,12 +556,20 @@
 .verdict-text { font-weight: 600; }
 .verdict-detail { color: var(--muted); font-size: 0.9em; }
 .verdict-more {
+  border: 0;
+  background: transparent;
   font-size: 0.85em;
   color: var(--primary);
   cursor: pointer;
   text-decoration: underline;
+  padding: 0;
 }
 .verdict-action { flex-shrink: 0; }
+.verdict-explain {
+  width: 100%;
+  font-size: 0.82em;
+  color: var(--muted);
+}
 
 .card-details-toggle-wrap {
   margin-bottom: 8px;
@@ -1764,6 +1800,40 @@
   margin-left: auto;
 }
 
+/* Tech Debt #1: Fix WORK ITEMS4 — .header-metric-link must flex-column so label stacks above value */
+.header-metric-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Tech Debt #3: Live/Snapshot status badge is read-only status — remove interactive pointer affordance */
+.status-badge {
+  pointer-events: none;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* UX Fix #7: Collapsed "No data" carousel cards — minimal height, muted, no wasted visual space */
+.carousel-tab--no-data {
+  opacity: 0.55;
+  min-width: 120px !important;
+  padding: 6px 8px !important;
+  background: var(--card-muted) !important;
+  border-style: dashed !important;
+}
+.carousel-tab--no-data .carousel-tab-dates {
+  font-size: 0.68rem;
+}
+.carousel-tab--no-data .carousel-completion {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.carousel-tab--no-data:hover {
+  opacity: 0.8;
+}
+
 /* Export Dashboard */
 .export-dashboard-container {
   position: fixed;
@@ -1878,3 +1948,98 @@ body.notification-dock-visible .export-dashboard-container {
   }
 }
 
+
+/* M9: Sprint loading context — shows board + sprint name above spinner */
+.sprint-loading-context {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 16px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.sprint-loading-context:empty {
+  display: none;
+}
+
+/* M10: 44px touch targets for carousel tabs on mobile */
+@media (max-width: 768px) {
+  .current-sprint-header-bar {
+    width: auto;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .carousel-tab {
+    min-height: 44px;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .carousel-tab--no-data {
+    min-height: 36px !important; /* collapsed no-data cards can be slightly smaller */
+  }
+}
+
+/* M7: iOS safe-area inset for export dashboard container (sprint page) */
+.export-dashboard-container {
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 768px) {
+  .export-dashboard-container {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* M7: Notification dock pushes export container further up — account for safe-area too */
+body.notification-dock-visible .export-dashboard-container {
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+}
+
+/* M6: Sprint carousel horizontal scroll affordance — right-edge fade + swipe hint */
+.sprint-carousel::after {
+  content: '';
+  position: sticky;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  margin-left: -32px;
+  flex-shrink: 0;
+  background: linear-gradient(to right, transparent, rgba(245, 248, 252, 0.95));
+  pointer-events: none;
+}
+.sprint-carousel-scroll-hint {
+  display: none;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0 2px;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  transition: opacity 0.4s;
+}
+@media (max-width: 768px) {
+  .sprint-carousel-scroll-hint { display: block; }
+  .sprint-carousel-scroll-hint.scrolled { opacity: 0; pointer-events: none; }
+}
+
+/* M10: Minimum 44px touch targets for alert and verdict actions on sprint page */
+@media (max-width: 768px) {
+  .verdict-action,
+  .alert-action,
+  .alert-dismiss {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .verdict-detail,
+  .verdict-explain,
+  .sprint-verdict-explain {
+    display: none;
+  }
+}

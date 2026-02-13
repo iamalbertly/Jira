@@ -8,6 +8,7 @@
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDate } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { renderExportButton } from './Reporting-App-CurrentSprint-Export-Dashboard.js';
+import { deriveSprintVerdict } from './Reporting-App-CurrentSprint-Alert-Banner.js';
 
 export function renderHeaderBar(data) {
   const sprint = data.sprint || {};
@@ -18,15 +19,11 @@ export function renderHeaderBar(data) {
 
   const totalSP = summary.totalSP ?? 0;
   const donePercentage = summary.percentDone ?? 0;
-  const subtaskLoggedHours = Number(summary.subtaskLoggedHours || 0);
   const remainingDays = days.daysRemainingWorking != null ? days.daysRemainingWorking : days.daysRemainingCalendar;
-  const sprintEndDate = planned.end || sprint.endDate;
-  
-  // Determine status badge
+
   const statusBadge = meta.fromSnapshot ? 'Snapshot' : (meta.snapshotAt == null ? 'Live' : 'Snapshot');
   const statusClass = statusBadge === 'Live' ? 'status-live' : 'status-snapshot';
 
-  // Calculate remaining label (days or hours)
   let remainingLabel = '-';
   let remainingClass = '';
   if (remainingDays != null) {
@@ -34,12 +31,10 @@ export function renderHeaderBar(data) {
       remainingLabel = 'Sprint ended';
       remainingClass = 'critical';
     } else if (remainingDays < 1 && remainingDays > 0) {
-      // Less than 24 hours
       remainingLabel = '<1 day';
       remainingClass = 'critical';
     } else {
       remainingLabel = String(remainingDays) + ' day' + (remainingDays !== 1 ? 's' : '');
-      // Map semantics to expected visual classes: green (>5), yellow (3-5), critical (<=2)
       if (remainingDays > 5) {
         remainingClass = 'green';
       } else if (remainingDays > 2) {
@@ -53,27 +48,29 @@ export function renderHeaderBar(data) {
   const issuesCount = (data.stories || []).length;
   const remainingText = remainingLabel === '-' ? remainingLabel : (remainingLabel === 'Sprint ended' || remainingLabel === '<1 day' ? remainingLabel : remainingLabel + ' left');
   const outcomeParts = [
-    escapeHtml(sprint.name || 'Sprint ' + sprint.id) + ': ' + donePercentage + '% done',
+    donePercentage + '% done',
     remainingText,
     issuesCount + ' issues'
   ];
-  const outcomeLine = outcomeParts.join(' Â· ');
+  const outcomeLine = outcomeParts.join(' · ');
+  const verdictInfo = deriveSprintVerdict(data);
 
-  // Build HTML
   let html = '<div class="current-sprint-header-bar" data-sprint-id="' + (sprint.id || '') + '">';
-  html += '<div class="sprint-outcome-line" aria-live="polite">' + outcomeLine + '</div>';
-  
+  html += '<div class="sprint-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</div>';
+  html += '<div class="sprint-verdict-line sprint-verdict-' + escapeHtml(verdictInfo.color) + '" aria-live="polite">';
+  html += '<strong>' + escapeHtml(verdictInfo.verdict) + '</strong> · ' + escapeHtml(verdictInfo.detail);
+  html += '<span class="sprint-verdict-explain"> Based on blockers, progress pace, and sub-task hygiene.</span>';
+  html += '</div>';
+
   const boardName = (data.board && data.board.name) ? data.board.name : '';
-  // Left section: Sprint info + board scope
   html += '<div class="header-bar-left">';
   if (boardName) html += '<div class="header-board-label" aria-label="Current board">Board: ' + escapeHtml(boardName) + '</div>';
   html += '<div class="header-sprint-name">' + escapeHtml(sprint.name || 'Sprint ' + sprint.id) + '</div>';
   html += '<div class="header-sprint-dates">';
-  html += formatDate(planned.start || sprint.startDate) + ' â€“ ' + formatDate(planned.end || sprint.endDate);
+  html += formatDate(planned.start || sprint.startDate) + ' - ' + formatDate(planned.end || sprint.endDate);
   html += '</div>';
   html += '</div>';
 
-  // Center section: Key metrics
   html += '<div class="header-bar-center">';
   html += '<div class="header-metric">';
   html += '<span class="metric-label">Remaining</span>';
@@ -93,12 +90,16 @@ export function renderHeaderBar(data) {
   html += '</a>';
   html += '</div>';
 
-  // Right section: Status badge, last-updated and refresh
   const generatedAt = meta && (meta.generatedAt || meta.snapshotAt) ? new Date(meta.generatedAt || meta.snapshotAt) : null;
-  const updatedLabel = generatedAt ? generatedAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '';
+  let freshnessLabel = '';
+  if (generatedAt) {
+    const ageMs = Date.now() - generatedAt.getTime();
+    const ageMin = Math.max(0, Math.round(ageMs / 60000));
+    freshnessLabel = ageMin < 1 ? 'Updated just now' : 'Updated ' + ageMin + ' min ago';
+  }
   html += '<div class="header-bar-right">';
-  html += '<div class="status-badge ' + statusClass + '">' + statusBadge + '</div>';
-  html += '<div class="header-updated">' + (updatedLabel ? ('Data as of <small class="last-updated">' + escapeHtml(updatedLabel) + '</small>') : '') + '</div>';
+  html += '<div class="status-badge ' + statusClass + '" role="status" aria-label="Data status: ' + escapeHtml(statusBadge) + '">' + escapeHtml(statusBadge) + '</div>';
+  html += '<div class="header-updated">' + (freshnessLabel ? '<small class="last-updated">' + escapeHtml(freshnessLabel) + '</small>' : '') + '</div>';
   html += '<button class="btn btn-compact header-refresh-btn" title="Refresh sprint data">Refresh</button>';
   html += renderExportButton(true);
   html += '</div>';
@@ -107,14 +108,10 @@ export function renderHeaderBar(data) {
   return html;
 }
 
-/**
- * Wire header bar click handlers for navigation
- */
 export function wireHeaderBarHandlers() {
   const headerBar = document.querySelector('.current-sprint-header-bar');
   if (!headerBar) return;
 
-  // Click on sprint name to open sprint selector
   const sprintName = headerBar.querySelector('.header-sprint-name');
   if (sprintName) {
     sprintName.style.cursor = 'pointer';
@@ -126,13 +123,11 @@ export function wireHeaderBarHandlers() {
     });
   }
 
-  // Tooltip on remaining days
   const remainingMetric = headerBar.querySelector('.header-metric:first-of-type .metric-value');
   if (remainingMetric) {
     remainingMetric.title = 'Days remaining in sprint (working days)';
   }
 
-  // Refresh button wiring
   const refreshBtn = headerBar.querySelector('.header-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -140,6 +135,3 @@ export function wireHeaderBarHandlers() {
     });
   }
 }
-
-
-

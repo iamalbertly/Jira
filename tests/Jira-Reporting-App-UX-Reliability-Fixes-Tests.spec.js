@@ -386,3 +386,374 @@ test.describe('UX Reliability & Technical Debt Fixes', () => {
   });
 });
 
+// ============================================================
+// UX Audit Fixes Validation — 10 incremental UX + tech-debt
+// fixes implemented per the audit response (Feb 2026)
+// ============================================================
+test.describe('UX Audit Fixes — Current Sprint + Report Pages', () => {
+
+  // ── UX Fix #1: Human-readable freshness badge (no [Cached]/[Live] dev-speak) ──
+  test('UX-01: Report meta badge does not contain [Cached] or [Live] bracket text', async ({ page }) => {
+    test.setTimeout(180000);
+    await runDefaultPreview(page);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) { test.skip(); return; }
+
+    const metaBlock = page.locator('.meta-info-summary, .meta-context-line, .meta-outcome-line');
+    const allText = await metaBlock.allTextContents();
+    const combined = allText.join(' ');
+    expect(combined).not.toContain('[Cached]');
+    expect(combined).not.toContain('[Live]');
+    console.log('[UX-01] ✓ No bracketed [Cached]/[Live] dev-speak in meta block');
+  });
+
+  test('UX-01b: Data-state badge uses human-readable label, not raw cache terminology', async ({ page }) => {
+    test.setTimeout(180000);
+    await runDefaultPreview(page);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) { test.skip(); return; }
+
+    const badge = page.locator('.data-state-badge').first();
+    const badgeVisible = await badge.isVisible().catch(() => false);
+    if (!badgeVisible) { test.skip(); return; }
+
+    const badgeText = (await badge.textContent() || '').trim();
+    // Must NOT be the old dev-speak labels; must be human-readable freshness or status
+    expect(badgeText).not.toBe('Cached');
+    expect(badgeText).not.toBe('Live complete');
+    expect(badgeText).not.toMatch(/^\?\?/);
+    console.log(`[UX-01b] ✓ Data-state badge shows human label: "${badgeText}"`);
+  });
+
+  // ── UX Fix #4: Inline blocker micro-data in alert verdict bar ──
+  test('UX-04: Alert verdict bar with stuck items shows issue keys inline, not just a count', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const verdictBar = page.locator('.verdict-bar').first();
+    const verdictVisible = await verdictBar.isVisible().catch(() => false);
+    if (!verdictVisible) { test.skip(); return; } // no alerts = healthy sprint, valid skip
+
+    const verdictText = (await verdictBar.textContent() || '').trim();
+    // If stuck blockers are present, the title must NOT be just "N issues stuck > 24h" (old pattern)
+    // It should be "N blockers · KEY-1, KEY-2 · Oldest: Xh" (new inline micro-data pattern)
+    if (verdictText.includes('blocker')) {
+      const hasInlineKeys = verdictText.includes('·');
+      expect(hasInlineKeys).toBe(true);
+      console.log(`[UX-04] ✓ Inline micro-data in verdict bar: "${verdictText.slice(0, 80)}"`);
+    } else {
+      console.log('[UX-04] ✓ No blockers present in current sprint — healthy state');
+    }
+  });
+
+  // ── Tech Debt #1: WORK ITEMS4 spacing fix (CSS flex on .header-metric-link) ──
+  test('TD-01: Header metric link renders label and value as separate stacked elements (not fused)', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const metricLink = page.locator('.header-metric-link').first();
+    const visible = await metricLink.isVisible().catch(() => false);
+    if (!visible) { test.skip(); return; }
+
+    // Verify .header-metric-link has flex column layout so label and value stack properly
+    const display = await metricLink.evaluate(el => window.getComputedStyle(el).display);
+    const flexDir = await metricLink.evaluate(el => window.getComputedStyle(el).flexDirection);
+    expect(display).toBe('flex');
+    expect(flexDir).toBe('column');
+    console.log('[TD-01] ✓ .header-metric-link is flex column — WORK ITEMS4 spacing fixed');
+  });
+
+  // ── Tech Debt #2: Sprint name deduplication in header bar outcome line ──
+  test('TD-02: Sprint name does not appear in the outcome line (already shown in header-sprint-name)', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const headerBar = page.locator('.current-sprint-header-bar').first();
+    const visible = await headerBar.isVisible().catch(() => false);
+    if (!visible) { test.skip(); return; }
+
+    const sprintNameEl = headerBar.locator('.header-sprint-name').first();
+    const outcomeLine = headerBar.locator('.sprint-outcome-line').first();
+    const sprintNameText = (await sprintNameEl.textContent() || '').trim();
+    const outcomeText = (await outcomeLine.textContent() || '').trim();
+
+    if (sprintNameText) {
+      // Outcome line should NOT start with the sprint name (e.g. "FY26DMS18: 0% done")
+      expect(outcomeText.startsWith(sprintNameText)).toBe(false);
+      console.log(`[TD-02] ✓ Sprint name "${sprintNameText}" not duplicated in outcome line`);
+    } else {
+      console.log('[TD-02] ✓ No sprint loaded — skip name-duplication check');
+    }
+  });
+
+  // ── Tech Debt #3: Live badge has no interactive pointer affordance ──
+  test('TD-03: Status badge has pointer-events:none — not interactive', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const badge = page.locator('.status-badge').first();
+    const visible = await badge.isVisible().catch(() => false);
+    if (!visible) { test.skip(); return; }
+
+    const pointerEvents = await badge.evaluate(el => window.getComputedStyle(el).pointerEvents);
+    expect(pointerEvents).toBe('none');
+    console.log('[TD-03] ✓ .status-badge has pointer-events:none — non-interactive badge confirmed');
+  });
+
+  // ── UX Fix #6: ??- replaced with — in boards table ──
+  test('UX-06: Boards table does not contain ??- placeholder values', async ({ page }) => {
+    test.setTimeout(180000);
+    await runDefaultPreview(page);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) { test.skip(); return; }
+
+    // Navigate to boards tab
+    const boardsTab = page.locator('.tab-btn[data-tab="project-epic-level"]').first();
+    const boardsTabVisible = await boardsTab.isVisible().catch(() => false);
+    if (!boardsTabVisible) { test.skip(); return; }
+    await boardsTab.click();
+    await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 15000 }).catch(() => {});
+
+    const boardsContent = await page.locator('#project-epic-level-content').textContent().catch(() => '');
+    expect(boardsContent).not.toContain('??-');
+    console.log('[UX-06] ✓ No ??- placeholder values in boards table');
+  });
+
+  test('UX-06b: All Boards comparison row shows "Multiple" in Projects column (not ??-)', async ({ page }) => {
+    test.setTimeout(180000);
+    await runDefaultPreview(page);
+    const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
+    if (!previewVisible) { test.skip(); return; }
+
+    const boardsTab = page.locator('.tab-btn[data-tab="project-epic-level"]').first();
+    const boardsTabVisible = await boardsTab.isVisible().catch(() => false);
+    if (!boardsTabVisible) { test.skip(); return; }
+    await boardsTab.click();
+    await page.waitForSelector('#project-epic-level-content', { state: 'visible', timeout: 15000 }).catch(() => {});
+
+    // All Boards summary row should show 'Multiple' not '??-' in Projects
+    const summaryRow = page.locator('#project-epic-level-content table tbody tr:first-child');
+    const summaryRowVisible = await summaryRow.isVisible().catch(() => false);
+    if (!summaryRowVisible) { test.skip(); return; }
+
+    const rowText = await summaryRow.textContent().catch(() => '');
+    expect(rowText).not.toContain('??-');
+    console.log(`[UX-06b] ✓ All Boards row: "${rowText.slice(0, 60).trim()}"`);
+  });
+
+  // ── UX Fix #7: No-data carousel cards collapse to minimal height ──
+  test('UX-07: No-data carousel tabs have carousel-tab--no-data class and reduced visual weight', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const noDataTabs = page.locator('.carousel-tab--no-data');
+    const count = await noDataTabs.count();
+    if (count === 0) {
+      console.log('[UX-07] ✓ No no-data carousel cards (all sprints have data) — healthy state');
+      return;
+    }
+
+    // Verify collapsed tabs have the right attributes
+    const firstNoData = noDataTabs.first();
+    // Should NOT have a health indicator bar (hidden)
+    const healthBar = firstNoData.locator('.carousel-health-indicator');
+    const healthBarCount = await healthBar.count();
+    expect(healthBarCount).toBe(0);
+
+    // Tooltip must explain absence of data
+    const title = await firstNoData.getAttribute('title');
+    expect(title).toContain('No data');
+    console.log(`[UX-07] ✓ ${count} no-data carousel tab(s) collapsed with informative tooltip`);
+  });
+
+  // ── Freshness label on Current Sprint header ──
+  test('UX-01c: Current Sprint header shows human-readable freshness (not raw UTC timestamp)', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const headerBar = page.locator('.current-sprint-header-bar').first();
+    const visible = await headerBar.isVisible().catch(() => false);
+    if (!visible) { test.skip(); return; }
+
+    // last-updated label should say "Updated X min ago" not a raw UTC ISO string
+    const freshnessEl = headerBar.locator('.last-updated').first();
+    const freshnessVisible = await freshnessEl.isVisible().catch(() => false);
+    if (!freshnessVisible) { test.skip(); return; }
+
+    const freshnessText = (await freshnessEl.textContent() || '').trim();
+    // Should NOT be a raw ISO timestamp
+    expect(freshnessText).not.toMatch(/^\d{4}-\d{2}-\d{2}/);
+    // Should contain human-readable phrase
+    expect(freshnessText).toMatch(/Updated|just now/i);
+    console.log(`[UX-01c] ✓ Human-readable freshness: "${freshnessText}"`);
+  });
+});
+
+test.describe('Mobile-First UX Decisions M1-M12', () => {
+  // M1: Leadership context line must not contain [Live] or [Cache] bracket notation
+  test('M1: Leadership freshness badge uses human-readable label, not bracket notation', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto('/leadership');
+    const found = await page.waitForSelector('#leadership-content, #leadership-error', { state: 'attached', timeout: 30000 }).catch(() => null);
+    if (!found) { test.skip(); return; }
+    const contentVisible = await page.locator('#leadership-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const bodyText = await page.locator('body').textContent();
+    expect(bodyText).not.toMatch(/\[Live\]/);
+    expect(bodyText).not.toMatch(/\[Cache\]/);
+    // Should have a data-state-badge element
+    const badge = page.locator('.data-state-badge').first();
+    const badgeExists = await badge.count();
+    if (badgeExists > 0) {
+      const badgeText = (await badge.textContent() || '').trim();
+      expect(badgeText).not.toMatch(/^\[/);
+      console.log(`[M1] ✓ Leadership freshness badge: "${badgeText}"`);
+    } else {
+      console.log('[M1] ✓ No bracket notation in leadership page body');
+    }
+  });
+
+  // M2: Scroll-aware page identity — .header-page-context element exists after init
+  test('M2: Header page context span is present in DOM on report page', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/report');
+    await page.waitForTimeout(2000);
+    const ctxSpan = page.locator('.header-page-context');
+    const count = await ctxSpan.count();
+    expect(count).toBeGreaterThan(0);
+    console.log('[M2] ✓ .header-page-context element exists in report page DOM');
+  });
+
+  test('M2: Header page context span is present in DOM on current-sprint page', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/current-sprint');
+    await page.waitForTimeout(2000);
+    const ctxSpan = page.locator('.header-page-context');
+    const count = await ctxSpan.count();
+    expect(count).toBeGreaterThan(0);
+    console.log('[M2] ✓ .header-page-context element exists in current-sprint page DOM');
+  });
+
+  // M4: body.preview-active class is added after preview loads
+  test('M4: body gets preview-active class after preview renders', async ({ page }) => {
+    test.setTimeout(120000);
+    await runDefaultPreview(page);
+    const hasClass = await page.evaluate(() => document.body.classList.contains('preview-active'));
+    expect(hasClass).toBe(true);
+    console.log('[M4] ✓ body.preview-active class present after preview load');
+  });
+
+  // M4: On mobile viewport, #applied-filters-summary hidden when preview-active
+  test('M4: Applied filters summary hidden on mobile when preview is active', async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await runDefaultPreview(page);
+    const hasClass = await page.evaluate(() => document.body.classList.contains('preview-active'));
+    if (!hasClass) { test.skip(); return; }
+    const appliedFilters = page.locator('#applied-filters-summary');
+    const afCount = await appliedFilters.count();
+    if (afCount === 0) { test.skip(); return; }
+    const isVisible = await appliedFilters.isVisible().catch(() => false);
+    // On mobile with preview-active, it should be hidden
+    expect(isVisible).toBe(false);
+    console.log('[M4] ✓ #applied-filters-summary hidden on mobile with preview-active');
+  });
+
+  // M8: .tabs element has position:sticky
+  test('M8: Report page tabs bar has sticky positioning', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/report');
+    await page.waitForTimeout(1000);
+    const tabs = page.locator('.tabs').first();
+    const tabsCount = await tabs.count();
+    if (tabsCount === 0) { test.skip(); return; }
+    const position = await tabs.evaluate((el) => window.getComputedStyle(el).position);
+    expect(position).toBe('sticky');
+    console.log(`[M8] ✓ .tabs position: ${position}`);
+  });
+
+  // M9: Sprint loading context element exists in current-sprint page
+  test('M9: Sprint loading context div exists in current-sprint page', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/current-sprint');
+    await page.waitForTimeout(1000);
+    const ctxEl = page.locator('#sprint-loading-context');
+    const count = await ctxEl.count();
+    expect(count).toBeGreaterThan(0);
+    console.log('[M9] ✓ #sprint-loading-context element present in current-sprint DOM');
+  });
+
+  // M10: Touch targets meet 44px minimum on mobile
+  test('M10: Carousel tabs meet 44px minimum touch target height on mobile', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/current-sprint');
+    await page.waitForSelector('#current-sprint-content, #current-sprint-error', { state: 'attached', timeout: 30000 });
+    const contentVisible = await page.locator('#current-sprint-content').isVisible().catch(() => false);
+    if (!contentVisible) { test.skip(); return; }
+
+    const tabs = page.locator('.carousel-tab');
+    const count = await tabs.count();
+    if (count === 0) { test.skip(); return; }
+    const first = tabs.first();
+    const box = await first.boundingBox();
+    if (!box) { test.skip(); return; }
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    console.log(`[M10] ✓ .carousel-tab height: ${box.height}px (≥ 44px)`);
+  });
+
+  // M11: data-table-scroll-wrap gets scrolled-right class after horizontal scroll
+  test('M11: Data table scroll wrap gets scrolled-right class on horizontal scroll', async ({ page }) => {
+    test.setTimeout(120000);
+    await runDefaultPreview(page);
+    const wrap = page.locator('.data-table-scroll-wrap').first();
+    const wrapCount = await wrap.count();
+    if (wrapCount === 0) { test.skip(); return; }
+    // Force the element to be horizontally scrollable (content may fit on wide viewport)
+    // then simulate a scroll event with scrollLeft > 8 so the listener toggles the class
+    await wrap.evaluate((el) => {
+      const inner = el.querySelector('table, .data-table') || el.firstElementChild;
+      if (inner) inner.style.minWidth = '3000px';
+      el.style.overflowX = 'scroll';
+    });
+    await wrap.evaluate((el) => {
+      el.scrollLeft = 50;
+      el.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForTimeout(200);
+    const hasClass = await wrap.evaluate((el) => el.classList.contains('scrolled-right'));
+    expect(hasClass).toBe(true);
+    console.log('[M11] ✓ .data-table-scroll-wrap gets scrolled-right class on scroll');
+  });
+
+  // M3: Loading context bar exists in report page DOM
+  test('M3: Loading context bar element present in report page', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/report');
+    await page.waitForTimeout(500);
+    const ctxBar = page.locator('#loading-context-bar');
+    const count = await ctxBar.count();
+    expect(count).toBeGreaterThan(0);
+    console.log('[M3] ✓ #loading-context-bar element present in report page DOM');
+  });
+});
+

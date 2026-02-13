@@ -5,40 +5,47 @@ const PAGE_SPRINT = 'current-sprint';
 const PAGE_LEADERSHIP = 'leadership';
 const PAGE_LOGIN = 'login';
 const MOBILE_BREAKPOINT = 1200;
+const LEADERSHIP_HASH = '#trends';
+
+const NAV_ITEMS = [
+  {
+    key: PAGE_REPORT,
+    label: 'High-Level Performance',
+    href: '/report',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v3H4zm0 6h10v3H4zm0 6h16v3H4z"/></svg>',
+  },
+  {
+    key: PAGE_SPRINT,
+    label: 'Current Sprint (Squad)',
+    href: '/current-sprint',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM7 3h2v4H7zm8 0h2v4h-2z"/></svg>',
+  },
+  {
+    key: PAGE_LEADERSHIP,
+    label: 'Leadership Signals',
+    href: '/sprint-leadership',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h4V8H4zm6 0h4V4h-4zm6 0h4v-6h-4z"/></svg>',
+  },
+];
+
+function getPathState() {
+  const path = typeof window !== 'undefined' && window.location ? window.location.pathname || '' : '';
+  const hash = typeof window !== 'undefined' && window.location ? window.location.hash || '' : '';
+  return { path, hash };
+}
 
 function getCurrentPage() {
-  const path = typeof window !== 'undefined' && window.location ? window.location.pathname || '' : '';
+  const { path, hash } = getPathState();
+  if (path === '/login' || path.endsWith('/login')) return PAGE_LOGIN;
+  if ((path === '/report' || path.endsWith('/report')) && hash === LEADERSHIP_HASH) return PAGE_LEADERSHIP;
   if (path === '/report' || path.endsWith('/report')) return PAGE_REPORT;
   if (path === '/current-sprint' || path.endsWith('/current-sprint')) return PAGE_SPRINT;
   if (path === '/leadership' || path.endsWith('/leadership') || path === '/sprint-leadership' || path.endsWith('/sprint-leadership')) return PAGE_LEADERSHIP;
-  if (path === '/login' || path.endsWith('/login')) return PAGE_LOGIN;
   return PAGE_REPORT;
 }
 
 function getNavItems(current) {
-  return [
-    {
-      key: PAGE_REPORT,
-      label: 'High-Level Performance',
-      href: '/report',
-      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v3H4zm0 6h10v3H4zm0 6h16v3H4z"/></svg>',
-      active: current === PAGE_REPORT,
-    },
-    {
-      key: PAGE_SPRINT,
-      label: 'Current Sprint (Squad)',
-      href: '/current-sprint',
-      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM7 3h2v4H7zm8 0h2v4h-2z"/></svg>',
-      active: current === PAGE_SPRINT,
-    },
-    {
-      key: PAGE_LEADERSHIP,
-      label: 'Leadership HUD',
-      href: '/sprint-leadership',
-      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h4V8H4zm6 0h4V4h-4zm6 0h4v-6h-4z"/></svg>',
-      active: current === PAGE_LEADERSHIP,
-    },
-  ];
+  return NAV_ITEMS.map((item) => ({ ...item, active: current === item.key }));
 }
 
 function buildSidebarHTML() {
@@ -56,8 +63,13 @@ function buildSidebarHTML() {
   }
   html += '</nav>';
   html += '<div id="sidebar-context-card" class="sidebar-context-card" aria-live="polite"></div>';
-  html += '<div class="sidebar-footer">v1 - Trustworthy delivery clarity</div>';
+  html += '<div class="sidebar-footer">Outcome first: speed, simplicity, trust</div>';
   return html;
+}
+
+function updateToggleState(toggle, isExpanded) {
+  if (!toggle) return;
+  toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
 }
 
 function closeSidebar(sidebar, toggle, backdrop) {
@@ -65,7 +77,7 @@ function closeSidebar(sidebar, toggle, backdrop) {
   backdrop?.classList.remove('active');
   document.body.classList.remove('sidebar-open');
   document.body.classList.remove('sidebar-scroll-lock');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  updateToggleState(toggle, false);
 }
 
 function openSidebar(sidebar, toggle, backdrop) {
@@ -73,11 +85,55 @@ function openSidebar(sidebar, toggle, backdrop) {
   backdrop?.classList.add('active');
   document.body.classList.add('sidebar-open');
   document.body.classList.add('sidebar-scroll-lock');
-  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  updateToggleState(toggle, true);
 }
 
 function isMobileViewport() {
   return window.matchMedia && window.matchMedia('(max-width: ' + MOBILE_BREAKPOINT + 'px)').matches;
+}
+
+function trapSidebarFocus(event, sidebar, toggle) {
+  if (!sidebar || !sidebar.classList.contains('open') || !isMobileViewport()) return;
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(sidebar.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])'))
+    .filter((el) => !el.hasAttribute('disabled'));
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    (toggle || last).focus();
+    return;
+  }
+  if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function dispatchHashSync() {
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+}
+
+function navigateTo(itemKey, itemHref) {
+  const { path, hash } = getPathState();
+  const isReportPath = path === '/report' || path.endsWith('/report');
+
+  if (itemKey === PAGE_REPORT && isReportPath) {
+    if (hash) history.replaceState(null, '', '/report');
+    dispatchHashSync();
+    return;
+  }
+
+  if (itemKey === PAGE_LEADERSHIP && isReportPath) {
+    if (hash !== LEADERSHIP_HASH) history.pushState(null, '', '/report' + LEADERSHIP_HASH);
+    dispatchHashSync();
+    return;
+  }
+
+  window.location.href = itemHref;
 }
 
 function initSidebarController() {
@@ -90,18 +146,49 @@ function initSidebarController() {
   toggle.addEventListener('click', () => {
     if (!isMobileViewport()) return;
     const open = sidebar.classList.contains('open');
-    if (open) closeSidebar(sidebar, toggle, backdrop);
-    else openSidebar(sidebar, toggle, backdrop);
+    if (open) {
+      closeSidebar(sidebar, toggle, backdrop);
+      toggle.focus();
+    } else {
+      openSidebar(sidebar, toggle, backdrop);
+      const firstLink = sidebar.querySelector('a.sidebar-link, span.sidebar-link.current');
+      if (firstLink && typeof firstLink.focus === 'function') firstLink.focus();
+    }
   });
-  backdrop.addEventListener('click', () => closeSidebar(sidebar, toggle, backdrop));
+
+  backdrop.addEventListener('click', () => {
+    closeSidebar(sidebar, toggle, backdrop);
+    toggle.focus();
+  });
+
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeSidebar(sidebar, toggle, backdrop);
+    if (event.key === 'Escape') {
+      closeSidebar(sidebar, toggle, backdrop);
+      toggle.focus();
+      return;
+    }
+    trapSidebarFocus(event, sidebar, toggle);
   });
+
+  document.addEventListener('click', (event) => {
+    if (!isMobileViewport() || !sidebar.classList.contains('open')) return;
+    const insideSidebar = !!event.target.closest('.app-sidebar');
+    const onToggle = !!event.target.closest('.sidebar-toggle');
+    if (!insideSidebar && !onToggle) {
+      closeSidebar(sidebar, toggle, backdrop);
+    }
+  }, { capture: true });
+
   sidebar.addEventListener('click', (event) => {
-    if (!isMobileViewport()) return;
     const link = event.target.closest('a.sidebar-link');
-    if (link) closeSidebar(sidebar, toggle, backdrop);
+    if (!link) return;
+    const key = link.getAttribute('data-nav-key') || '';
+    const href = link.getAttribute('href') || '/report';
+    event.preventDefault();
+    if (isMobileViewport()) closeSidebar(sidebar, toggle, backdrop);
+    navigateTo(key, href);
   });
+
   window.addEventListener('resize', () => {
     if (!isMobileViewport()) closeSidebar(sidebar, toggle, backdrop);
   });
@@ -112,7 +199,9 @@ function ensureGlobalNav() {
     const current = getCurrentPage();
     const oldInlineNav = document.querySelector('header nav.app-nav');
     if (oldInlineNav) oldInlineNav.remove();
+
     if (current === PAGE_LOGIN) {
+      document.querySelector('.skip-to-content')?.remove();
       document.querySelector('.app-global-nav-wrap')?.remove();
       document.querySelector('.app-sidebar')?.remove();
       document.querySelector('.sidebar-toggle')?.remove();
@@ -123,6 +212,14 @@ function ensureGlobalNav() {
     }
 
     let sidebar = document.querySelector('.app-sidebar');
+    let skipLink = document.querySelector('.skip-to-content');
+    if (!skipLink) {
+      skipLink = document.createElement('a');
+      skipLink.className = 'skip-to-content';
+      skipLink.href = '#main-content';
+      skipLink.textContent = 'Skip to main content';
+      document.body.insertBefore(skipLink, document.body.firstChild);
+    }
     document.querySelector('.app-global-nav-wrap')?.remove();
     if (!sidebar) {
       sidebar = document.createElement('aside');
@@ -142,7 +239,7 @@ function ensureGlobalNav() {
       toggle.setAttribute('aria-label', 'Toggle navigation');
       toggle.setAttribute('aria-controls', 'app-sidebar');
       toggle.setAttribute('aria-expanded', 'false');
-      toggle.innerHTML = '<span aria-hidden="true">☰</span>';
+      toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
       document.body.appendChild(toggle);
     }
 
@@ -157,6 +254,7 @@ function ensureGlobalNav() {
     }
 
     initSidebarController();
+    window.dispatchEvent(new CustomEvent('app:nav-rendered', { detail: { current } }));
   } catch (_) {}
 }
 
@@ -166,4 +264,6 @@ if (typeof document !== 'undefined') {
   } else {
     ensureGlobalNav();
   }
+  window.addEventListener('hashchange', ensureGlobalNav);
+  window.addEventListener('popstate', ensureGlobalNav);
 }

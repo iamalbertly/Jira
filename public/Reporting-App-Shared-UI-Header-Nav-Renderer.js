@@ -59,6 +59,7 @@ export function ensureSharedHeader() {
       badge.textContent = ` [${state.label}]`;
       contextBar.appendChild(badge);
     }
+    attachStaleHint(contextBar, freshnessInfo);
 
     /**
      * Call after persisting last query (e.g. after successful preview) to update the bar without reload.
@@ -68,7 +69,7 @@ export function ensureSharedHeader() {
       const hint = document.createElement('button');
       hint.type = 'button';
       hint.className = 'context-stale-hint';
-      hint.textContent = 'Context may be stale — click to refresh';
+      hint.textContent = 'Context may be stale - click to refresh';
       hint.addEventListener('click', () => {
         try {
           const path = window.location && window.location.pathname;
@@ -119,7 +120,7 @@ export function ensureSharedHeader() {
       feedbackToggle.type = 'button';
       feedbackToggle.id = 'feedback-toggle';
       feedbackToggle.className = 'feedback-corner-btn';
-      feedbackToggle.textContent = '?';
+      feedbackToggle.textContent = 'Help';
       feedbackToggle.setAttribute('aria-label', 'Feedback and help');
       corner.appendChild(feedbackToggle);
     }

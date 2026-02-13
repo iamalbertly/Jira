@@ -63,6 +63,8 @@ export function renderPreview() {
   if (stickyEl) {
     stickyEl.textContent = metaBlock.stickyText || '';
     stickyEl.setAttribute('aria-hidden', 'false');
+    // M4: Add body class so mobile CSS can hide duplicate applied-filters-summary
+    document.body.classList.add('preview-active');
   }
   const statusEl = document.getElementById('preview-status');
   if (statusEl) {
@@ -82,7 +84,7 @@ export function renderPreview() {
     const modeSuffix = modeDetails.length ? (' Data mode: ' + modeDetails.join(', ') + '.') : '';
     if (!hasRows) {
       exportHint.innerHTML = `
-        <small>Generate a report with data to enable export. Use the main Excel button for the full workbook, or per-tab Export CSV for focused slices.${modeSuffix}</small>
+        <small>Generate a report with data to enable Share / Export.${modeSuffix}</small>
       `;
     } else if (partial) {
       exportHint.innerHTML = `
@@ -141,7 +143,14 @@ export function renderPreview() {
     if (tabSprints) tabSprints.textContent = 'Sprint history (' + sprintsCountForTab + ')';
     if (tabDoneStories) tabDoneStories.textContent = 'Outcome list (' + visibleRows.length + ')';
     if (tabUnusable) tabUnusable.textContent = 'Excluded sprints (' + unusableCountForTab + ')';
-    if (tabBoards && !tabBoards.classList.contains('active')) {
+    let preferredTab = null;
+    try {
+      preferredTab = sessionStorage.getItem('report-active-tab');
+    } catch (_) {}
+    const preferredBtn = preferredTab ? document.querySelector('.tab-btn[data-tab="' + preferredTab + '"]') : null;
+    if (preferredBtn && !preferredBtn.classList.contains('active')) {
+      preferredBtn.click();
+    } else if (tabBoards && !tabBoards.classList.contains('active')) {
       tabBoards.click();
     }
 
