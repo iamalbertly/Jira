@@ -1,7 +1,7 @@
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { buildBoardSummaries } from './Reporting-App-Shared-Boards-Summary-Builder.js';
 import { renderEmptyState, getSafeMeta } from './Reporting-App-Report-Page-Render-Helpers.js';
-import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
+import { renderDataAvailabilitySummaryHtml, renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatDateForDisplay, formatPercent } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { computeBoardRowFromSummary, computeBoardsSummaryRow } from './Reporting-App-Report-Page-Render-Boards-Summary-Helpers.js';
@@ -87,6 +87,7 @@ const BOARD_SUMMARY_TOOLTIPS = {
 export function renderProjectEpicLevelTab(boards, metrics) {
   const content = document.getElementById('project-epic-level-content');
   const meta = getSafeMeta(reportState.previewData);
+  const hiddenSections = [];
   const spEnabled = !!meta?.discoveredFields?.storyPointsFieldId;
   let html = '';
   const predictabilityPerSprint = metrics?.predictability?.perSprint || null;
@@ -208,15 +209,21 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       html += '</tbody></table></div>';
     }
 
-    html += '<h3>Epic Time-To-Market</h3>';
     const epicTTMRows = Array.isArray(metrics.epicTTM) ? metrics.epicTTM : [];
     if (metrics.epicTTM || epicTTMRows.length === 0) {
       const epicHygiene = meta?.epicHygiene;
       if (epicHygiene && epicHygiene.ok === false) {
-        html += '<p class="data-quality-warning"><strong>Epic hygiene insufficient for timing metrics.</strong> ' + escapeHtml(epicHygiene.message || '') + ' Epic TTM is suppressed. Fix Epic Link usage and/or epic span before using TTM.</p>';
+        hiddenSections.push({
+          label: 'Epic TTM hidden',
+          reason: epicHygiene.message || 'Epic hygiene is below threshold.'
+        });
       } else if (epicTTMRows.length === 0) {
-        html += renderEmptyStateHtml('No Epic Time-To-Market rows in this window.', 'Epic TTM is enabled, but no epics with usable timing data were returned for the selected projects/date range.', '');
+        hiddenSections.push({
+          label: 'Epic TTM hidden',
+          reason: 'No epics with usable timing data in this window.'
+        });
       } else {
+        html += '<h3>Epic Time-To-Market</h3>';
         html += '<p class="metrics-hint"><strong>Definition:</strong> Epic Time-To-Market measures days from Epic creation to Epic resolution (or first story created to last story resolved if Epic dates unavailable).</p>';
         if (meta?.epicTTMFallbackCount > 0) {
           html += `<p class="data-quality-warning"><small>Note: ${meta.epicTTMFallbackCount} epic(s) used story date fallback (Epic issues unavailable).</small></p>`;
@@ -259,6 +266,10 @@ export function renderProjectEpicLevelTab(boards, metrics) {
   } else {
     html += '<hr style="margin: 30px 0;">';
     html += '<p><em>No metrics available. Metrics are calculated when the corresponding options are enabled.</em></p>';
+  }
+
+  if (hiddenSections.length > 0) {
+    html = renderDataAvailabilitySummaryHtml({ title: 'Hidden sections', items: hiddenSections }) + html;
   }
 
   content.innerHTML = html;

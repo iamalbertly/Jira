@@ -128,8 +128,8 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
       test.skip(true, 'No suppressed sections for this sprint dataset');
       return;
     }
-    await expect(summary).toContainText(/Data availability summary/i);
-    await expect(summary.locator('li').first()).toBeVisible();
+    await expect(summary).toContainText(/Hidden sections|Data availability summary/i);
+    await expect(summary.locator('.data-availability-chip').first()).toBeVisible();
   });
 });
 

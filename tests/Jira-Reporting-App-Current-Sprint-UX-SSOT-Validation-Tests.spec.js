@@ -129,7 +129,7 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     const bodyText = await page.locator('body').textContent();
     // Allow decimal SP values like "0.0 SP done" as well as integer forms
     const hasBurndownLine = bodyText && (/of \d+(?:\.\d+)? SP done/.test(bodyText) || /\d+ of \d+ SP done/.test(bodyText));
-    const hasBurndownHint = bodyText && /Burndown will appear when story points and resolutions/i.test(bodyText);
+    const hasBurndownHint = bodyText && (/Burndown will appear when story points and resolutions/i.test(bodyText) || /Burndown hidden/i.test(bodyText));
     const hasNoSprint = bodyText && /No active or recent closed sprint/i.test(bodyText);
     const hasLoading = bodyText && /Select a board to load current sprint data|Loading/i.test(bodyText);
     expect(hasBurndownLine || hasBurndownHint || hasNoSprint || hasLoading).toBeTruthy();
@@ -166,8 +166,9 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const axisLabelVisible = await page.locator('.burndown-axis').isVisible().catch(() => false);
       if (contentVisible) {
         const burndownCardVisible = await page.locator('#burndown-card, .burndown-card').first().isVisible().catch(() => false);
+        const burndownHiddenSummaryVisible = await page.locator('.data-availability-summary .data-availability-chip').filter({ hasText: /Burndown hidden/i }).first().isVisible().catch(() => false);
         const summaryCardVisible = await page.locator('#sprint-summary-card').isVisible().catch(() => false);
-        expect(axisLabelVisible || hasBurndownHint || burndownCardVisible || summaryCardVisible).toBeTruthy();
+        expect(axisLabelVisible || hasBurndownHint || burndownCardVisible || burndownHiddenSummaryVisible || summaryCardVisible).toBeTruthy();
       }
       const storiesCardCount = await page.locator('#stories-card').count().catch(() => 0);
       if (storiesCardCount > 0) {

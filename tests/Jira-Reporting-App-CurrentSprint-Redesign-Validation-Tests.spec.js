@@ -123,7 +123,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
       test.skip(true, 'Header context row not rendered for this dataset');
       return;
     }
-    await expect(contextRow).toContainText(/Active filters:/i);
+    await expect(contextRow).toContainText(/Active:|Active filters:/i);
     const text = (await contextRow.textContent().catch(() => '')) || '';
     if (/Report cache context:/i.test(text)) {
       await expect(contextRow).toContainText(/Report cache context:/i);
@@ -171,6 +171,12 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   test('Validation 2.1: Health dashboard card renders with all sections', async ({ page }) => {
     await ensureDetailsExpanded(page);
     const healthCard = page.locator('.health-dashboard-card');
+    const isVisible = await healthCard.isVisible().catch(() => false);
+    if (!isVisible) {
+      await expect(page.locator('.data-availability-summary')).toContainText(/Health dashboard hidden/i);
+      test.skip(true, 'Health dashboard intentionally hidden for no-data sprint');
+      return;
+    }
     await expect(healthCard).toBeVisible();
     
     // Check sections
@@ -363,6 +369,12 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
   test('Validation 5.1: Capacity allocation card renders', async ({ page }) => {
     await ensureDetailsExpanded(page);
     const card = page.locator('.capacity-allocation-card');
+    const isVisible = await card.isVisible().catch(() => false);
+    if (!isVisible) {
+      await expect(page.locator('.data-availability-summary')).toContainText(/Capacity hidden/i);
+      test.skip(true, 'Capacity card intentionally hidden for no-data sprint');
+      return;
+    }
     await expect(card).toBeVisible();
     
     // Check required elements
@@ -543,6 +555,17 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     await expect(page.locator('[data-action="export-png"]')).toBeVisible();
     await expect(page.locator('[data-action="copy-link"]')).toBeVisible();
     await expect(page.locator('[data-action="email"]')).toBeVisible();
+  });
+
+  test('Validation 8.5: Hidden-section summary is compact and visible when cards are suppressed', async ({ page }) => {
+    const summary = page.locator('.data-availability-summary');
+    if (!(await summary.isVisible().catch(() => false))) {
+      test.skip(true, 'No hidden sections for this dataset');
+      return;
+    }
+    const text = ((await summary.textContent()) || '').trim();
+    expect(text.length).toBeLessThan(420);
+    await expect(summary.locator('.data-availability-chip').first()).toBeVisible();
   });
 
   test('Validation 9.3: Copy dashboard link works', async ({ page }) => {

@@ -27,3 +27,35 @@ export function renderEmptyStateHtml(title, message, hint = '', ctaLabel = '', o
     '</div>'
   );
 }
+
+/**
+ * Compact, reusable data-availability summary used to explain hidden sections
+ * without forcing users to inspect empty cards.
+ * @param {{ title?: string, items?: Array<{label?: string, reason?: string}> }} options
+ * @returns {string}
+ */
+export function renderDataAvailabilitySummaryHtml(options = {}) {
+  const title = options.title || 'Data availability summary';
+  const items = Array.isArray(options.items) ? options.items.filter(Boolean) : [];
+  if (!items.length) return '';
+
+  const chips = items
+    .map((item) => {
+      const label = String(item.label || '').trim();
+      if (!label) return '';
+      const reason = String(item.reason || '').trim();
+      const titleAttr = reason ? ` title="${escapeHtml(reason)}"` : '';
+      const reasonSuffix = reason ? `: ${escapeHtml(reason)}` : '';
+      return `<li><span class="data-availability-chip"${titleAttr}>${escapeHtml(label)}</span>${reasonSuffix}</li>`;
+    })
+    .filter(Boolean)
+    .join('');
+  if (!chips) return '';
+
+  return (
+    '<div class="data-availability-summary" role="status" aria-live="polite">' +
+    `<strong>${escapeHtml(title)}</strong>` +
+    '<ul>' + chips + '</ul>' +
+    '</div>'
+  );
+}

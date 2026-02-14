@@ -1,7 +1,7 @@
 import { updateHeader } from './Reporting-App-CurrentSprint-Render-Overview.js';
 import { renderDailyCompletion, renderBurndown, renderStories } from './Reporting-App-CurrentSprint-Render-Progress.js';
 import { renderWorkRisksMerged } from './Reporting-App-CurrentSprint-Render-Subtasks.js';
-import { renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
+import { renderDataAvailabilitySummaryHtml, renderEmptyStateHtml } from './Reporting-App-Shared-Empty-State-Helpers.js';
 // New redesign components
 import { renderHeaderBar } from './Reporting-App-CurrentSprint-Header-Bar.js';
 import { renderHealthDashboard } from './Reporting-App-CurrentSprint-Health-Dashboard.js';
@@ -31,7 +31,6 @@ export function renderCurrentSprintPage(data) {
   const summary = data.summary || {};
   const tracking = data.subtaskTracking || {};
   const trackingRows = tracking.rows || [];
-  const trackingSummary = tracking.summary || {};
   const stuckCount = (data.stuckCandidates || []).length || 0;
   const missingEstimates = trackingRows.filter((r) => !r.estimateHours || r.estimateHours === 0).length;
   const missingLoggedItems = trackingRows.filter((r) => !r.loggedHours || r.loggedHours === 0).length;
@@ -48,40 +47,35 @@ export function renderCurrentSprintPage(data) {
   const hasStories = Array.isArray(data.stories) && data.stories.length > 0;
   const hasDailyCompletions = Array.isArray(data?.dailyCompletions?.stories) && data.dailyCompletions.stories.length > 0;
   const hasBurndownSeries = Array.isArray(data.remainingWorkByDay) && data.remainingWorkByDay.length > 0;
-  if (!hasStories) availabilityGaps.push('Work items table hidden: no sprint issues returned for this board.');
-  if (!hasDailyCompletions) availabilityGaps.push('Daily completion hidden: no completed work items in this sprint window yet.');
-  if (!hasBurndownSeries) availabilityGaps.push('Burndown detail limited: story point history is incomplete for this sprint.');
+  const hasBurndownData = hasBurndownSeries && Number(summary.totalSP || 0) > 0;
+  const hasCapacityData = hasStories && Number(summary.totalSP || 0) > 0;
+  const hasHealthData = hasStories || hasBurndownSeries || trackingRows.length > 0;
+  if (!hasStories) availabilityGaps.push({ label: 'Work items hidden', reason: 'No sprint issues returned for this board.' });
+  if (!hasDailyCompletions) availabilityGaps.push({ label: 'Daily completion hidden', reason: 'No completed items in this sprint window yet.' });
+  if (!hasBurndownData) availabilityGaps.push({ label: 'Burndown hidden', reason: hasBurndownSeries ? 'No planned story points for this sprint.' : 'No story-point history available.' });
+  if (!hasCapacityData) availabilityGaps.push({ label: 'Capacity hidden', reason: 'Not enough assigned story-point data.' });
+  if (!hasHealthData) availabilityGaps.push({ label: 'Health dashboard hidden', reason: 'No sprint telemetry available yet.' });
 
   // Flaw 3: Single-line verdict bar first (one sentence, one color, one action)
   html += renderVerdictBar(data);
-  if (availabilityGaps.length > 0) {
-    html += '<div class="data-availability-summary" role="status" aria-live="polite">';
-    html += '<strong>Data availability summary</strong>';
-    html += '<ul>';
-    availabilityGaps.forEach((item) => {
-      html += '<li>' + item + '</li>';
-    });
-    html += '</ul>';
-    html += '</div>';
-  }
+  html += renderDataAvailabilitySummaryHtml({ title: 'Hidden sections', items: availabilityGaps });
 
   html += renderHeaderBar(data);
   html += renderAlertBanner(data);
   html += renderSprintCarousel(data);
 
-  html += '<div class="sprint-section-links" role="navigation" aria-label="Jump to section">';
-  html += '<a href="#stuck-card">Risks</a><span aria-hidden="true"> | </span>';
-  html += '<a href="#burndown-card">Burndown</a><span aria-hidden="true"> | </span>';
-  html += '<a href="#risks-insights-card">Insights</a><span aria-hidden="true"> | </span>';
-  html += '<a href="#stories-card">Work items</a>';
-  html += '</div>';
+  const jumpLinks = ['<a href="#stuck-card">Risks</a>'];
+  if (hasBurndownData) jumpLinks.push('<a href="#burndown-card">Burndown</a>');
+  jumpLinks.push('<a href="#risks-insights-card">Insights</a>');
+  if (hasStories) jumpLinks.push('<a href="#stories-card">Work items</a>');
+  html += '<div class="sprint-section-links" role="navigation" aria-label="Jump to section">' + jumpLinks.join('<span aria-hidden="true"> | </span>') + '</div>';
 
   html += '<div class="current-sprint-grid-layout">';
 
   // Priority order: Blockers/Risks first, then burndown/scope, then details (progressive disclosure)
   html += '<div class="sprint-cards-row risks-row">';
   html += '<div class="card-column risks-stuck-column">' + renderWorkRisksMerged(data) + '</div>';
-  html += '<div class="card-column burndown-column">' + renderBurndown(data) + '</div>';
+  if (hasBurndownData) html += '<div class="card-column burndown-column">' + renderBurndown(data) + '</div>';
   html += '</div>';
 
   html += '<div class="sprint-cards-row secondary-row">';
@@ -90,20 +84,24 @@ export function renderCurrentSprintPage(data) {
   html += '</div>';
 
   const detailsCollapsed = riskCount >= 1 ? ' card-details-collapsed' : '';
-  html += '<div class="sprint-cards-row top-row card-details-toggle-wrap' + detailsCollapsed + '" data-region="details">';
-  html += '<button type="button" class="card-details-toggle btn btn-secondary btn-compact" aria-expanded="' + (riskCount >= 1 ? 'false' : 'true') + '" aria-controls="card-details-region">' + (riskCount >= 1 ? 'Show details (countdown, health, capacity)' : 'Hide details') + '</button>';
-  html += '</div>';
-  html += '<div class="sprint-cards-row top-row" id="card-details-region" aria-hidden="' + (riskCount >= 1 ? 'true' : 'false') + '">';
-  html += '<div class="card-column health-column">' + renderHealthDashboard(data) + '</div>';
-  html += '<div class="card-column capacity-column">' + renderCapacityAllocation(data) + '</div>';
-  html += '</div>';
+  if (hasHealthData || hasCapacityData) {
+    html += '<div class="sprint-cards-row top-row card-details-toggle-wrap' + detailsCollapsed + '" data-region="details">';
+    html += '<button type="button" class="card-details-toggle btn btn-secondary btn-compact" aria-expanded="' + (riskCount >= 1 ? 'false' : 'true') + '" aria-controls="card-details-region">' + (riskCount >= 1 ? 'Show details (countdown, health, capacity)' : 'Hide details') + '</button>';
+    html += '</div>';
+    html += '<div class="sprint-cards-row top-row" id="card-details-region" aria-hidden="' + (riskCount >= 1 ? 'true' : 'false') + '">';
+    if (hasHealthData) html += '<div class="card-column health-column">' + renderHealthDashboard(data) + '</div>';
+    if (hasCapacityData) html += '<div class="card-column capacity-column">' + renderCapacityAllocation(data) + '</div>';
+    html += '</div>';
+  }
 
   html += '<div class="sprint-cards-column full-width">';
-  html += '<details class="mobile-secondary-details" data-mobile-collapse="true" open>';
-  html += '<summary>Daily completion trend</summary>';
-  html += renderDailyCompletion(data);
-  html += '</details>';
-  html += renderStories(data);
+  if (hasDailyCompletions) {
+    html += '<details class="mobile-secondary-details" data-mobile-collapse="true" open>';
+    html += '<summary>Daily completion trend</summary>';
+    html += renderDailyCompletion(data);
+    html += '</details>';
+  }
+  if (hasStories) html += renderStories(data);
   html += '</div>';
 
   html += '</div>';

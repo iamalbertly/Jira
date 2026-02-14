@@ -16,6 +16,10 @@ export function renderHeaderBar(data) {
   const days = data.daysMeta || {};
   const planned = data.plannedWindow || {};
   const meta = data.meta || {};
+  const trackingRows = Array.isArray(data?.subtaskTracking?.rows) ? data.subtaskTracking.rows : [];
+  const stuckCount = (data.stuckCandidates || []).length || 0;
+  const missingEstimates = trackingRows.filter((r) => !r.estimateHours || r.estimateHours === 0).length;
+  const missingLoggedItems = trackingRows.filter((r) => !r.loggedHours || r.loggedHours === 0).length;
 
   const totalSP = summary.totalSP ?? 0;
   const donePercentage = summary.percentDone ?? 0;
@@ -54,12 +58,16 @@ export function renderHeaderBar(data) {
   ];
   const outcomeLine = outcomeParts.join(' · ');
   const verdictInfo = deriveSprintVerdict(data);
+  const compactRiskParts = [];
+  if (stuckCount > 0) compactRiskParts.push(stuckCount + ' blockers');
+  if (missingEstimates > 0) compactRiskParts.push(missingEstimates + ' missing est');
+  if (missingLoggedItems > 0) compactRiskParts.push(missingLoggedItems + ' no log');
+  const compactRiskLine = compactRiskParts.length ? compactRiskParts.join(' · ') : 'No active delivery risks';
 
   let html = '<div class="current-sprint-header-bar" data-sprint-id="' + (sprint.id || '') + '">';
   html += '<div class="sprint-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</div>';
   html += '<div class="sprint-verdict-line sprint-verdict-' + escapeHtml(verdictInfo.color) + '" aria-live="polite">';
-  html += '<strong>' + escapeHtml(verdictInfo.verdict) + '</strong> · ' + escapeHtml(verdictInfo.detail);
-  html += '<span class="sprint-verdict-explain"> Based on blockers, progress pace, and sub-task hygiene.</span>';
+  html += '<strong>' + escapeHtml(verdictInfo.verdict) + '</strong> · ' + escapeHtml(compactRiskLine);
   html += '</div>';
 
   const boardName = (data.board && data.board.name) ? data.board.name : '';
@@ -74,11 +82,11 @@ export function renderHeaderBar(data) {
     : '';
   html += '<div class="header-bar-left">';
   html += '<div class="header-context-row">';
-  html += '<span class="header-context-chip header-context-chip-active" title="Active filters driving this sprint view">Active filters: Project ' + escapeHtml(selectedProject || 'n/a') + (boardName ? ' | Board ' + escapeHtml(boardName) : '') + '</span>';
+  html += '<span class="header-context-chip header-context-chip-active" title="Active filters driving this sprint view">Active: ' + escapeHtml(selectedProject || 'n/a') + (boardName ? ' · ' + escapeHtml(boardName) : '') + '</span>';
   if (hasContextWindow || contextProjects) {
     html += '<span class="header-context-chip header-context-chip-cache" title="Cached report context for reference only">Report cache context: '
       + (contextProjects ? ('Projects ' + escapeHtml(contextProjects)) : 'Projects n/a')
-      + (hasContextWindow ? (' | Query window ' + escapeHtml(contextStart + ' - ' + contextEnd)) : '')
+      + (hasContextWindow ? (' · Query ' + escapeHtml(contextStart + ' - ' + contextEnd)) : '')
       + '</span>';
   }
   html += '</div>';
