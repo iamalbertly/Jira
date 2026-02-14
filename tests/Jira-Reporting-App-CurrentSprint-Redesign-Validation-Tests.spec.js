@@ -116,6 +116,20 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     await expect(page.locator('#current-sprint-single-project-hint')).toContainText(/single-project mode|Using/i);
   });
 
+  test('Validation 1.1c: Header separates active filters from cached report context', async ({ page }) => {
+    const contextRow = page.locator('.header-context-row');
+    const rowVisible = await contextRow.isVisible().catch(() => false);
+    if (!rowVisible) {
+      test.skip(true, 'Header context row not rendered for this dataset');
+      return;
+    }
+    await expect(contextRow).toContainText(/Active filters:/i);
+    const text = (await contextRow.textContent().catch(() => '')) || '';
+    if (/Report cache context:/i.test(text)) {
+      await expect(contextRow).toContainText(/Report cache context:/i);
+    }
+  });
+
   test('Validation 1.2: Header bar is sticky on scroll', async ({ page }) => {
     const headerBar = page.locator('.current-sprint-header-bar');
     const initialTop = await headerBar.evaluate(el => window.getComputedStyle(el).position);

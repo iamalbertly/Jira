@@ -1,4 +1,4 @@
-/**
+ï»¿/**
  * Fixed Header Bar Component
  * Displays sprint metadata: name, date range, days remaining, total SP, status badge
  * Sticky positioning on desktop, relative on mobile
@@ -52,18 +52,36 @@ export function renderHeaderBar(data) {
     remainingText,
     issuesCount + ' issues'
   ];
-  const outcomeLine = outcomeParts.join(' · ');
+  const outcomeLine = outcomeParts.join(' Â· ');
   const verdictInfo = deriveSprintVerdict(data);
 
   let html = '<div class="current-sprint-header-bar" data-sprint-id="' + (sprint.id || '') + '">';
   html += '<div class="sprint-outcome-line" aria-live="polite">' + escapeHtml(outcomeLine) + '</div>';
   html += '<div class="sprint-verdict-line sprint-verdict-' + escapeHtml(verdictInfo.color) + '" aria-live="polite">';
-  html += '<strong>' + escapeHtml(verdictInfo.verdict) + '</strong> · ' + escapeHtml(verdictInfo.detail);
+  html += '<strong>' + escapeHtml(verdictInfo.verdict) + '</strong> Â· ' + escapeHtml(verdictInfo.detail);
   html += '<span class="sprint-verdict-explain"> Based on blockers, progress pace, and sub-task hygiene.</span>';
   html += '</div>';
 
   const boardName = (data.board && data.board.name) ? data.board.name : '';
+  const selectedProject = (data.board && Array.isArray(data.board.projectKeys) && data.board.projectKeys.length > 0)
+    ? data.board.projectKeys[0]
+    : (meta.projects || '');
+  const contextStart = meta.windowStart ? formatDate(meta.windowStart) : '';
+  const contextEnd = meta.windowEnd ? formatDate(meta.windowEnd) : '';
+  const hasContextWindow = contextStart && contextEnd;
+  const contextProjects = (meta.projects || '')
+    ? String(meta.projects).split(',').map((p) => String(p).trim()).filter(Boolean).join(', ')
+    : '';
   html += '<div class="header-bar-left">';
+  html += '<div class="header-context-row">';
+  html += '<span class="header-context-chip header-context-chip-active" title="Active filters driving this sprint view">Active filters: Project ' + escapeHtml(selectedProject || 'n/a') + (boardName ? ' | Board ' + escapeHtml(boardName) : '') + '</span>';
+  if (hasContextWindow || contextProjects) {
+    html += '<span class="header-context-chip header-context-chip-cache" title="Cached report context for reference only">Report cache context: '
+      + (contextProjects ? ('Projects ' + escapeHtml(contextProjects)) : 'Projects n/a')
+      + (hasContextWindow ? (' | Query window ' + escapeHtml(contextStart + ' - ' + contextEnd)) : '')
+      + '</span>';
+  }
+  html += '</div>';
   if (boardName) html += '<div class="header-board-label" aria-label="Current board">Board: ' + escapeHtml(boardName) + '</div>';
   html += '<div class="header-sprint-name">' + escapeHtml(sprint.name || 'Sprint ' + sprint.id) + '</div>';
   html += '<div class="header-sprint-dates">';
@@ -135,3 +153,5 @@ export function wireHeaderBarHandlers() {
     });
   }
 }
+
+

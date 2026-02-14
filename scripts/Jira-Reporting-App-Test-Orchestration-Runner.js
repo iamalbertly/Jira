@@ -336,7 +336,7 @@ async function runAllTests() {
     for (let i = 0; i < stepsToRun.length; i++) {
       // Allow external cancel between steps via cancel flag file.
       try {
-        if (fs.existsSync(cancelFilePath)) {
+        if (fs.existsSync(cancelFilePath) && fs.existsSync(stateFilePath)) {
           console.log('\n[INFO] Cancel flag detected before starting next step. Stopping orchestration.');
           printOrchestrationSummary('cancel-request');
           writeStatePatch({

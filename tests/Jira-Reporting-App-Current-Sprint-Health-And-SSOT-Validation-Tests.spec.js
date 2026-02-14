@@ -118,5 +118,18 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     const summaryCell = firstRow.locator('td.cell-wrap[data-label="Summary"]').or(firstRow.locator('td:nth-child(4)'));
     await expect(summaryCell).toBeVisible();
   });
+
+  test('current sprint data-availability summary appears when sections are suppressed', async ({ page }) => {
+    await page.goto('/current-sprint');
+    await page.waitForTimeout(800);
+    const summary = page.locator('.data-availability-summary');
+    const visible = await summary.isVisible().catch(() => false);
+    if (!visible) {
+      test.skip(true, 'No suppressed sections for this sprint dataset');
+      return;
+    }
+    await expect(summary).toContainText(/Data availability summary/i);
+    await expect(summary.locator('li').first()).toBeVisible();
+  });
 });
 

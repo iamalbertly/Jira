@@ -44,9 +44,26 @@ export function renderCurrentSprintPage(data) {
   if (percentDone < 50 && (summary.totalStories || 0) > 0) signals.push('less than half of stories done');
 
   const riskCount = signals.length;
+  const availabilityGaps = [];
+  const hasStories = Array.isArray(data.stories) && data.stories.length > 0;
+  const hasDailyCompletions = Array.isArray(data?.dailyCompletions?.stories) && data.dailyCompletions.stories.length > 0;
+  const hasBurndownSeries = Array.isArray(data.remainingWorkByDay) && data.remainingWorkByDay.length > 0;
+  if (!hasStories) availabilityGaps.push('Work items table hidden: no sprint issues returned for this board.');
+  if (!hasDailyCompletions) availabilityGaps.push('Daily completion hidden: no completed work items in this sprint window yet.');
+  if (!hasBurndownSeries) availabilityGaps.push('Burndown detail limited: story point history is incomplete for this sprint.');
 
   // Flaw 3: Single-line verdict bar first (one sentence, one color, one action)
   html += renderVerdictBar(data);
+  if (availabilityGaps.length > 0) {
+    html += '<div class="data-availability-summary" role="status" aria-live="polite">';
+    html += '<strong>Data availability summary</strong>';
+    html += '<ul>';
+    availabilityGaps.forEach((item) => {
+      html += '<li>' + item + '</li>';
+    });
+    html += '</ul>';
+    html += '</div>';
+  }
 
   html += renderHeaderBar(data);
   html += renderAlertBanner(data);

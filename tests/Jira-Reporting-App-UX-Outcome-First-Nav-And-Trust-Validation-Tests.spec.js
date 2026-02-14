@@ -66,7 +66,7 @@ test.describe('UX Outcome-First Nav And Trust', () => {
     await expect(bar).toBeVisible({ timeout: 10000 });
     const text = await bar.textContent().catch(() => '') || '';
     expect(text.length).toBeGreaterThan(0);
-    const hasValidContent = /Last:.*stories|Projects:|No report run yet/.test(text);
+    const hasValidContent = /Last:.*stories|Active filters|Projects\b|No report run yet/.test(text);
     expect(hasValidContent).toBe(true);
     assertTelemetryClean(telemetry);
   });
@@ -165,7 +165,7 @@ test('Login - Global nav hidden', async ({ page }) => {
     const stickyVisible = await sticky.first().isVisible().catch(() => false);
     if (stickyVisible) {
       const text = await sticky.first().textContent().catch(() => '') || '';
-      expect(text).toMatch(/Projects|Range|Generated/i);
+      expect(text).toMatch(/Active filters|Query window|Projects|Range|Generated/i);
     }
     assertTelemetryClean(telemetry);
   });

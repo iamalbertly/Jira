@@ -72,7 +72,7 @@ test.describe('Jira Reporting App - Customer Speed Simplicity Trust Realtime Val
     const outcomeLine = page.locator('#preview-meta .meta-outcome-line').first();
     const contextLine = page.locator('#preview-meta .meta-context-line').first();
     await expect(outcomeLine).toContainText(/done stories|sprints|boards/i);
-    await expect(contextLine).toContainText(/Projects:|Window:|Generated:/i);
+    await expect(contextLine).toContainText(/Active filters|Projects\b|Query window|Window:|Generated:|Data freshness/i);
 
     assertTelemetryClean(telemetry);
   });

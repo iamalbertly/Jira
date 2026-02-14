@@ -144,7 +144,7 @@ export function buildPreviewMetaAndStatus(params) {
   const outcomeLine = rowsCount + ' done stories | ' + sprintsCount + ' sprints | ' + boardsCount + ' boards in window' + partialSuffix;
   const compactSummaryLine = 'Window coverage: Boards ' + boardsCount + (sprintsCount > 0 ? ' | Sprints ' + sprintsCount : '');
   // UX Fix #1: contextLine = scope info only; freshness is carried by the badge (avoids "9 min ago 9 min ago" duplication)
-  const contextLine = `Projects: ${escapeHtml(selectedProjectsLabel)} | Window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
+  const contextLine = `Active filters: Projects ${escapeHtml(selectedProjectsLabel)} | Query window: ${escapeHtml(windowStartLocal)} - ${escapeHtml(windowEndLocal)}${metaSummaryWhy ? ' | ' + escapeHtml(metaSummaryWhy.replace(/^ \| /, '')) : ''}`;
   // data-state-badge--stale triggers amber warning colour via CSS (> 30 min = stale signal to user)
   const dataStateBadgeHTML = `<span class="data-state-badge data-state-badge--${dataStateKind}" title="Data freshness: ${escapeHtml(generated.label)}">${escapeHtml(dataStateLabel)}</span>`;
   const previewMetaHTML = `

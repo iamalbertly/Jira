@@ -137,8 +137,10 @@ export function getContextDisplayString() {
   const startStr = ctx ? formatDateForContext(ctx.start) : '';
   const endStr = ctx ? formatDateForContext(ctx.end) : '';
   const rangeStr = startStr && endStr ? `${startStr}${DATE_RANGE_SEPARATOR}${endStr}` : '';
-  const contextPart = rangeStr ? `Projects: ${proj}${CONTEXT_SEPARATOR}${rangeStr}` : (proj ? `Projects: ${proj}` : '');
-  const freshnessPart = freshness ? freshness : '';
+  const contextPart = rangeStr
+    ? `Active filters: Projects ${proj}${CONTEXT_SEPARATOR}Query window ${rangeStr}`
+    : (proj ? `Active filters: Projects ${proj}` : '');
+  const freshnessPart = freshness ? `Data freshness: ${freshness}` : '';
   const pieces = [];
   if (lastRun) pieces.push(lastRun);
   if (contextPart) pieces.push(contextPart);

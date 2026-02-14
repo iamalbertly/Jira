@@ -132,6 +132,14 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ## Recent UX & Reliability fixes (2026-02-09)
+- **Context clarity pass (2026-02-14):** Report and Current Sprint now separate meanings explicitly: `Active filters` (what user asked for), `Query window` (requested date range), and `Data freshness` / `Report cache context` (reference cache provenance). This removes the "cache date looks like active filter" confusion.
+- **Current Sprint header trust chips (2026-02-14):** Added compact, always-near-top context chips for active Project/Board and optional cache-context details, reducing scroll/search to understand what data is being shown.
+- **Data-availability summary (2026-02-14):** Current Sprint now renders a top summary when sections have no data (stories, daily completion, burndown), so users see why cards are suppressed instead of scanning empty blocks.
+- **Leadership context wording alignment (2026-02-14):** Leadership context line now uses the same `Active filters: Query window ...` semantics as report/current sprint for cross-page trust consistency.
+- **Fail-fast orchestration hardening (2026-02-14):** Test runner cancel handling now requires both cancel marker and state file, preventing stale cancellation artifacts from stopping runs unexpectedly.
+- **E2E semantic resilience updates (2026-02-14):** Existing specs now accept both legacy and current context labels (`Projects/Window` and `Active filters/Query window`) to avoid false negatives during copy alignment.
+- **UX-enhancements test stability (2026-02-14):** Existing test flow now expands collapsed filters when needed and interacts with advanced options only when the control is interactable, removing transient visibility flakes.
+- **Validation outcome (2026-02-14):** `npm run test:all` completed end-to-end with fail-fast enabled; all selected orchestration steps passed.
 - **Export visibility:** Export Excel and export dropdown are hidden until a preview has run successfully; they appear only when there is preview data to export.
 - **Closest-available data banner:** When the server returns a subset cache (e.g. same projects, different date window), the UI shows "Showing closest available data for your selection. Use Full refresh for exact filters."
 - **Loading hint:** Report loading panel shows "Usually ready in under 30s for one quarter." below the progress bar.

@@ -62,8 +62,10 @@ test.describe('Jira Reporting App - E2E User Journey Tests', () => {
       // UX Fix #1: compact summary shows "Window coverage: Boards Z | Sprints Y" (not "X done stories")
       const lower = metaText.toLowerCase();
       expect(lower).toContain('boards');
-      expect(lower).toContain('projects:');
-      expect(lower).toContain('window:');
+      const hasProjectScope = lower.includes('projects:') || lower.includes('active filters: projects');
+      const hasWindowScope = lower.includes('window:') || lower.includes('query window');
+      expect(hasProjectScope).toBeTruthy();
+      expect(hasWindowScope).toBeTruthy();
       expect(lower.includes('sprints') || lower.includes('window coverage')).toBeTruthy();
     }
   });

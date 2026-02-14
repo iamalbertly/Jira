@@ -28,7 +28,7 @@ test.describe('Outcome-First and First-Paint Validation', () => {
     const text = contextVisible ? ((await contextLine.textContent()) || '') : '';
     const hasPlaceholder = /No report run yet/i.test(text);
     const hasLastRun = /Last:/i.test(text) || /Generated/i.test(text) || /min ago/i.test(text);
-    const hasProjects = /Projects:/i.test(text);
+    const hasProjects = /Projects\b/i.test(text);
     expect(hasPlaceholder || hasLastRun || hasProjects || text.length > 0).toBe(true);
     assertTelemetryClean(telemetry);
   });
@@ -53,7 +53,7 @@ test.describe('Outcome-First and First-Paint Validation', () => {
     } else {
       await expect(contextLine).toBeVisible();
       const text = (await contextLine.textContent()) || '';
-      expect(text).toMatch(/No report run yet|Projects:|Last:/i);
+      expect(text).toMatch(/No report run yet|Active filters|Projects\b|Last:/i);
     }
     assertTelemetryClean(telemetry);
   });

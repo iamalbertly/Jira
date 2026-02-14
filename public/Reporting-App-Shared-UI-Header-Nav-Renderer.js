@@ -47,16 +47,26 @@ export function ensureSharedHeader() {
     const contextText = getContextDisplayString();
     const state = getContextStateBadge();
     const freshnessInfo = getLastMetaFreshnessInfo();
+    const isCurrentSprint = (() => {
+      try {
+        const path = window.location && window.location.pathname;
+        return path === '/current-sprint' || (path || '').endsWith('/current-sprint');
+      } catch (_) {
+        return false;
+      }
+    })();
     contextBar.innerHTML = '';
     const textSpan = document.createElement('span');
     textSpan.className = 'shared-context-bar-text';
-    textSpan.textContent = contextText;
+    textSpan.textContent = isCurrentSprint
+      ? `Report context cache: ${contextText} (for reference; active sprint filters are the selectors above)`
+      : contextText;
     contextBar.appendChild(textSpan);
     if (state) {
       const badge = document.createElement('span');
       badge.setAttribute('data-context-state-badge', 'true');
       badge.className = 'context-state-badge context-state-badge--' + state.kind;
-      badge.textContent = ` [${state.label}]`;
+      badge.textContent = ` ${state.label}`;
       contextBar.appendChild(badge);
     }
     attachStaleHint(contextBar, freshnessInfo);
@@ -101,7 +111,7 @@ export function ensureSharedHeader() {
         const badgeInner = document.createElement('span');
         badgeInner.setAttribute('data-context-state-badge', 'true');
         badgeInner.className = 'context-state-badge context-state-badge--' + state.kind;
-        badgeInner.textContent = ` [${state.label}]`;
+        badgeInner.textContent = ` ${state.label}`;
         bar.appendChild(badgeInner);
       }
       attachStaleHint(bar, info);

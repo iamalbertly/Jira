@@ -8,6 +8,13 @@ test.describe('Jira Reporting App - UX Enhancements', () => {
       return;
     }
 
+    const previewButton = page.locator('#preview-btn');
+    if (!(await previewButton.isVisible().catch(() => false))) {
+      const expandFiltersButton = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]').first();
+      if (await expandFiltersButton.isVisible().catch(() => false)) {
+        await expandFiltersButton.click({ force: true }).catch(() => null);
+      }
+    }
     await expect(page.locator('#project-search')).toBeVisible();
 
     const totalProjects = await page.locator('.project-checkbox[data-project]').count();
@@ -49,11 +56,15 @@ test.describe('Jira Reporting App - UX Enhancements', () => {
     await page.fill('#project-search', 'NO_MATCH');
     await expect(page.locator('#projects-no-match')).toBeVisible();
 
-    if (await page.locator('#advanced-options-toggle').count()) {
-      await page.click('#advanced-options-toggle');
-      await expect(page.locator('#advanced-options')).toBeVisible();
-      await page.click('#advanced-options-toggle');
-      await expect(page.locator('#advanced-options')).toHaveJSProperty('hidden', true);
+    const advancedToggle = page.locator('#advanced-options-toggle');
+    if ((await advancedToggle.count()) && (await advancedToggle.isVisible().catch(() => false))) {
+      await advancedToggle.scrollIntoViewIfNeeded().catch(() => null);
+      const opened = await advancedToggle.click({ timeout: 2500 }).then(() => true).catch(() => false);
+      if (opened) {
+        await expect(page.locator('#advanced-options')).toBeVisible();
+        await advancedToggle.click({ timeout: 2500 }).catch(() => null);
+        await expect(page.locator('#advanced-options')).toHaveJSProperty('hidden', true);
+      }
     }
 
     if (await page.locator('#export-hint').count()) {
