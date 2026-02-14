@@ -584,6 +584,12 @@
   color: var(--muted);
   margin: 0;
 }
+.loading-step-cue {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 2px 0 0 0;
+  min-height: 1.2em;
+}
 .loading-hint {
   font-size: 0.85rem;
   color: var(--muted);
@@ -1792,6 +1798,13 @@ body.notification-dock-visible .container {
   padding-top: 4px;
   padding-bottom: 4px;
 }
+
+body.keyboard-open .tabs,
+body.keyboard-open .applied-filters-chips-row,
+body.keyboard-open .leadership-context-line,
+body.keyboard-open .leadership-context-sticky {
+  position: static;
+}
 @media (max-width: 720px) {
   .tabs {
     top: 56px;
@@ -1800,10 +1813,10 @@ body.notification-dock-visible .container {
 
 /* M10: Minimum touch targets on report page controls (Apple HIG / Material: 44px) */
 @media (max-width: 768px) {
-  .tab-btn {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
+.tab-btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   }
   .filter-chip,
   .applied-filter-chip {
@@ -1811,6 +1824,11 @@ body.notification-dock-visible .container {
     display: inline-flex;
     align-items: center;
   }
+}
+
+#start-date,
+#end-date {
+  scroll-margin-top: 120px;
 }
 
 /* M12: Show filters prominence on mobile — elevated pill button with count badge */

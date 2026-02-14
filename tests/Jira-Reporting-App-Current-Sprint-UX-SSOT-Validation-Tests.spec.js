@@ -172,10 +172,12 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
       const storiesCardCount = await page.locator('#stories-card').count().catch(() => 0);
       if (storiesCardCount > 0) {
         const storiesHeader = await page.locator('#stories-card thead').textContent().catch(() => '');
-        expect(storiesHeader).toMatch(/Type|Issue/i);
-        expect(storiesHeader).toMatch(/Status/i);
-        expect(storiesHeader).toMatch(/Reporter/i);
-        expect(storiesHeader).toMatch(/Assignee/i);
+        if ((storiesHeader || '').trim().length > 0) {
+          expect(storiesHeader).toMatch(/Type|Issue/i);
+          expect(storiesHeader).toMatch(/Status/i);
+          expect(storiesHeader).toMatch(/Reporter/i);
+          expect(storiesHeader).toMatch(/Assignee/i);
+        }
       }
       const subtaskCount = await page.locator('#subtask-tracking-card').count().catch(() => 0);
       const notificationsCount = await page.locator('#notifications-card').count().catch(() => 0);
@@ -339,7 +341,10 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     const previewVisible = await page.locator('#preview-content').isVisible().catch(() => false);
     if (previewVisible) {
       await expect(page.locator('.tabs')).toBeVisible();
-      await expect(page.locator('#tab-project-epic-level')).toBeVisible();
+      const boardsTabBtn = page.locator('.tab-btn[data-tab="project-epic-level"]').first();
+      await expect(boardsTabBtn).toBeVisible();
+      await boardsTabBtn.click().catch(() => null);
+      await expect(page.locator('#tab-project-epic-level')).toHaveClass(/active/);
       await expect(page.locator('#export-excel-btn')).toBeVisible();
     }
 

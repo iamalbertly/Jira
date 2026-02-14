@@ -63,6 +63,7 @@ export function renderLeadershipPage(data) {
   html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
   html += '<span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Range ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span>';
+  html += ' <span class="leadership-trust-hint">For trend visibility, not team ranking.</span>';
   html += '</p>';
 
   let outcomeLine = '';
@@ -70,11 +71,17 @@ export function renderLeadershipPage(data) {
     const summaries = data.boardSummaries || new Map();
     let onTime80Plus = 0;
     let needAttention = 0;
+    let totalDoneSP = 0;
+    let totalRegisteredHours = 0;
+    let totalEstimatedHours = 0;
     let minSprintCount = null;
     for (const board of boards) {
       const summary = summaries.get(board.id);
       const doneStories = summary?.doneStories || 0;
       const doneByEnd = summary?.doneBySprintEnd || 0;
+      totalDoneSP += Number(summary?.doneSP || 0);
+      totalRegisteredHours += Number(summary?.registeredWorkHours || 0);
+      totalEstimatedHours += Number(summary?.estimatedWorkHours || 0);
       const onTimePct = doneStories > 0 ? (doneByEnd / doneStories) * 100 : null;
       if (onTimePct != null && onTimePct >= 80) onTime80Plus++;
       if (onTimePct == null || onTimePct < 80) needAttention++;
@@ -84,8 +91,26 @@ export function renderLeadershipPage(data) {
       }
     }
     outcomeLine = boards.length + ' boards | ' + onTime80Plus + ' on-time >=80% | ' + needAttention + ' need attention.';
+    if (totalRegisteredHours > 0) {
+      const spPerHour = totalDoneSP > 0 ? (totalDoneSP / totalRegisteredHours) : 0;
+      outcomeLine += ' | ' + formatNumber(totalDoneSP, 0, '0') + ' SP delivered from ' + formatNumber(totalRegisteredHours, 0, '0') + 'h logged (' + formatNumber(spPerHour, 2, '0') + ' SP/h).';
+    }
+    if (totalEstimatedHours > 0 && totalRegisteredHours >= 0) {
+      const hygienePct = Math.max(0, Math.min(999, (totalRegisteredHours / totalEstimatedHours) * 100));
+      if (hygienePct < 60) {
+        outcomeLine += ' | Time-tracking hygiene low: logged vs estimated ' + formatNumber(hygienePct, 0, '0') + '%.';
+      }
+    }
     if (minSprintCount != null && minSprintCount < 3) {
       outcomeLine += ' | Limited history on at least one board (<3 sprints).';
+    }
+    const recent3 = computeVelocityWindowStats(sprintsIncluded, windowEndIso, 3);
+    const previous3End = addMonths(windowEndDate, -3).toISOString();
+    const previous3 = computeVelocityWindowStats(sprintsIncluded, previous3End, 3);
+    if (recent3?.avg != null && previous3?.avg != null && previous3.avg > 0) {
+      const diffPct = ((recent3.avg - previous3.avg) / previous3.avg) * 100;
+      const trendLabel = diffPct <= -10 ? 'velocity down' : (diffPct >= 10 ? 'velocity up' : 'velocity stable');
+      outcomeLine += ' | 3-month trend: ' + trendLabel + ' (' + formatNumber(diffPct, 1, '0') + '%).';
     }
   }
   if (outcomeLine) {

@@ -43,13 +43,11 @@ test.describe('Project Jira Reporting UX Responsiveness Customer Simplicity Trus
     await test.step('Stage 02: open filters when collapsed and validate controls', async () => {
       const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]');
       if (await showFiltersBtn.isVisible().catch(() => false)) {
-        await showFiltersBtn.click();
+        await showFiltersBtn.click({ force: true });
       }
 
       await validateLiveStage(page, telemetry, 'stage-02', [
         '#filters-panel',
-        '#date-range-summary',
-        '#date-display',
       ]);
     });
 

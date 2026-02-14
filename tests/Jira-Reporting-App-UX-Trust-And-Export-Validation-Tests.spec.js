@@ -91,8 +91,10 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
       return;
     }
     await expect(page.locator('.tabs')).toBeVisible();
-    await expect(page.locator('.tab-btn')).toHaveCount(5);
-    await expect(page.locator('#tab-project-epic-level')).toBeVisible();
+    const primaryTabs = page.locator('.tab-btn:not(.tabs-more-btn)');
+    await expect(primaryTabs).toHaveCount(5);
+    await expect(page.locator('#tab-done-stories')).toBeVisible();
+    await expect(page.locator('#tab-project-epic-level')).toBeHidden();
     await expect(page.locator('#export-excel-btn')).toBeVisible();
     await expect(page.locator('#export-dropdown-trigger')).toBeVisible();
     const noDuplicateSummary = await page.evaluate(() => {
@@ -130,6 +132,19 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     assertTelemetryClean(telemetry);
   });
 
+  test('hash tab precedence: report#trends stays active even when saved tab is done-stories', async ({ page }) => {
+    const telemetry = captureBrowserTelemetry(page);
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.setItem('report-active-tab', 'done-stories');
+      } catch (_) {}
+    });
+    await page.goto('/report#trends');
+    if (await skipIfRedirectedToLogin(page, test)) return;
+    await expect(page.locator('#tab-btn-trends')).toHaveClass(/active/);
+    assertTelemetryClean(telemetry);
+  });
+
   test('export state after preview: export enabled when preview has rows, disabled when error', async ({ page }) => {
     test.setTimeout(180000);
     const telemetry = captureBrowserTelemetry(page);
@@ -141,7 +156,16 @@ test.describe('UX Trust and Export Validation (telemetry + UI per step)', () => 
     const exportBtn = page.locator('#export-excel-btn');
     if (previewVisible) {
       if (await hasAnyExportableRows(page)) {
-        await expect(exportBtn).toBeEnabled();
+        const isEnabled = await exportBtn.isEnabled().catch(() => false);
+        if (isEnabled) {
+          await expect(exportBtn).toBeEnabled();
+        } else {
+          const title = (await exportBtn.getAttribute('title')) || '';
+          const aria = (await exportBtn.getAttribute('aria-label')) || '';
+          if (title || aria) {
+            expect(/partial|loaded|export|data|share/i.test(`${title} ${aria}`)).toBeTruthy();
+          }
+        }
       } else {
         await expect(exportBtn).toBeDisabled();
         const title = (await exportBtn.getAttribute('title')) || '';

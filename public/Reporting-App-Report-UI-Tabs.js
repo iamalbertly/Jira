@@ -16,6 +16,7 @@ export function initTabs(updateExportFilteredState, onTabActivate) {
     if (!moreButton || !moreMenu) return;
     moreMenu.classList.remove('open');
     moreButton.setAttribute('aria-expanded', 'false');
+    moreMenu.setAttribute('aria-hidden', 'true');
   }
 
   function updateMoreButtonLabel(activeTabName = '') {
@@ -95,6 +96,7 @@ export function initTabs(updateExportFilteredState, onTabActivate) {
       if (!moreMenu) return;
       const open = moreMenu.classList.toggle('open');
       moreButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      moreMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
       if (open) {
         const first = moreMenu.querySelector('.tabs-more-item');
         if (first) first.focus();
@@ -127,7 +129,7 @@ export function initTabs(updateExportFilteredState, onTabActivate) {
     if (moreButton && moreMenu) {
       const showMore = mobile && moreItems.length > 0;
       moreButton.style.display = showMore ? '' : 'none';
-      moreMenu.setAttribute('aria-hidden', showMore ? 'false' : 'true');
+      moreMenu.setAttribute('aria-hidden', 'true');
       if (!showMore) closeMoreMenu();
     }
   }

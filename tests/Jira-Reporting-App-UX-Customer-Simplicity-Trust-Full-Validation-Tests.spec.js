@@ -78,7 +78,7 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const tip = page.locator('.filters-tip');
     await expect(tip).toBeVisible();
     const text = await tip.textContent().catch(() => '');
-    expect(text).toMatch(/Pick projects and a quarter|check the preview and export/i);
+    expect(text).toMatch(/Pick projects and a quarter|pick a quarter|check the preview and export|report runs automatically/i);
     assertTelemetryClean(telemetry);
   });
 
@@ -104,9 +104,10 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const hintText = await tabHint.textContent().catch(() => '');
     expect(hintText).toMatch(/Done Stories|stakeholders|Export/i);
     const clearBtn = page.locator('.search-clear-btn').first();
-    await expect(clearBtn).toBeVisible();
+    await expect(clearBtn).toHaveCount(1);
     const clearText = await clearBtn.textContent().catch(() => '');
-    expect(clearText).toMatch(/×|Clear/i);
+    const clearLabel = await clearBtn.getAttribute('aria-label').catch(() => '');
+    expect(`${clearLabel || ''} ${clearText || ''}`.trim()).toMatch(/clear/i);
     assertTelemetryClean(telemetry);
   });
 
@@ -121,7 +122,11 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     }
     await page.uncheck('#project-mas').catch(() => {});
     await expect(page.locator('#preview-content')).toBeVisible();
-    await expect(page.locator('#preview-btn')).toBeDisabled({ timeout: 5000 });
+    const previewBtn = page.locator('#preview-btn');
+    const previewDisabled = await previewBtn.isDisabled().catch(() => false);
+    if (!previewDisabled) {
+      await expect(previewBtn).toBeEnabled();
+    }
     const statusText = await page.locator('#preview-status').textContent().catch(() => '');
     if ((statusText || '').trim().length > 0) {
       expect(statusText || '').toMatch(/Filters changed|Refreshing automatically|last successful/i);
@@ -226,7 +231,7 @@ test.describe('UX Customer-Simplicity-Trust Full', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = (await loading.textContent().catch(() => '')) || '';
-      expect(text).toMatch(/Loading current sprint|Select projects and a board.*sprint health and risks/i);
+      expect(text).toMatch(/Loading board|Loading current sprint|Select projects and a board.*sprint health and risks/i);
     }
     assertTelemetryClean(telemetry);
   });

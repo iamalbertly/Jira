@@ -24,8 +24,6 @@ test.describe('Four projects Q4 data validation', () => {
       return;
     }
 
-    await expect(page.locator('#preview-btn')).toBeVisible();
-
     const ensureFiltersExpanded = () => {
       try { sessionStorage.removeItem('report-filters-collapsed'); } catch (_) {}
       const panel = document.getElementById('filters-panel');
@@ -37,6 +35,11 @@ test.describe('Four projects Q4 data validation', () => {
     };
     await page.evaluate(ensureFiltersExpanded);
     await page.evaluate(ensureFiltersExpanded);
+    const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]');
+    if (await showFiltersBtn.isVisible().catch(() => false)) {
+      await showFiltersBtn.click();
+    }
+    await expect(page.locator('#preview-btn')).toBeVisible();
 
     // For this orchestration test, stabilise backend behaviour by stubbing /preview.json
     await page.route('**/preview.json**', async (route) => {
@@ -84,19 +87,20 @@ test.describe('Four projects Q4 data validation', () => {
     await page.locator('#end-date').fill(Q4_END, { force: true });
 
     const previewBtn = page.locator('#preview-btn');
+    if (!(await previewBtn.isVisible().catch(() => false))) {
+      const showFiltersBtn2 = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]');
+      if (await showFiltersBtn2.isVisible().catch(() => false)) {
+        await showFiltersBtn2.click();
+      }
+    }
     await previewBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
     const disabled = await previewBtn.isDisabled().catch(() => false);
-    if (disabled) {
-      await page.evaluate(() => {
-        const btn = document.getElementById('preview-btn');
-        if (btn) {
-          btn.disabled = false;
-          btn.click();
-        }
-      });
-    } else {
-      await previewBtn.click();
-    }
+    await page.evaluate((isDisabled) => {
+      const btn = document.getElementById('preview-btn');
+      if (!btn) return;
+      if (isDisabled) btn.disabled = false;
+      btn.click();
+    }, disabled);
 
     await Promise.race([
       page.waitForSelector('#loading', { state: 'visible', timeout: 10000 }).catch(() => null),

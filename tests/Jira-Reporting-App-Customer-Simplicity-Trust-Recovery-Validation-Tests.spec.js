@@ -15,6 +15,16 @@ import {
   waitForPreview,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
+async function ensureReportFiltersExpanded(page) {
+  const startDate = page.locator('#start-date');
+  if (await startDate.isVisible().catch(() => false)) return;
+  const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]').first();
+  if (await showFiltersBtn.isVisible().catch(() => false)) {
+    await showFiltersBtn.click({ force: true }).catch(() => null);
+  }
+  await startDate.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+}
+
 test.describe('Customer Simplicity Trust Recovery Validation', () => {
   test.describe.configure({ retries: 0 });
   test('report load: no critical console or network errors (to-do 12)', async ({ page }) => {
@@ -28,6 +38,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     await expect(page.locator('#project-mpsa')).toBeVisible();
     await page.check('#project-mpsa').catch(() => null);
     await page.check('#project-mas').catch(() => null);
@@ -56,9 +67,12 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
-    await page.uncheck('#project-mpsa').catch(() => null);
-    await page.uncheck('#project-mas').catch(() => null);
-    await page.evaluate(() => document.querySelectorAll('.project-checkbox').forEach(cb => { cb.checked = false; }));
+    await page.evaluate(() => {
+      document.querySelectorAll('.project-checkbox').forEach((cb) => {
+        cb.checked = false;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
     await page.waitForTimeout(300);
     await expect(page.locator('#preview-btn')).toBeDisabled();
     const loadLatestWrap = page.locator('#report-load-latest-wrap');
@@ -72,6 +86,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     const previewBtn = page.locator('#preview-btn');
     if (await previewBtn.isDisabled().catch(() => true)) {
       test.skip(true, 'Preview disabled; need projects/dates');
@@ -96,6 +111,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     const previewBtn = page.locator('#preview-btn');
     if (await previewBtn.isDisabled().catch(() => true)) {
       test.skip(true, 'Preview disabled');
@@ -118,6 +134,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     await page.fill('#start-date', '2025-09-30T23:59');
     await page.fill('#end-date', '2025-07-01T00:00');
     await page.click('#preview-btn');
@@ -138,6 +155,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     await page.evaluate(() => {
       try {
         sessionStorage.removeItem('report-last-run');
@@ -160,6 +178,7 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/report');
     if (await skipIfRedirectedToLogin(page, test)) return;
+    await ensureReportFiltersExpanded(page);
     const previewBtn = page.locator('#preview-btn');
     if (await previewBtn.isDisabled().catch(() => true)) {
       test.skip(true, 'Preview disabled');
@@ -167,11 +186,23 @@ test.describe('Customer Simplicity Trust Recovery Validation', () => {
     }
     await previewBtn.click();
     await waitForPreview(page, { timeout: 90000 });
-    await page.waitForTimeout(500);
-    const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
-    expect(loadingVisible).toBe(false);
-    const ariaBusy = await page.locator('.preview-area').getAttribute('aria-busy').catch(() => null);
-    expect(ariaBusy === 'false' || ariaBusy === null).toBe(true);
+    await page.waitForFunction(() => {
+      const loadingEl = document.getElementById('loading');
+      const loadingVisible = !!(loadingEl && getComputedStyle(loadingEl).display !== 'none' && loadingEl.offsetParent !== null);
+      const errorEl = document.getElementById('error');
+      const errorVisible = !!(errorEl && getComputedStyle(errorEl).display !== 'none' && (errorEl.textContent || '').trim().length > 0);
+      const previewArea = document.querySelector('.preview-area');
+      const ariaBusy = previewArea ? previewArea.getAttribute('aria-busy') : null;
+      if (errorVisible) return true;
+      return !loadingVisible && (ariaBusy === 'false' || ariaBusy == null);
+    }, { timeout: 8000 }).catch(() => null);
+    const errorVisible = await page.locator('#error').isVisible().catch(() => false);
+    if (!errorVisible) {
+      const loadingVisible = await page.locator('#loading').isVisible().catch(() => false);
+      expect(loadingVisible).toBe(false);
+      const ariaBusy = await page.locator('.preview-area').getAttribute('aria-busy').catch(() => null);
+      expect(ariaBusy === 'false' || ariaBusy === null).toBe(true);
+    }
     assertTelemetryClean(telemetry);
   });
 });

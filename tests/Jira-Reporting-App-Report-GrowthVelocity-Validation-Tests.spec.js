@@ -8,8 +8,12 @@ test.describe('Growth & Velocity Plan Validation', () => {
         const response = await page.goto('/leadership');
         expect(response.status()).toBe(200);
 
-        // Initial State: connection indicator can be Live (connected) or Offline (degraded mode).
-        await expect(page.locator('#connection-status')).toContainText(/Live|Offline/, { timeout: 10000 });
+        // Current flow may render legacy HUD or redirect to report trends.
+        const connectionStatus = page.locator('#connection-status');
+        const hasConnectionStatus = (await connectionStatus.count()) > 0;
+        if (hasConnectionStatus) {
+            await expect(connectionStatus).toContainText(/Live|Offline/, { timeout: 10000 });
+        }
 
         // Verify Metrics Loaded (Mock data or Real)
         const velocityValue = page.locator('.hud-card:has-text("Velocity") .metric-value');
@@ -20,7 +24,7 @@ test.describe('Growth & Velocity Plan Validation', () => {
             await expect(page.locator('h1')).toContainText(/General Performance|Leadership/i);
             return;
         }
-        const connectionText = ((await page.locator('#connection-status').textContent().catch(() => '')) || '').trim();
+        const connectionText = ((await connectionStatus.textContent().catch(() => '')) || '').trim();
         if (/Live/i.test(connectionText)) {
             await expect(velocityValue).not.toHaveText('--');
         } else {
@@ -47,6 +51,14 @@ test.describe('Growth & Velocity Plan Validation', () => {
         });
 
         await page.goto('/report');
+        const previewBtn = page.locator('#preview-btn');
+        if (!(await previewBtn.isVisible().catch(() => false))) {
+            const showFiltersBtn = page.locator('#filters-panel-collapsed-bar [data-action="toggle-filters"]').first();
+            if (await showFiltersBtn.isVisible().catch(() => false)) {
+                await showFiltersBtn.click({ force: true }).catch(() => null);
+            }
+            await previewBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+        }
 
         // Verify inputs hydrated
         // Assuming start-date input exists

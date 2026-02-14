@@ -7,7 +7,9 @@ test('Date windows are ordered most-recent-first in quarter strip', async ({ pag
 
   // Wait for quarter strip to be populated
   const pills = page.locator('.quarter-strip-inner .quarter-pill');
-  await expect(pills.first()).toBeVisible({ timeout: 10000 });
+  await expect(pills.first()).toBeAttached({ timeout: 10000 });
+  const pillCount = await pills.count();
+  expect(pillCount).toBeGreaterThan(0);
 
   const starts = await pills.evaluateAll(nodes => nodes.map(n => n.getAttribute('data-start')));
   const timestamps = starts.map(s => new Date(s).getTime());

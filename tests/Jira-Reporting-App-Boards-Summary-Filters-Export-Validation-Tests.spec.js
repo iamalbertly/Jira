@@ -137,7 +137,7 @@ test.describe('Jira Reporting App - Boards Summary Filters Export Validation Tes
     await runDefaultPreview(page);
     const primaryBtn = page.locator('#export-excel-btn');
     await expect(primaryBtn).toBeVisible({ timeout: 5000 });
-    await expect(primaryBtn).toContainText(/Export to Excel|all data/i);
+    await expect(primaryBtn).toContainText(/Share \/ Export|Export to Excel|all data/i);
     const dropdownTrigger = page.locator('#export-dropdown-trigger');
     await expect(dropdownTrigger).toBeVisible({ timeout: 3000 });
     await dropdownTrigger.click();

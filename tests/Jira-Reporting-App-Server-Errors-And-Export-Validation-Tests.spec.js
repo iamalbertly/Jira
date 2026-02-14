@@ -72,7 +72,7 @@ test.describe('Server errors and export validation', () => {
       const exportAria = (await exportBtn.getAttribute('aria-label')) || '';
       const exportHintText = (await page.locator('#export-hint').textContent().catch(() => '')) || '';
       const hasClearDisabledReason =
-        /partial|generate a report with data|enable export|loaded/i.test(
+        /partial|generate a report with data|enable export|share\s*\/\s*export|loaded|run a report/i.test(
           `${exportTitle} ${exportAria} ${exportHintText}`
         );
       expect(hasClearDisabledReason).toBeTruthy();

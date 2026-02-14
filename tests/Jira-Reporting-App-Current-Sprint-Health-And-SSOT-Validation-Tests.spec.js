@@ -10,7 +10,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     const loadingVisible = await loading.isVisible().catch(() => false);
     if (loadingVisible) {
       const text = await loading.textContent().catch(() => '') || '';
-      expect(text).toMatch(/Loading (current sprint|boards)|Choose (one )?project.*boards load.*pick a board/i);
+      expect(text).toMatch(/Loading (board|current sprint|boards)|Choose (one )?project.*boards load.*pick a board/i);
     }
   });
 

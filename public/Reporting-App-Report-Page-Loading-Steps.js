@@ -11,7 +11,17 @@ const LOADING_STAGES = [
   'Final checks…',
 ];
 const LOADING_STAGE_PERCENT = [10, 40, 70, 85, 100];
+// Theater: fast ramp 40→65% in 2.5s so cache/fast responses feel instant; then hold at 65% for long runs
+const THEATER_FILL_START = 40;
+const THEATER_FILL_CAP = 65;
+const THEATER_FAST_RAMP_MS = 2500;
+const THEATER_SUB_MESSAGE_INTERVAL_MS = 1200;
+const THEATER_STEP_CUE_MS = 800;
+const GATHERING_SUB_MESSAGES = ['Fetching boards…', 'Loading sprint list…', 'Pulling completed work…'];
 let loadingChipShowTimerId = null;
+let theaterFillIntervalId = null;
+let theaterMessageIntervalId = null;
+let theaterStepCueIntervalId = null;
 
 function clearLoadingChipShowTimer() {
   if (loadingChipShowTimerId != null) {
@@ -51,7 +61,82 @@ function applyLoadingHintForComplexity(complexityLevel) {
   }
 }
 
+export function stopTheaterGathering() {
+  if (theaterFillIntervalId != null) {
+    clearInterval(theaterFillIntervalId);
+    theaterFillIntervalId = null;
+  }
+  if (theaterMessageIntervalId != null) {
+    clearInterval(theaterMessageIntervalId);
+    theaterMessageIntervalId = null;
+  }
+  if (theaterStepCueIntervalId != null) {
+    clearInterval(theaterStepCueIntervalId);
+    theaterStepCueIntervalId = null;
+  }
+  const stepCueEl = document.getElementById('loading-step-cue');
+  if (stepCueEl) stepCueEl.textContent = '';
+}
+
+/** On abort/timeout, reset progress bar so we do not leave it stuck at theater cap. */
+export function resetLoadingBarToZero() {
+  const fillEl = document.getElementById('loading-progress-fill');
+  const barEl = document.querySelector('.loading-progress-bar[role="progressbar"]');
+  if (fillEl) fillEl.style.width = '0%';
+  if (barEl) {
+    barEl.setAttribute('aria-valuenow', 0);
+    barEl.setAttribute('aria-label', 'Report loading progress');
+  }
+  const stepCueEl = document.getElementById('loading-step-cue');
+  if (stepCueEl) stepCueEl.textContent = '';
+}
+
+export function startTheaterGathering(getElapsedMs) {
+  stopTheaterGathering();
+  const fillEl = document.getElementById('loading-progress-fill');
+  const barEl = document.querySelector('.loading-progress-bar[role="progressbar"]');
+  const msgEl = document.getElementById('loading-message');
+  const stepCueEl = document.getElementById('loading-step-cue');
+  let subIndex = 0;
+
+  theaterFillIntervalId = setInterval(() => {
+    const elapsed = typeof getElapsedMs === 'function' ? getElapsedMs() : 0;
+    const pct = elapsed < THEATER_FAST_RAMP_MS
+      ? THEATER_FILL_START + (elapsed / THEATER_FAST_RAMP_MS) * (THEATER_FILL_CAP - THEATER_FILL_START)
+      : THEATER_FILL_CAP;
+    if (fillEl) fillEl.style.width = `${Math.min(100, pct)}%`;
+    if (barEl) {
+      barEl.setAttribute('aria-valuenow', Math.round(pct));
+      barEl.setAttribute('aria-label', 'Report loading progress');
+    }
+  }, 100);
+
+  function updateTheaterMessage() {
+    const elapsed = typeof getElapsedMs === 'function' ? getElapsedMs() : 0;
+    const sec = Math.floor(elapsed / 1000);
+    const timeStr = sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`;
+    const sub = GATHERING_SUB_MESSAGES[subIndex % GATHERING_SUB_MESSAGES.length];
+    const text = `${sub} (${timeStr})`;
+    if (msgEl) msgEl.textContent = text;
+    const chip = document.getElementById('loading-status-chip');
+    if (chip && chip.style.display !== 'none') chip.textContent = text;
+    subIndex += 1;
+  }
+  updateTheaterMessage();
+  theaterMessageIntervalId = setInterval(updateTheaterMessage, THEATER_SUB_MESSAGE_INTERVAL_MS);
+
+  function updateStepCue() {
+    if (!stepCueEl) return;
+    const elapsed = typeof getElapsedMs === 'function' ? getElapsedMs() : 0;
+    const step = Math.min(3, Math.floor(elapsed / THEATER_STEP_CUE_MS) + 1);
+    stepCueEl.textContent = 'Step ' + step + ' of 3';
+  }
+  updateStepCue();
+  theaterStepCueIntervalId = setInterval(updateStepCue, 200);
+}
+
 export function setLoadingStage(stageIndex, label, complexityLevel) {
+  if (stageIndex === 1) stopTheaterGathering();
   const msgEl = document.getElementById('loading-message');
   if (msgEl) msgEl.textContent = label != null ? label : (LOADING_STAGES[stageIndex] || 'Loading…');
   const fillEl = document.getElementById('loading-progress-fill');
@@ -62,6 +147,8 @@ export function setLoadingStage(stageIndex, label, complexityLevel) {
     barEl.setAttribute('aria-valuenow', pct);
     barEl.setAttribute('aria-label', label != null ? label : (LOADING_STAGES[stageIndex] || 'Report loading progress'));
   }
+  const stepCueEl = document.getElementById('loading-step-cue');
+  if (stepCueEl) stepCueEl.textContent = '';
   const chip = document.getElementById('loading-status-chip');
   if (chip && chip.style.display !== 'none') chip.textContent = msgEl ? msgEl.textContent : '';
   if (typeof complexityLevel === 'string') {
@@ -150,6 +237,7 @@ export function setLoadingVisible(visible = true) {
 
 export function hideLoadingIfVisible() {
   clearLoadingChipShowTimer();
+  stopTheaterGathering();
   const { loadingEl } = reportDom;
   if (loadingEl) {
     loadingEl.style.display = 'none';
@@ -166,6 +254,7 @@ export function hideLoadingIfVisible() {
 
 export function forceHideLoading() {
   clearLoadingChipShowTimer();
+  stopTheaterGathering();
   const { loadingEl } = reportDom;
   try {
     if (loadingEl) {

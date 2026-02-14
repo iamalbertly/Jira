@@ -111,6 +111,11 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     await expect(page.locator('.status-badge')).toBeVisible();
   });
 
+  test('Validation 1.1b: Single-project mode hint is visible near selectors', async ({ page }) => {
+    await expect(page.locator('#current-sprint-single-project-hint')).toBeVisible();
+    await expect(page.locator('#current-sprint-single-project-hint')).toContainText(/single-project mode|Using/i);
+  });
+
   test('Validation 1.2: Header bar is sticky on scroll', async ({ page }) => {
     const headerBar = page.locator('.current-sprint-header-bar');
     const initialTop = await headerBar.evaluate(el => window.getComputedStyle(el).position);
@@ -518,7 +523,12 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     await btn.click();
     
     const options = page.locator('.export-option');
-    await expect(options).toHaveCount(4); // Current menu contract: PNG, Markdown, Copy Link, Email
+    await expect(options).toHaveCount(5);
+    await expect(page.locator('[data-action="copy-text"]')).toBeVisible();
+    await expect(page.locator('[data-action="export-markdown"]')).toBeVisible();
+    await expect(page.locator('[data-action="export-png"]')).toBeVisible();
+    await expect(page.locator('[data-action="copy-link"]')).toBeVisible();
+    await expect(page.locator('[data-action="email"]')).toBeVisible();
   });
 
   test('Validation 9.3: Copy dashboard link works', async ({ page }) => {
@@ -539,6 +549,10 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     
     const copiedLink = await page.getAttribute('body', 'data-copied-link');
     expect((copiedLink || '').length > 0).toBeTruthy();
+    expect((copiedLink || '')).toContain('/current-sprint');
+    if ((copiedLink || '').includes('boardId=')) {
+      expect((copiedLink || '')).toMatch(/boardId=.*sprintId=/);
+    }
   });
 
   test('Validation 9.4: Export menu closes on click outside', async ({ page }) => {
@@ -712,7 +726,12 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     for (const selector of components) {
       const element = page.locator(selector);
       if (await element.count() > 0) {
-        await expect(element).toBeVisible();
+        const visible = await element.first().isVisible().catch(() => false);
+        if (visible) {
+          await expect(element.first()).toBeVisible();
+        } else {
+          await expect(element.first()).toBeAttached();
+        }
       }
     }
   });

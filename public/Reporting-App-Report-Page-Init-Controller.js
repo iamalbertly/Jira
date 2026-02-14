@@ -17,6 +17,7 @@ import { initExportMenu as initReportExportMenu } from './Reporting-App-Report-P
 import { classifyPreviewComplexity } from './Reporting-App-Report-Page-Preview-Complexity-Config.js';
 
 const LEADERSHIP_HASH = '#trends';
+const CONTEXT_SEPARATOR = ' | ';
 
 function getShortRangeLabel() {
   const activePill = document.querySelector('.quarter-pill.is-active');
@@ -26,7 +27,7 @@ function getShortRangeLabel() {
   if (!startInput?.value || !endInput?.value) return '';
   const s = startInput.value.slice(0, 10);
   const e = endInput.value.slice(0, 10);
-  if (s && e) return s + ' – ' + e;
+  if (s && e) return s + ' - ' + e;
   return '';
 }
 
@@ -121,9 +122,9 @@ function updateAppliedFiltersSummary() {
   if (document.getElementById('require-resolved-by-sprint-end')?.checked) opts.push('Require resolved by sprint end');
   if (document.getElementById('include-predictability')?.checked) opts.push('Include Predictability');
   const projLabel = projects.length ? projects.join(', ') : 'None';
-  const rangeLabel = startVal && endVal ? startVal.slice(0, 10) + ' – ' + endVal.slice(0, 10) : '';
+  const rangeLabel = startVal && endVal ? startVal.slice(0, 10) + ' - ' + endVal.slice(0, 10) : '';
   const summaryText = (projLabel !== 'None' && rangeLabel)
-    ? 'Applied: ' + projLabel + ' · ' + rangeLabel + (opts.length ? ' · ' + opts.join(', ') : '')
+    ? 'Applied: ' + projLabel + CONTEXT_SEPARATOR + rangeLabel + (opts.length ? CONTEXT_SEPARATOR + opts.join(', ') : '')
     : 'Select projects and dates, then preview.';
   if (el) el.textContent = summaryText;
   if (chipsEl) {
@@ -140,7 +141,7 @@ function updateAppliedFiltersSummary() {
   if (el && isMobile && projects.length > 1) {
     const truncProjLabel = projects[0] + ' +' + (projects.length - 1) + ' more';
     const truncSummary = (truncProjLabel !== 'None' && rangeLabel)
-      ? 'Applied: ' + truncProjLabel + ' · ' + rangeLabel
+      ? 'Applied: ' + truncProjLabel + CONTEXT_SEPARATOR + rangeLabel
       : summaryText;
     el.textContent = truncSummary;
   }
@@ -153,6 +154,10 @@ function updateAppliedFiltersSummary() {
   const loadLatestWrapSync = document.getElementById('report-load-latest-wrap');
   const previewBtnSync = document.getElementById('preview-btn');
   if (loadLatestWrapSync && previewBtnSync && previewBtnSync.disabled) loadLatestWrapSync.style.display = 'none';
+  const reportContextLineSync = document.getElementById('report-context-line');
+  if (reportContextLineSync && projects.length === 0) {
+    reportContextLineSync.textContent = 'Select at least one project to see results.';
+  }
 }
 
 function hydrateFromLastQuery() {
@@ -199,6 +204,7 @@ function hydrateFromLastQuery() {
 function initReportPage() {
   let autoPreviewTimer = null;
   let autoPreviewInProgress = false;
+  let allowHashTabSync = false;
 
   function scheduleAutoPreview(delayMs = AUTO_PREVIEW_DELAY_MS) {
     const previewBtn = document.getElementById('preview-btn');
@@ -224,6 +230,7 @@ function initReportPage() {
 
   initFeedbackPanel();
   function syncHashWithTab(tabName) {
+    if (!allowHashTabSync) return;
     const onLeadershipTab = tabName === 'trends';
     const hasLeadershipHash = window.location.hash === LEADERSHIP_HASH;
     if (onLeadershipTab && !hasLeadershipHash) {
@@ -239,10 +246,18 @@ function initReportPage() {
 
   function activateTabFromHash() {
     try {
-      if (window.location.hash !== LEADERSHIP_HASH) return;
-      const trendsBtn = document.getElementById('tab-btn-trends');
-      if (trendsBtn && !trendsBtn.classList.contains('active')) {
-        trendsBtn.click();
+      const hash = window.location.hash;
+      if (hash === LEADERSHIP_HASH) {
+        const trendsBtn = document.getElementById('tab-btn-trends');
+        if (trendsBtn && !trendsBtn.classList.contains('active')) trendsBtn.click();
+        return;
+      }
+      if (!hash) {
+        const activeBtn = document.querySelector('.tab-btn.active');
+        if (!activeBtn) {
+          const defaultBtn = document.getElementById('tab-btn-done-stories');
+          if (defaultBtn) defaultBtn.click();
+        }
       }
     } catch (_) {}
   }
@@ -260,20 +275,25 @@ function initReportPage() {
   }, () => { refreshPreviewButtonLabel(); });
   hydrateFromLastQuery();
   const reportContextLine = document.getElementById('report-context-line');
-  if (reportContextLine) reportContextLine.textContent = getContextDisplayString();
+  const hasProjects = getSelectedProjects().length > 0;
+  if (reportContextLine) {
+    reportContextLine.textContent = hasProjects
+      ? getContextDisplayString()
+      : 'Select at least one project to see results.';
+  }
   const loadLatestWrap = document.getElementById('report-load-latest-wrap');
   const loadLatestBtn = document.getElementById('report-load-latest-btn');
-  if (reportContextLine?.textContent?.trim() === 'No report run yet' && loadLatestWrap) {
+  if (hasProjects && getContextDisplayString() === 'No report run yet' && loadLatestWrap) {
     loadLatestWrap.style.display = 'inline';
-    if (loadLatestBtn) {
-      loadLatestBtn.addEventListener('click', () => {
-        const pb = document.getElementById('preview-btn');
-        if (pb && !pb.disabled) {
-          pb.click();
-          if (typeof pb.focus === 'function') pb.focus();
-        }
-      });
-    }
+  }
+  if (loadLatestBtn) {
+    loadLatestBtn.addEventListener('click', () => {
+      const pb = document.getElementById('preview-btn');
+      if (pb && !pb.disabled) {
+        pb.click();
+        if (typeof pb.focus === 'function') pb.focus();
+      }
+    });
   }
   updateAppliedFiltersSummary();
   if (shouldAutoPreviewOnInit()) {
@@ -285,6 +305,55 @@ function initReportPage() {
   initSearchClearButtons();
   renderNotificationDock({ pageContext: 'report', collapsedByDefault: true });
   applyDoneStoriesOptionalColumnsPreference();
+
+  function syncFromSharedStorage(event) {
+    try {
+      if (!event || event.storageArea !== localStorage) return;
+      if (event.key !== PROJECTS_SSOT_KEY && event.key !== SHARED_DATE_RANGE_KEY && event.key !== LAST_QUERY_KEY) return;
+
+      if (event.key === PROJECTS_SSOT_KEY) {
+        const projects = (event.newValue || '').split(',').map((p) => p.trim()).filter(Boolean);
+        document.querySelectorAll('.project-checkbox[data-project]').forEach((input) => {
+          input.checked = projects.includes(input.dataset.project);
+        });
+      }
+
+      if (event.key === SHARED_DATE_RANGE_KEY || event.key === LAST_QUERY_KEY) {
+        let range = null;
+        if (event.key === SHARED_DATE_RANGE_KEY) {
+          range = event.newValue ? JSON.parse(event.newValue) : null;
+        } else {
+          const parsed = event.newValue ? JSON.parse(event.newValue) : null;
+          range = parsed ? { start: parsed.start, end: parsed.end } : null;
+        }
+        if (range && typeof range.start === 'string' && typeof range.end === 'string') {
+          const startInput = document.getElementById('start-date');
+          const endInput = document.getElementById('end-date');
+          if (startInput) startInput.value = range.start.slice(0, 16);
+          if (endInput) endInput.value = range.end.slice(0, 16);
+        }
+      }
+
+      updateAppliedFiltersSummary();
+      if (!reportState.previewInProgress && !getCurrentSelectionComplexity().isHeavy) {
+        scheduleAutoPreview(250);
+      }
+    } catch (_) {}
+  }
+
+  function initKeyboardViewportGuard() {
+    try {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const apply = () => {
+        const keyboardOpen = (window.innerHeight - vv.height) > 120;
+        document.body.classList.toggle('keyboard-open', keyboardOpen);
+      };
+      vv.addEventListener('resize', apply, { passive: true });
+      vv.addEventListener('scroll', apply, { passive: true });
+      apply();
+    } catch (_) {}
+  }
 
   function onFilterChange() {
     if (autoPreviewTimer) {
@@ -411,6 +480,7 @@ function initReportPage() {
     try {
       sessionStorage.setItem(REPORT_FILTERS_COLLAPSED_KEY, '1');
       setFiltersPanelCollapsed(true);
+      if (window.location.hash === LEADERSHIP_HASH) return;
       const savedTab = sessionStorage.getItem('report-active-tab');
       if (savedTab) {
         const tabBtn = document.querySelector('.tab-btn[data-tab="' + savedTab + '"]');
@@ -420,6 +490,8 @@ function initReportPage() {
   });
 
   setTimeout(applyStoredFiltersCollapsed, 0);
+  window.addEventListener('storage', syncFromSharedStorage);
+  initKeyboardViewportGuard();
 
   const prevRefresh = window.__refreshReportingContextBar;
   window.__refreshReportingContextBar = function () {
@@ -430,6 +502,7 @@ function initReportPage() {
 
   try {
     activateTabFromHash();
+    setTimeout(() => { allowHashTabSync = true; activateTabFromHash(); }, 0);
     const lastQuery = getValidLastQuery();
     const leadershipContent = document.getElementById('leadership-content');
     const hasTrendsContent = !!(leadershipContent && leadershipContent.children && leadershipContent.children.length > 0);

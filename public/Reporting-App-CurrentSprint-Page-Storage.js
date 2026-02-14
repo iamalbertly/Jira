@@ -1,14 +1,22 @@
 import { currentSprintDom, currentSprintKeys } from './Reporting-App-CurrentSprint-Page-Context.js';
 
+function normalizeForCurrentSprint(value) {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  return parts[0] || '';
+}
+
+export function describeCurrentSprintProjectMode(value) {
+  const raw = (value || '').trim();
+  if (!raw) return 'Current Sprint runs in single-project mode for accuracy.';
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return 'Current Sprint runs in single-project mode for accuracy.';
+  return 'Using ' + parts[0] + ' from shared project context (' + parts.length + ' selected).';
+}
+
 export function getProjectsParam() {
   const { projectsSelect } = currentSprintDom;
-  const normalizeForCurrentSprint = (value) => {
-    const raw = (value || '').trim();
-    if (!raw) return '';
-    const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
-    if (parts.length <= 1) return raw;
-    return parts[0];
-  };
   const selection = normalizeForCurrentSprint(projectsSelect?.value || '');
   if (selection) return selection;
   try {
@@ -34,12 +42,6 @@ export function getStoredProjects() {
 export function syncProjectsSelect(value) {
   const { projectsSelect } = currentSprintDom;
   if (!projectsSelect) return false;
-  const normalizeForCurrentSprint = (input) => {
-    const raw = (input || '').trim();
-    if (!raw) return '';
-    const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
-    return parts[0] || '';
-  };
   const target = normalizeForCurrentSprint(value);
   if (!target) return false;
   const options = Array.from(projectsSelect.options || []);

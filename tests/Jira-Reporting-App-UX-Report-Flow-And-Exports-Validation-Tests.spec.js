@@ -58,7 +58,7 @@ test.describe('UX Report Flow & Export Experience', () => {
     await expect(page.locator('#applied-filters-edit-btn')).toHaveCount(0);
   });
 
-  test('export CTAs are hidden until preview has run then show Export Excel - All data', async ({ page }) => {
+  test('export CTAs are hidden until preview has run then show Share / Export', async ({ page }) => {
     await page.goto('/report');
 
     await expect(page.locator('#export-excel-btn')).toBeHidden();
@@ -78,7 +78,7 @@ test.describe('UX Report Flow & Export Experience', () => {
     await expect(page.locator('#preview-content')).toBeVisible({ timeout: 60000 });
 
     await expect(page.locator('#export-excel-btn')).toBeVisible();
-    await expect(page.locator('#export-excel-btn')).toContainText('Export Excel - All data');
+    await expect(page.locator('#export-excel-btn')).toContainText(/Share \/ Export|Export Excel - All data/);
   });
 
   test('loading feedback and sticky context are visible when triggering preview from deep scroll', async ({ page }) => {

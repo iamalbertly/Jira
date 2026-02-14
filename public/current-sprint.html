@@ -61,6 +61,7 @@
           <select id="board-select" aria-label="Select board">
             <option value="">Loading boards...</option>
           </select>
+          <span id="current-sprint-single-project-hint" class="selection-status" aria-live="polite">Current Sprint runs in single-project mode for accuracy.</span>
         </div>
       </div>
     </header>
@@ -68,7 +69,7 @@
     <main id="main-content">
       <!-- M9: Sprint loading context — shows board + sprint name above spinner while loading -->
       <div id="sprint-loading-context" class="sprint-loading-context" aria-live="polite"></div>
-      <div id="current-sprint-loading">Select one project and a board to see sprint health and risks. Boards load automatically for the selected project.</div>
+      <div id="current-sprint-loading">Pick a project, then a board — sprint view loads automatically.</div>
       <div id="current-sprint-error" class="alert alert-error" style="display: none;"></div>
       <div id="current-sprint-content"></div>
     </main>

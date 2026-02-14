@@ -6,6 +6,7 @@ import { SHARED_DATE_RANGE_KEY } from './Reporting-App-Shared-Storage-Keys.js';
 import { AUTO_PREVIEW_DELAY_MS } from './Reporting-App-Shared-AutoPreview-Config.js';
 import { getValidLastQuery, getFallbackContext } from './Reporting-App-Shared-Context-From-Storage.js';
 import { showLoadingView, showErrorView, clearErrorView, showContentView } from './Reporting-App-Shared-Status-View-Helpers.js';
+import { startRotatingMessages, stopRotatingMessages } from './Reporting-App-Shared-Loading-Theater.js';
 
 function setDefaultDates() {
   const { startInput, endInput } = leadershipDom;
@@ -82,11 +83,18 @@ function saveFilters() {
   } catch (_) {}
 }
 
+const LEADERSHIP_LOADING_MESSAGES = ['Fetching quarter data…', 'Computing trends…', 'Preparing view…'];
+
 function showLoading(msg) {
+  stopRotatingMessages();
   showLoadingView(leadershipDom, msg || 'Loading...');
+  if (leadershipDom.loadingEl) {
+    startRotatingMessages(leadershipDom.loadingEl, LEADERSHIP_LOADING_MESSAGES, 1200);
+  }
 }
 
 function showError(msg) {
+  stopRotatingMessages();
   showErrorView(leadershipDom, msg);
 }
 
@@ -95,6 +103,7 @@ function clearError() {
 }
 
 function showContent(html) {
+  stopRotatingMessages();
   showContentView(leadershipDom, html);
 }
 

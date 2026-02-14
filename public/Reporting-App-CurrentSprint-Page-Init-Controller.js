@@ -21,6 +21,7 @@ import {
   getStoredProjects,
   syncProjectsSelect,
   persistProjectsSelection,
+  describeCurrentSprintProjectMode,
   getPreferredBoardId,
   getPreferredSprintId,
   persistSelection,
@@ -206,7 +207,11 @@ function onBoardChange() {
 }
 
 function updateProjectHint() {
-  // Projects are already synchronized from shared storage.
+  try {
+    const hint = document.getElementById('current-sprint-single-project-hint');
+    if (!hint) return;
+    hint.textContent = describeCurrentSprintProjectMode(getStoredProjects() || getProjectsParam());
+  } catch (_) {}
 }
 
 function onProjectsChange() {

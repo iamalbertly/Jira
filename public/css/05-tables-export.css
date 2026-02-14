@@ -27,7 +27,7 @@
 
 .data-table th {
   position: sticky;
-  top: 0;
+  top: var(--table-sticky-top, 0px);
   z-index: 2;
   background: linear-gradient(180deg, #f4f7fc, #eef3fb);
   font-weight: 600;
@@ -37,6 +37,17 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
   min-width: 80px;
+}
+
+/* Keep headers visible below sticky global/page bars while scrolling long tables */
+body .preview-area {
+  --table-sticky-top: 64px;
+}
+
+@media (max-width: 768px) {
+  body .preview-area {
+    --table-sticky-top: 56px;
+  }
 }
 .data-table th.cell-wrap {
   min-width: 100px;

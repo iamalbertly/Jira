@@ -10,6 +10,10 @@ import {
   REPORT_LAST_META_KEY,
 } from './Reporting-App-Shared-Storage-Keys.js';
 
+const FRESHNESS_STALE_THRESHOLD_MS = 30 * 60 * 1000;
+const CONTEXT_SEPARATOR = ' | ';
+const DATE_RANGE_SEPARATOR = ' - ';
+
 function parseDate(s) {
   if (typeof s !== 'string' || !s.trim()) return null;
   const d = new Date(s.trim());
@@ -108,8 +112,7 @@ export function getLastMetaFreshnessInfo() {
     if (Number.isNaN(ts.getTime())) return { label: null, isStale: false };
     const diffMs = Date.now() - ts.getTime();
     if (diffMs < 0) return { label: null, isStale: false };
-    const FIFTEEN_MIN_MS = 15 * 60 * 1000;
-    const isStale = diffMs >= FIFTEEN_MIN_MS;
+    const isStale = diffMs >= FRESHNESS_STALE_THRESHOLD_MS;
     if (diffMs < 60000) return { label: 'Generated just now', isStale };
     const minutes = Math.round(diffMs / 60000);
     if (minutes < 60) return { label: `Generated ${minutes} min ago`, isStale };
@@ -122,7 +125,7 @@ export function getLastMetaFreshnessInfo() {
 
 /**
  * Returns a one-line display string for the context bar, or a fallback message.
- * When sessionStorage has last-run data, prepends "Last: X stories, Y sprints · " to projects/range.
+ * When sessionStorage has last-run data, prepends "Last: X stories, Y sprints | " to projects/range.
  * When preview meta is available, appends a freshness fragment: "Generated N min ago".
  */
 export function getContextDisplayString() {
@@ -133,18 +136,16 @@ export function getContextDisplayString() {
   const proj = ctx ? ctx.projects.replace(/,/g, ', ') : '';
   const startStr = ctx ? formatDateForContext(ctx.start) : '';
   const endStr = ctx ? formatDateForContext(ctx.end) : '';
-  const rangeStr = startStr && endStr ? `${startStr} – ${endStr}` : '';
-  const contextPart = rangeStr ? `Projects: ${proj} · ${rangeStr}` : (proj ? `Projects: ${proj}` : '');
+  const rangeStr = startStr && endStr ? `${startStr}${DATE_RANGE_SEPARATOR}${endStr}` : '';
+  const contextPart = rangeStr ? `Projects: ${proj}${CONTEXT_SEPARATOR}${rangeStr}` : (proj ? `Projects: ${proj}` : '');
   const freshnessPart = freshness ? freshness : '';
   const pieces = [];
   if (lastRun) pieces.push(lastRun);
   if (contextPart) pieces.push(contextPart);
   if (freshnessPart) pieces.push(freshnessPart);
-  if (pieces.length) return pieces.join(' · ');
+  if (pieces.length) return pieces.join(CONTEXT_SEPARATOR);
   return 'No report run yet';
 }
-
-const STALE_THRESHOLD_MS = 30 * 60 * 1000;
 
 /**
  * Returns HTML for the persistent sidebar context card (selected projects, last generated, freshness).
@@ -160,7 +161,7 @@ export function getContextCardHtml() {
   const freshnessClass = isStale ? 'context-freshness-stale' : 'context-freshness-ok';
   const freshnessText = isStale ? 'Data may be stale (>30 min)' : (freshnessInfo.label ? 'Data freshness: OK' : 'Generate a report');
   const rangeStr = ctx && ctx.start && ctx.end
-    ? `${new Date(ctx.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(ctx.end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    ? `${new Date(ctx.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${DATE_RANGE_SEPARATOR}${new Date(ctx.end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : '';
   let html = '<div class="context-card"><h3 class="context-card-title">Context</h3>';
   html += '<p class="context-card-line">' + escapeHtml(projectsLabel) + '</p>';

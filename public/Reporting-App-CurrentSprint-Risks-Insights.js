@@ -52,20 +52,20 @@ export function renderRisksAndInsights(data) {
     html += '<div class="insights-content">';
     blockersText.forEach(item => {
       html += '<div class="insight-item blocker-item">';
-      html += '<span class="insight-icon">🚫</span>';
+      html += '<span class="insight-icon" aria-hidden="true">!</span>';
       html += '<div class="insight-text">' + escapeHtml(item) + '</div>';
       html += '</div>';
     });
     html += '</div>';
     html += '<div class="insight-actions">';
     html += '<p class="insight-hint">Add recommended unblock actions:</p>';
-    html += '<select id="blockers-action-type" class="insight-action-type" aria-label="Action type"><option value="">— Action type —</option><option value="Escalate">Escalate</option><option value="Reassign">Reassign</option><option value="Defer">Defer</option><option value="Custom">Custom</option></select>';
+    html += '<select id="blockers-action-type" class="insight-action-type" aria-label="Action type"><option value="">- Action type -</option><option value="Escalate">Escalate</option><option value="Reassign">Reassign</option><option value="Defer">Defer</option><option value="Custom">Custom</option></select>';
     html += '<textarea id="blockers-mitigation" rows="4" maxlength="1000" placeholder="e.g., Escalate to architecture team, Schedule review meeting" class="insight-input" aria-describedby="blockers-char-count"></textarea>';
     html += '<span id="blockers-char-count" class="insight-char-count" aria-live="polite">0 / 1000</span>';
     html += '</div>';
   } else {
     html += '<div class="insight-empty">';
-    html += '<p>✅ No blockers detected. Sprint is flowing well!</p>';
+    html += '<p>No blockers detected. Sprint is flowing well.</p>';
     html += '</div>';
   }
   html += '</div>';
@@ -76,18 +76,18 @@ export function renderRisksAndInsights(data) {
     html += '<div class="insights-content">';
     learnings.forEach(item => {
       html += '<div class="insight-item learning-item">';
-      html += '<span class="insight-icon">✨</span>';
+      html += '<span class="insight-icon" aria-hidden="true">!</span>';
       html += '<div class="insight-text">' + escapeHtml(item) + '</div>';
       html += '</div>';
     });
     html += '</div>';
     html += '<div class="insight-actions">';
-    html += '<p class="insight-hint">📝 Add new learnings:</p>';
+    html += '<p class="insight-hint">Add new learnings:</p>';
     html += '<textarea id="learnings-new" rows="4" placeholder="e.g., API integration easier than expected, Team skills improved..." class="insight-input"></textarea>';
     html += '</div>';
   } else {
     html += '<div class="insight-empty">';
-    html += '<p>📚 No learnings captured yet. Document discoveries and improvements.</p>';
+    html += '<p>No learnings captured yet. Document discoveries and improvements.</p>';
     html += '</div>';
   }
   html += '</div>';
@@ -98,7 +98,7 @@ export function renderRisksAndInsights(data) {
     html += '<div class="insights-content">';
     assumptions.forEach((item, idx) => {
       html += '<div class="insight-item assumption-item">';
-      html += '<span class="insight-icon">👉</span>';
+      html += '<span class="insight-icon" aria-hidden="true">!</span>';
       html += '<div class="insight-text">' + escapeHtml(item) + '</div>';
       html += '<span class="risk-level" title="Risk level: Assumed low">Low</span>';
       html += '</div>';
@@ -106,11 +106,11 @@ export function renderRisksAndInsights(data) {
     html += '</div>';
   } else {
     html += '<div class="insight-empty">';
-    html += '<p>✋ No assumptions documented. Consider what could go wrong.</p>';
+    html += '<p>No assumptions documented. Consider what could go wrong.</p>';
     html += '</div>';
   }
   html += '<div class="insight-actions">';
-  html += '<p class="insight-hint">🎯 Add risks and mitigation strategies:</p>';
+  html += '<p class="insight-hint">Add risks and mitigation strategies:</p>';
   html += '<textarea id="assumptions-new" rows="4" placeholder="e.g., Risk: Third-party API downtime. Mitigation: Have fallback caching strategy..." class="insight-input"></textarea>';
   html += '</div>';
   html += '</div>';
@@ -218,7 +218,7 @@ export function wireRisksAndInsightsHandlers() {
         if (response.ok) {
           const statusEl = card.querySelector('#insights-status');
           if (statusEl) {
-            statusEl.textContent = '✓ Saved';
+            statusEl.textContent = 'Saved';
             statusEl.style.color = 'var(--accent)';
           }
           const savedAgoEl = card.querySelector('#insights-saved-ago');
@@ -278,3 +278,5 @@ export function exportRisksInsightsAsMarkdown(data) {
 
   return markdown;
 }
+
+

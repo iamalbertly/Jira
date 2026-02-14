@@ -13,6 +13,7 @@
     "auth:supertokens:up": "docker compose -f docker-compose.supertokens.yml up -d",
     "auth:supertokens:down": "docker compose -f docker-compose.supertokens.yml down",
     "test:all": "node scripts/Jira-Reporting-App-Test-Orchestration-Runner.js",
+    "test:all:stop": "node scripts/Jira-Reporting-App-Test-Orchestration-Stop.js",
     "test:e2e": "playwright test tests/Jira-Reporting-App-E2E-User-Journey-Tests.spec.js",
     "test:api": "playwright test tests/Jira-Reporting-App-API-Integration-Tests.spec.js",
     "test:validation": "playwright test tests/Jira-Reporting-App-Validation-Plan-Tests.spec.js",

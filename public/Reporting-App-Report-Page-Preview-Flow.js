@@ -10,7 +10,7 @@ import { triggerExcelExport } from './Reporting-App-Report-Page-Export-Menu.js';
 import { reportState } from './Reporting-App-Report-Page-State.js';
 import { collectFilterParams } from './Reporting-App-Report-Page-Filter-Params.js';
 import { LAST_QUERY_KEY, REPORT_HAS_RUN_PREVIEW_KEY, REPORT_LAST_RUN_KEY, REPORT_LAST_META_KEY } from './Reporting-App-Shared-Storage-Keys.js';
-import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible, setLoadingStage } from './Reporting-App-Report-Page-Loading-Steps.js';
+import { updateLoadingMessage, clearLoadingSteps, readResponseJson, hideLoadingIfVisible, setLoadingVisible, setLoadingStage, startTheaterGathering, stopTheaterGathering, resetLoadingBarToZero } from './Reporting-App-Report-Page-Loading-Steps.js';
 import { emitTelemetry } from './Reporting-App-Shared-Telemetry.js';
 import { renderPreview } from './Reporting-App-Report-Page-Render-Preview.js';
 import { updateExportFilteredState, updateExportHint } from './Reporting-App-Report-Page-Export-Menu.js';
@@ -226,7 +226,6 @@ export function initPreviewFlow() {
     previewRunId += 1;
     const runIdForThisRequest = previewRunId;
     let timeoutId;
-    let progressInterval;
     let timeoutMs = PREVIEW_TIMEOUT_LIGHT_MS;
     let isLoading = true;
     const cachePrefix = 'reportPreview:';
@@ -504,8 +503,10 @@ export function initPreviewFlow() {
       statusEl.style.display = 'block';
     }
 
+    const fetchStartMs = Date.now();
     try {
       setLoadingStage(1, 'Gathering sprint history…');
+      startTheaterGathering(() => Date.now() - fetchStartMs);
 
       const controller = new AbortController();
       currentPreviewController = controller;
@@ -517,23 +518,13 @@ export function initPreviewFlow() {
         controller.abort();
       }, timeoutMs);
 
-      let elapsedSeconds = 0;
-      progressInterval = setInterval(() => {
-        elapsedSeconds += 2;
-        const minutes = Math.floor(elapsedSeconds / 60);
-        const seconds = elapsedSeconds % 60;
-        const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-        updateLoadingMessage(`Gathering sprint history… (${timeStr})`, null);
-
-      }, 2000);
-
       // Emit telemetry that a preview fetch is starting (captured by tests)
       try { emitTelemetry('preview.fetch', { params: queryString }); } catch (_) {}
 
       const response = await fetch(`/preview.json?${queryString}`, { signal: controller.signal });
 
       if (timeoutId) clearTimeout(timeoutId);
-      if (progressInterval) clearInterval(progressInterval);
+      stopTheaterGathering();
       currentPreviewController = null;
 
       setLoadingStage(2, 'Computing delivery metrics…');
@@ -599,7 +590,8 @@ export function initPreviewFlow() {
       try { emitTelemetry('preview.complete', { rows: reportState.previewRows.length || 0, boards: (boards || []).length || 0 }); } catch (_) {}
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
-      if (progressInterval) clearInterval(progressInterval);
+      stopTheaterGathering();
+      resetLoadingBarToZero();
       currentPreviewController = null;
 
       if (loadingEl) {
@@ -708,7 +700,7 @@ export function initPreviewFlow() {
       } catch (e) {}
 
       if (timeoutId) clearTimeout(timeoutId);
-      if (progressInterval) clearInterval(progressInterval);
+      stopTheaterGathering();
 
       const restorePreviewControls = () => {
         reportState.previewInProgress = false;

@@ -10,6 +10,7 @@ import {
   captureBrowserTelemetry,
   runDefaultPreview,
   assertTelemetryClean,
+  skipIfRedirectedToLogin,
 } from './JiraReporting-Tests-Shared-PreviewExport-Helpers.js';
 
 test.describe('UX Outcome-First', () => {
@@ -107,10 +108,7 @@ test.describe('UX Outcome-First', () => {
   test('Current Sprint – Outcome line or headline', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login; auth may be required');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     await page.waitForSelector('#board-select', { state: 'visible', timeout: 15000 }).catch(() => null);
     const options = await page.locator('#board-select option').allTextContents().catch(() => []);
     if (options.length <= 1 && options[0] && options[0].includes("Couldn't load")) {
@@ -137,10 +135,7 @@ test.describe('UX Outcome-First', () => {
   test('Current Sprint – Single section navigation', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     await page.waitForSelector('a[href="#stories-card"], .sprint-section-links, #stories-card, .current-sprint-grid, .health-dashboard-card', { timeout: 35000 }).catch(() => null);
     const pageText = await page.locator('body').textContent().catch(() => '') || '';
     if (/Couldn't load boards|No boards available|No active or recent closed sprint|No sprint/i.test(pageText)) {
@@ -159,10 +154,7 @@ test.describe('UX Outcome-First', () => {
   test('Current Sprint – Board scope visible', async ({ page }) => {
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/current-sprint');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test, { currentSprint: true })) return;
     await page.waitForSelector('#board-select, .header-board-label', { state: 'visible', timeout: 15000 }).catch(() => null);
     const boardSelect = page.locator('#board-select');
     const boardLabel = page.locator('.header-board-label');
@@ -176,10 +168,7 @@ test.describe('UX Outcome-First', () => {
     test.setTimeout(90000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     await expect(page).toHaveURL(/\/report(#trends)?/);
     await page.click('#preview-btn');
@@ -198,7 +187,11 @@ test.describe('UX Outcome-First', () => {
     const hasOutcome = (await page.locator('.leadership-outcome-line').count()) > 0;
     const body = await page.locator('body').textContent().catch(() => '');
     const hasBoardsText = /boards.*on-time|attention/.test(body);
+    const hasHoursAndDeliveryText = /SP delivered|h logged|Time-tracking hygiene/i.test(body);
     expect(hasOutcome || hasBoardsText).toBeTruthy();
+    if (hasOutcome) {
+      expect(hasHoursAndDeliveryText || hasBoardsText).toBeTruthy();
+    }
 
     assertTelemetryClean(telemetry);
   });
@@ -207,10 +200,7 @@ test.describe('UX Outcome-First', () => {
     test.setTimeout(90000);
     const telemetry = captureBrowserTelemetry(page);
     await page.goto('/sprint-leadership');
-    if (page.url().includes('login') || page.url().endsWith('/')) {
-      test.skip(true, 'Redirected to login');
-      return;
-    }
+    if (await skipIfRedirectedToLogin(page, test)) return;
 
     await expect(page).toHaveURL(/\/report(#trends)?/);
     await page.click('#preview-btn');

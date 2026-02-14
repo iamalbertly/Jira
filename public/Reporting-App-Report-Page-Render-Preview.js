@@ -81,6 +81,8 @@ export function renderPreview() {
     const modeDetails = [];
     if (meta.fromCache) modeDetails.push('cache');
     if (meta.recentSplitReason) modeDetails.push('split by ' + meta.recentSplitReason);
+    if (meta.reducedScope) modeDetails.push('closest available scope');
+    if (meta.partial) modeDetails.push('partial payload');
     const modeSuffix = modeDetails.length ? (' Data mode: ' + modeDetails.join(', ') + '.') : '';
     if (!hasRows) {
       exportHint.innerHTML = `
@@ -148,10 +150,14 @@ export function renderPreview() {
       preferredTab = sessionStorage.getItem('report-active-tab');
     } catch (_) {}
     const preferredBtn = preferredTab ? document.querySelector('.tab-btn[data-tab="' + preferredTab + '"]') : null;
-    if (preferredBtn && !preferredBtn.classList.contains('active')) {
+    const hash = window.location && window.location.hash ? window.location.hash : '';
+    if (hash === '#trends') {
+      const trendsBtn = document.getElementById('tab-btn-trends');
+      if (trendsBtn && !trendsBtn.classList.contains('active')) trendsBtn.click();
+    } else if (preferredBtn && !preferredBtn.classList.contains('active')) {
       preferredBtn.click();
-    } else if (tabBoards && !tabBoards.classList.contains('active')) {
-      tabBoards.click();
+    } else if (tabDoneStories && !tabDoneStories.classList.contains('active')) {
+      tabDoneStories.click();
     }
 
     requestAnimationFrame(() => {

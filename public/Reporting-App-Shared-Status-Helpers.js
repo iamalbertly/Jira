@@ -31,7 +31,7 @@ export function setActionErrorOnEl(el, options = {}) {
     ? `<a class="btn btn-secondary btn-compact" href="${String(secondaryHref)}">${String(secondaryLabel)}</a>`
     : '';
   const dismissHtml = dismissible
-    ? '<button type="button" class="error-close" data-action="dismiss-error" aria-label="Dismiss">×</button>'
+    ? '<button type="button" class="error-close" data-action="dismiss-error" aria-label="Dismiss">x</button>'
     : '';
   el.innerHTML = `
     <div class="status-banner warning">
@@ -62,3 +62,4 @@ export function clearEl(el) {
   el.removeAttribute('role');
   el.removeAttribute('aria-live');
 }
+

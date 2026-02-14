@@ -1,10 +1,11 @@
 /**
  * Export Dashboard Component
- * Copy as Text, Markdown, Share URL, Email options
+ * Copy as Text, Markdown, PNG snapshot, Share URL, Email options
  */
 
 import { formatDate } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
 import { exportRisksInsightsAsMarkdown } from './Reporting-App-CurrentSprint-Risks-Insights.js';
+import { setActionErrorOnEl } from './Reporting-App-Shared-Status-Helpers.js';
 
 export function renderExportButton(inline = false) {
   const containerClass = 'export-dashboard-container' + (inline ? ' header-export-inline' : '');
@@ -13,6 +14,7 @@ export function renderExportButton(inline = false) {
   html += '<div class="export-menu hidden" id="export-menu" role="menu">';
   html += '<button class="export-option" data-action="copy-text" role="menuitem">Copy as Text</button>';
   html += '<button class="export-option" data-action="export-markdown" role="menuitem">Markdown</button>';
+  html += '<button class="export-option" data-action="export-png" role="menuitem">PNG snapshot</button>';
   html += '<button class="export-option" data-action="copy-link" role="menuitem">Copy link</button>';
   html += '<button class="export-option" data-action="email" role="menuitem">Email</button>';
   html += '</div>';
@@ -53,6 +55,8 @@ async function writeTextToClipboardWithFallback(text) {
 export function wireExportHandlers(data) {
   const container = document.querySelector('.export-dashboard-container');
   if (!container) return;
+  if (container.dataset.wiredExportHandlers === '1') return;
+  container.dataset.wiredExportHandlers = '1';
 
   const btn = container.querySelector('.export-dashboard-btn');
   const menu = container.querySelector('#export-menu');
@@ -84,6 +88,8 @@ export function wireExportHandlers(data) {
         copyDashboardAsText(data, btn);
       } else if (action === 'export-markdown') {
         exportDashboardAsMarkdown(data, btn);
+      } else if (action === 'export-png') {
+        exportDashboardAsPng(data, btn);
       } else if (action === 'copy-link') {
         copyDashboardLink(data, btn);
       } else if (action === 'email') {
@@ -91,6 +97,51 @@ export function wireExportHandlers(data) {
       }
     });
   });
+
+  document.addEventListener('click', (event) => {
+    const actionTarget = event.target?.closest?.('[data-action="copy-export-text"]');
+    if (!actionTarget) return;
+    copyDashboardAsText(data, btn);
+  });
+}
+
+async function exportDashboardAsPng(data, btn) {
+  const originalText = btn.textContent;
+  setButtonStatus(btn, 'Rendering...', null, true, 4000);
+  try {
+    const target = document.getElementById('current-sprint-content') || document.querySelector('.current-sprint-grid-layout') || document.body;
+    if (!target) throw new Error('Snapshot target not found');
+    const module = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm');
+    const html2canvas = module?.default;
+    if (typeof html2canvas !== 'function') throw new Error('Snapshot renderer unavailable');
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    });
+    const sprint = data?.sprint || {};
+    const fileName = 'sprint-' + String(sprint.name || 'snapshot').replace(/[^a-zA-Z0-9-_]+/g, '-') + '.png';
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = fileName;
+    a.click();
+    setButtonStatus(btn, 'Downloaded!', originalText);
+  } catch (error) {
+    console.error('PNG snapshot export error:', error);
+    const errorEl = document.getElementById('current-sprint-error');
+    if (errorEl) {
+      setActionErrorOnEl(errorEl, {
+        title: 'PNG snapshot unavailable.',
+        message: 'Could not render screenshot. Try copy text or markdown export.',
+        primaryLabel: 'Copy as text',
+        primaryAction: 'copy-export-text',
+      });
+    }
+    setButtonStatus(btn, 'PNG failed', originalText);
+  }
 }
 
 async function copyDashboardAsText(data, btn) {
@@ -173,6 +224,7 @@ async function exportDashboardAsMarkdown(data, btn) {
 }
 
 async function copyDashboardLink(data, btn) {
+  const originalText = btn.textContent;
   try {
     const sprint = data.sprint || {};
     const baseUrl = window.location.origin;
@@ -182,14 +234,14 @@ async function copyDashboardLink(data, btn) {
 
     let url = baseUrl + currentPath;
     if (boardId) {
-      url += '?board=' + boardId + '&sprint=' + (sprint.id || '');
+      url += '?boardId=' + encodeURIComponent(boardId) + '&sprintId=' + encodeURIComponent(String(sprint.id || ''));
     }
 
     await writeTextToClipboardWithFallback(url);
-    setButtonStatus(btn, 'Link copied!', btn.textContent, false);
+    setButtonStatus(btn, 'Link copied!', originalText);
   } catch (error) {
     console.error('Copy link error:', error);
-    setButtonStatus(btn, 'Copy failed', btn.textContent, false);
+    setButtonStatus(btn, 'Copy failed', originalText);
   }
 }
 

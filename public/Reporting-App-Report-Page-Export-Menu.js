@@ -65,17 +65,32 @@ async function handleExcelExport(full = true) {
     showExportError('No preview data to export.');
     return;
   }
-  const rows = full ? (reportState.previewRows || []) : (reportState.visibleRows || []);
-  const boards = reportState.visibleBoardRows || reportState.previewData?.boards || [];
-  const sprints = reportState.visibleSprintRows || reportState.previewData?.sprintsIncluded || [];
-  const workbookData = {
-    sheets: [
-      createSheet('Stories', rows),
-      createSheet('Boards', boards),
-      createSheet('Sprints', sprints),
-    ],
-  };
-  await requestExcelDownload(workbookData, meta);
+  const { exportExcelBtn } = reportDom;
+  const prevLabel = exportExcelBtn?.textContent ?? '';
+  const prevDisabled = exportExcelBtn?.disabled ?? false;
+  if (exportExcelBtn) {
+    exportExcelBtn.textContent = 'Generating Excel…';
+    exportExcelBtn.disabled = true;
+  }
+  try {
+    const rows = full ? (reportState.previewRows || []) : (reportState.visibleRows || []);
+    const boards = reportState.visibleBoardRows || reportState.previewData?.boards || [];
+    const sprints = reportState.visibleSprintRows || reportState.previewData?.sprintsIncluded || [];
+    const workbookData = {
+      sheets: [
+        createSheet('Stories', rows),
+        createSheet('Boards', boards),
+        createSheet('Sprints', sprints),
+      ],
+    };
+    await requestExcelDownload(workbookData, meta);
+  } finally {
+    if (exportExcelBtn) {
+      exportExcelBtn.textContent = prevLabel || 'Share / Export';
+      const hasRows = Array.isArray(reportState.previewRows) && reportState.previewRows.length > 0;
+      exportExcelBtn.disabled = !hasRows;
+    }
+  }
 }
 
 function getRowsForSection(sectionName) {
