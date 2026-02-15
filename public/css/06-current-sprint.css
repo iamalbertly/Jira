@@ -371,6 +371,18 @@
   border-style: dashed;
 }
 
+.header-export-readiness {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--card);
+}
+
 .header-sprint-name {
   font-size: 1.1rem;
   font-weight: 600;
@@ -2123,4 +2135,17 @@ body.notification-dock-visible .export-dashboard-container {
   background: #fff3de;
   color: #6a4b00;
   font-weight: 600;
+}
+
+.data-availability-source {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f4d9b5;
+  color: #704700;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }

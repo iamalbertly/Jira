@@ -762,6 +762,23 @@ test.describe('Mobile-First UX Decisions M1-M12', () => {
     console.log('[M11] ✓ .data-table-scroll-wrap gets scrolled-right class on scroll');
   });
 
+  // Hidden section accountability: source tag appears when Epic TTM is suppressed
+  test('Hidden sections summary includes source tags when Epic TTM is suppressed', async ({ page }) => {
+    test.setTimeout(120000);
+    await runDefaultPreview(page);
+    const boardsTab = page.locator('.tab-btn[data-tab="project-epic-level"]').first();
+    if (await boardsTab.count()) {
+      await boardsTab.click().catch(() => null);
+    }
+    const summary = page.locator('#project-epic-level-content .data-availability-summary, #metrics-content .data-availability-summary').first();
+    const visible = await summary.isVisible().catch(() => false);
+    if (!visible) {
+      test.skip(true, 'No hidden section summary for this dataset');
+      return;
+    }
+    await expect(summary.locator('.data-availability-source').first()).toBeVisible();
+  });
+
   // M3: Loading context bar exists in report page DOM
   test('M3: Loading context bar element present in report page', async ({ page }) => {
     test.setTimeout(30000);

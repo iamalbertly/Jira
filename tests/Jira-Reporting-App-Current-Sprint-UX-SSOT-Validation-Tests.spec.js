@@ -282,6 +282,73 @@ test.describe('Jira Reporting App - Current Sprint UX and SSOT Validation', () =
     expect(telemetry.pageErrors).toEqual([]);
   });
 
+  test('current-sprint: latest board selection wins when responses arrive out of order', async ({ page }) => {
+    test.setTimeout(90000);
+    const telemetry = captureBrowserTelemetry(page);
+
+    await page.route('**/api/boards.json*', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          boards: [
+            { id: 101, name: 'Board A', projectKey: 'MPSA' },
+            { id: 202, name: 'Board B', projectKey: 'MPSA' },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/api/current-sprint.json*', async (route) => {
+      const u = new URL(route.request().url());
+      const boardId = u.searchParams.get('boardId');
+      const delayed = boardId === '101';
+      if (delayed) await new Promise((r) => setTimeout(r, 1200));
+      const sprintName = delayed ? 'OLD_SPRINT_A' : 'NEW_SPRINT_B';
+      const boardName = delayed ? 'Board A' : 'Board B';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          board: { id: Number(boardId), name: boardName, projectKeys: ['MPSA'] },
+          sprint: { id: delayed ? 11 : 22, name: sprintName, startDate: '2026-02-01', endDate: '2026-02-28' },
+          summary: { totalStories: 1, doneStories: delayed ? 0 : 1, totalSP: 3, doneSP: delayed ? 0 : 3, percentDone: delayed ? 0 : 100 },
+          stories: [{ key: delayed ? 'A-1' : 'B-1', issueKey: delayed ? 'A-1' : 'B-1', summary: 'Story', status: 'Done', assignee: 'User', reporter: 'Lead', storyPoints: 3 }],
+          dailyCompletions: { stories: delayed ? [] : [{ date: '2026-02-20', count: 1, spCompleted: 3, nps: 0 }] },
+          remainingWorkByDay: delayed ? [] : [{ date: '2026-02-20', remainingSP: 0 }],
+          idealBurndown: delayed ? [] : [{ date: '2026-02-20', remainingSP: 0 }],
+          plannedWindow: { start: '2026-02-01', end: '2026-02-28' },
+          subtaskTracking: { rows: [], summary: {} },
+          scopeChanges: [],
+          stuckCandidates: [],
+          daysMeta: { daysRemainingWorking: 4, daysRemainingCalendar: 5 },
+          notes: { dependencies: [], learnings: [], updatedAt: null },
+          assumptions: [],
+          meta: { projects: 'MPSA', generatedAt: new Date().toISOString(), fromSnapshot: false },
+        }),
+      });
+    });
+
+    await page.goto('/current-sprint');
+    if (page.url().includes('login') || page.url().endsWith('/')) {
+      test.skip(true, 'Redirected to login; auth may be required');
+      return;
+    }
+
+    await expect.poll(async () => page.locator('#board-select option[value]:not([value=""])').count(), { timeout: 15000 }).toBeGreaterThan(0);
+    await page.selectOption('#board-select', '101');
+    await page.selectOption('#board-select', '202');
+    await expect(page.locator('.header-board-label')).toContainText(/Board B/i, { timeout: 20000 });
+    await expect(page.locator('.header-sprint-name')).toContainText(/NEW_SPRINT_B/i, { timeout: 20000 });
+    await expect(page.locator('body')).not.toContainText('OLD_SPRINT_A');
+
+    const nonRetryErrors = telemetry.consoleErrors.filter(msg => !/Failed to load resource:.*500/i.test(msg));
+    expect(nonRetryErrors).toEqual([]);
+    expect(telemetry.pageErrors).toEqual([]);
+    const nonAbortFailures = telemetry.failedRequests.filter(r => r.failure !== 'net::ERR_ABORTED');
+    expect(nonAbortFailures).toEqual([]);
+  });
+
   test('leadership: empty preview shows single message when no sprint data in range', async ({ page }) => {
     test.setTimeout(30000);
     const telemetry = captureBrowserTelemetry(page);

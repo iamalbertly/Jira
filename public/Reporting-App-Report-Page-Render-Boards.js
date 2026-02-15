@@ -214,11 +214,13 @@ export function renderProjectEpicLevelTab(boards, metrics) {
       const epicHygiene = meta?.epicHygiene;
       if (epicHygiene && epicHygiene.ok === false) {
         hiddenSections.push({
+          source: 'Config',
           label: 'Epic TTM hidden',
           reason: epicHygiene.message || 'Epic hygiene is below threshold.'
         });
       } else if (epicTTMRows.length === 0) {
         hiddenSections.push({
+          source: 'Window',
           label: 'Epic TTM hidden',
           reason: 'No epics with usable timing data in this window.'
         });

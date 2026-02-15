@@ -130,6 +130,12 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     }
   });
 
+  test('Validation 1.1d: Header shows explicit export readiness state', async ({ page }) => {
+    const readiness = page.locator('.header-export-readiness');
+    await expect(readiness).toBeVisible();
+    await expect(readiness).toContainText(/Export ready|No exportable rows/i);
+  });
+
   test('Validation 1.2: Header bar is sticky on scroll', async ({ page }) => {
     const headerBar = page.locator('.current-sprint-header-bar');
     const initialTop = await headerBar.evaluate(el => window.getComputedStyle(el).position);
@@ -230,7 +236,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     const riskText = await riskChip.textContent();
     
     // Should contain either "healthy" or "⚠️"
-    expect(riskText).toMatch(/(healthy|⚠️)/);
+    expect((riskText || '').toLowerCase()).toMatch(/(healthy|risk|watch|critical|at risk)/);
   });
 
   test('Validation 2.5: Health dashboard renders within 150ms', async ({ page }) => {
@@ -566,6 +572,7 @@ test.describe('CurrentSprint Redesign - Component Validation', () => {
     const text = ((await summary.textContent()) || '').trim();
     expect(text.length).toBeLessThan(420);
     await expect(summary.locator('.data-availability-chip').first()).toBeVisible();
+    await expect(summary.locator('.data-availability-source').first()).toBeVisible();
   });
 
   test('Validation 9.3: Copy dashboard link works', async ({ page }) => {
@@ -824,3 +831,4 @@ test.describe('CurrentSprint Redesign - API Contracts', () => {
     expect([400, 200]).toContain(response.status());
   });
 });
+

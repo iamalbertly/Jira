@@ -86,7 +86,19 @@ function showRenderedContent(data) {
 let currentBoardId = null;
 let currentSprintId = null;
 let lastBoardsRefreshRequestId = 0;
+let currentSprintLoadRequestId = 0;
 let retryLastIntent = () => {};
+
+function loadCurrentSprintWithGuard(boardId, sprintId, onStale) {
+  const requestId = ++currentSprintLoadRequestId;
+  return loadCurrentSprint(boardId, sprintId).then((data) => {
+    if (requestId !== currentSprintLoadRequestId) {
+      if (typeof onStale === 'function') onStale();
+      return null;
+    }
+    return data;
+  });
+}
 
 function setBoardSelectCouldntLoad() {
   const { boardSelect } = currentSprintDom;
@@ -145,12 +157,13 @@ function refreshBoards(preferredId, preferredSprintId) {
       currentBoardId = boardId;
       showLoading('Loading current sprint...');
       const sprintRequestId = ++lastBoardsRefreshRequestId;
-      return loadCurrentSprint(boardId, preferredSprintId)
+      return loadCurrentSprintWithGuard(boardId, preferredSprintId)
         .catch((err) => {
           if (!preferredSprintId) throw err;
-          return loadCurrentSprint(boardId);
+          return loadCurrentSprintWithGuard(boardId);
         })
         .then((data) => {
+          if (!data) return null;
           if (sprintRequestId !== lastBoardsRefreshRequestId) return null;
           currentSprintId = data?.sprint?.id || null;
           persistSelection(currentBoardId, currentSprintId);
@@ -188,8 +201,9 @@ function onBoardChange() {
     }
   } catch (_) {}
   retryLastIntent = () => onBoardChange();
-  loadCurrentSprint(boardId)
+  loadCurrentSprintWithGuard(boardId)
     .then((data) => {
+      if (!data) return;
       currentSprintId = data?.sprint?.id || null;
       persistSelection(currentBoardId, currentSprintId);
       showRenderedContent(data);
@@ -232,8 +246,9 @@ function onSprintTabClick(event) {
   persistSelection(currentBoardId, sprintId);
   showLoading('Loading sprint...');
   retryLastIntent = () => selectSprintById(sprintId);
-  loadCurrentSprint(currentBoardId, sprintId)
+  loadCurrentSprintWithGuard(currentBoardId, sprintId)
     .then((data) => {
+      if (!data) return;
       showRenderedContent(data);
     })
     .catch((err) => {
@@ -255,8 +270,9 @@ function handleRefreshSprint() {
   }
   showLoading('Refreshing sprint...');
   retryLastIntent = () => handleRefreshSprint();
-  loadCurrentSprint(currentBoardId, currentSprintId)
+  loadCurrentSprintWithGuard(currentBoardId, currentSprintId)
     .then((data) => {
+      if (!data) return;
       currentSprintId = data?.sprint?.id || null;
       persistSelection(currentBoardId, currentSprintId);
       showRenderedContent(data);
@@ -283,8 +299,9 @@ function selectSprintById(sprintId) {
   persistSelection(currentBoardId, sprintId);
   showLoading('Loading sprint...');
   retryLastIntent = () => selectSprintById(sprintId);
-  loadCurrentSprint(currentBoardId, sprintId)
+  loadCurrentSprintWithGuard(currentBoardId, sprintId)
     .then((data) => {
+      if (!data) return;
       showRenderedContent(data);
     })
     .catch((err) => {

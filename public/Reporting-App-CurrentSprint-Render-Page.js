@@ -50,11 +50,11 @@ export function renderCurrentSprintPage(data) {
   const hasBurndownData = hasBurndownSeries && Number(summary.totalSP || 0) > 0;
   const hasCapacityData = hasStories && Number(summary.totalSP || 0) > 0;
   const hasHealthData = hasStories || hasBurndownSeries || trackingRows.length > 0;
-  if (!hasStories) availabilityGaps.push({ label: 'Work items hidden', reason: 'No sprint issues returned for this board.' });
-  if (!hasDailyCompletions) availabilityGaps.push({ label: 'Daily completion hidden', reason: 'No completed items in this sprint window yet.' });
-  if (!hasBurndownData) availabilityGaps.push({ label: 'Burndown hidden', reason: hasBurndownSeries ? 'No planned story points for this sprint.' : 'No story-point history available.' });
-  if (!hasCapacityData) availabilityGaps.push({ label: 'Capacity hidden', reason: 'Not enough assigned story-point data.' });
-  if (!hasHealthData) availabilityGaps.push({ label: 'Health dashboard hidden', reason: 'No sprint telemetry available yet.' });
+  if (!hasStories) availabilityGaps.push({ source: 'Data', label: 'Work items hidden', reason: 'No sprint issues returned for this board.' });
+  if (!hasDailyCompletions) availabilityGaps.push({ source: 'Window', label: 'Daily completion hidden', reason: 'No completed items in this sprint window yet.' });
+  if (!hasBurndownData) availabilityGaps.push({ source: hasBurndownSeries ? 'Workflow' : 'Data', label: 'Burndown hidden', reason: hasBurndownSeries ? 'No planned story points for this sprint.' : 'No story-point history available.' });
+  if (!hasCapacityData) availabilityGaps.push({ source: 'Workflow', label: 'Capacity hidden', reason: 'Not enough assigned story-point data.' });
+  if (!hasHealthData) availabilityGaps.push({ source: 'Data', label: 'Health dashboard hidden', reason: 'No sprint telemetry available yet.' });
 
   // Flaw 3: Single-line verdict bar first (one sentence, one color, one action)
   html += renderVerdictBar(data);

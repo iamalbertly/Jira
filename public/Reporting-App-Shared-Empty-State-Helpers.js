@@ -44,9 +44,11 @@ export function renderDataAvailabilitySummaryHtml(options = {}) {
       const label = String(item.label || '').trim();
       if (!label) return '';
       const reason = String(item.reason || '').trim();
+      const source = String(item.source || '').trim();
+      const sourceTag = source ? `<span class="data-availability-source">${escapeHtml(source)}</span>` : '';
       const titleAttr = reason ? ` title="${escapeHtml(reason)}"` : '';
       const reasonSuffix = reason ? `: ${escapeHtml(reason)}` : '';
-      return `<li><span class="data-availability-chip"${titleAttr}>${escapeHtml(label)}</span>${reasonSuffix}</li>`;
+      return `<li><span class="data-availability-chip"${titleAttr}>${sourceTag}${escapeHtml(label)}</span>${reasonSuffix}</li>`;
     })
     .filter(Boolean)
     .join('');

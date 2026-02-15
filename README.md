@@ -132,6 +132,12 @@ This runs `npm run build:css` first (prestart), then starts the server. The serv
    - Stories exports include time-tracking and EBM-supporting fields when available (e.g., subtask count, story estimate/spent/remaining/variance hours, subtask estimate/spent/remaining/variance hours, status category, priority, labels, components, fix versions, and EBM fields such as team, product area, customer segments, value, impact, satisfaction, sentiment, severity, source, work category, goals, theme, roadmap, focus areas, delivery status/progress)
 
 ## Recent UX & Reliability fixes (2026-02-09)
+- **Hidden-section accountability chips (2026-02-15):** Data-availability summaries now include a compact source badge per hidden section (`Config`, `Window`, `Data`, `Workflow`) so users can immediately see whether missing output is a filter choice, data gap, or workflow requirement.
+- **Current Sprint export readiness signal (2026-02-15):** Header now surfaces an explicit `Export ready` / `No exportable rows` state near top controls, reducing failed export attempts and extra clicks.
+- **Current Sprint race-condition guard (2026-02-15):** Board/sprint async loads now use request-id gating so stale responses cannot overwrite a newer user selection.
+- **Risk logic deduplication in Current Sprint (2026-02-15):** Health dashboard risk state now reuses `deriveSprintVerdict` as single source of truth, removing duplicate verdict logic paths.
+- **Leadership context trust alignment (2026-02-15):** Leadership context line now mirrors report/current-sprint semantics with explicit `Active filters` and `Query window` phrasing.
+- **Validation outcome (2026-02-15):** `npm run test:all` completed successfully in fail-fast mode for all selected orchestration steps (`44/44` selected for this impacted run); no blocking failures.
 - **True no-data card suppression (2026-02-14):** Current Sprint now hides no-value cards instead of rendering placeholders (Burndown, Daily completion, Work items, Capacity, Health when underlying data is absent). This reduces vertical noise and scroll friction.
 - **Compact hidden-sections summary (2026-02-14):** A reusable summary block now lists only hidden sections with short reason chips (for example `Burndown hidden`, `Capacity hidden`) so users immediately understand what is not shown and why.
 - **Current Sprint top-summary compression (2026-02-14):** Header verdict text is now concise and scannable (`Critical · 4 blockers · 6 missing est`) instead of long explanatory prose.

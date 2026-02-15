@@ -7,6 +7,7 @@
 
 import { escapeHtml } from './Reporting-App-Shared-Dom-Escape-Helpers.js';
 import { formatNumber } from './Reporting-App-Shared-Format-DateNumber-Helpers.js';
+import { deriveSprintVerdict } from './Reporting-App-CurrentSprint-Alert-Banner.js';
 
 export function renderHealthDashboard(data) {
   const summary = data.summary || {};
@@ -31,19 +32,12 @@ export function renderHealthDashboard(data) {
   const missingEstimates = (tracking.rows || []).filter(r => !r.estimateHours || r.estimateHours === 0).length;
   const missingLoggedItems = (tracking.rows || []).filter(r => !r.loggedHours || r.loggedHours === 0).length;
   const stuckCount = (data.stuckCandidates || []).length;
-
-  // Risk color logic
-  let riskColor = 'green';
-  let riskMessage = '✓ All systems healthy';
-  const riskCount = (missingEstimates > 0 ? 1 : 0) + (missingLoggedItems > 0 ? 1 : 0) + (stuckCount > 0 ? 1 : 0);
-  
-  if (riskCount >= 2) {
-    riskColor = 'red';
-    riskMessage = '⚠️ Multiple risks detected';
-  } else if (riskCount === 1) {
-    riskColor = 'yellow';
-    riskMessage = '⚠️ Minor issues found';
-  }
+  // Shared risk verdict logic (SSOT with verdict bar + alert banner).
+  const verdict = deriveSprintVerdict(data);
+  const riskColor = verdict.color || 'green';
+  const riskMessage = verdict.verdict === 'Healthy'
+    ? 'All systems healthy'
+    : (verdict.verdict + ' delivery risk');
 
   // Story point distribution percentage
   const donePercent = totalSP > 0 ? Math.round((doneSP / totalSP) * 100) : 0;
@@ -233,4 +227,5 @@ export function wireHealthDashboardHandlers() {
     });
   }
 }
+
 

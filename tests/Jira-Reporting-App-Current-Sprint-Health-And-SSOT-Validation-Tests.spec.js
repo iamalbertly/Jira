@@ -130,6 +130,7 @@ test.describe('Current Sprint Health & SSOT UX Validation', () => {
     }
     await expect(summary).toContainText(/Hidden sections|Data availability summary/i);
     await expect(summary.locator('.data-availability-chip').first()).toBeVisible();
+    await expect(summary.locator('.data-availability-source').first()).toBeVisible();
   });
 });
 

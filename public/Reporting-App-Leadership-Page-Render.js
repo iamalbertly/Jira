@@ -59,10 +59,15 @@ export function renderLeadershipPage(data) {
   const rangeStartAttr = meta.windowStart ? formatDateShort(meta.windowStart) : '';
   const rangeEndAttr = meta.windowEnd ? formatDateShort(meta.windowEnd) : '';
   const projectsAttr = (meta.projects || '').replace(/,/g, '-').replace(/\s+/g, '') || '';
+  const projectsLabel = (meta.projects || '')
+    .split(',')
+    .map((p) => String(p || '').trim())
+    .filter(Boolean)
+    .join(', ');
   let html = '<div class="leadership-context-sticky">';
   html += '<div class="leadership-meta-attrs" aria-hidden="true" data-range-start="' + escapeHtml(rangeStartAttr) + '" data-range-end="' + escapeHtml(rangeEndAttr) + '" data-projects="' + escapeHtml(projectsAttr) + '"></div>';
   html += '<p class="metrics-hint leadership-context-line">';
-  html += '<span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Active filters: Query window ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span>';
+  html += '<span class="leadership-range-hint" title="' + escapeHtml(rangeTooltip) + '">Active filters: Projects ' + escapeHtml(projectsLabel || '-') + ' | Query window ' + escapeHtml(rangeStart) + ' - ' + escapeHtml(rangeEnd) + '</span>';
   html += ' <span class="leadership-trust-hint">For trend visibility, not team ranking.</span>';
   html += '</p>';
 

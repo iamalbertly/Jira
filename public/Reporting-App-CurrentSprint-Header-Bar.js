@@ -123,8 +123,11 @@ export function renderHeaderBar(data) {
     const ageMin = Math.max(0, Math.round(ageMs / 60000));
     freshnessLabel = ageMin < 1 ? 'Updated just now' : 'Updated ' + ageMin + ' min ago';
   }
+  const hasExportableRows = issuesCount > 0;
+  const exportReadiness = hasExportableRows ? 'Export ready' : 'No exportable rows';
   html += '<div class="header-bar-right">';
   html += '<div class="status-badge ' + statusClass + '" role="status" aria-label="Data status: ' + escapeHtml(statusBadge) + '">' + escapeHtml(statusBadge) + '</div>';
+  html += '<small class="header-export-readiness">' + escapeHtml(exportReadiness) + '</small>';
   html += '<div class="header-updated">' + (freshnessLabel ? '<small class="last-updated">' + escapeHtml(freshnessLabel) + '</small>' : '') + '</div>';
   html += '<button class="btn btn-compact header-refresh-btn" title="Refresh sprint data">Refresh</button>';
   html += renderExportButton(true);
